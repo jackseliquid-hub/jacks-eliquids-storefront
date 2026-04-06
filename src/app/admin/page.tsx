@@ -298,7 +298,7 @@ export default function AdminProductsPage() {
 
                       {/* ─── Inline Cost Price ─── */}
                       <td>
-                        {editingCell?.id === product.id && editingCell.field === 'costPrice' ? (
+                        {editingCell?.id === product.id && editingCell?.field === 'costPrice' ? (
                           <input
                             className={styles.varInput}
                             style={{ maxWidth: 80 }}
@@ -321,7 +321,7 @@ export default function AdminProductsPage() {
 
                       {/* ─── Inline Sale Price ─── */}
                       <td>
-                        {editingCell?.id === product.id && editingCell.field === 'price' ? (
+                        {editingCell?.id === product.id && editingCell?.field === 'price' ? (
                           <input
                             className={styles.varInput}
                             style={{ maxWidth: 80 }}
