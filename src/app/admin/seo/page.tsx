@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getGlobalSeo, setGlobalSeo, GlobalSeo } from '@/lib/data';
-import styles from '../../admin.module.css';
+import styles from '../admin.module.css';
 
 export default function AdminSeoPage() {
   const [seoConfig, setSeoConfig] = useState<GlobalSeo>({
