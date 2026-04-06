@@ -6,8 +6,11 @@ import dynamic from 'next/dynamic';
 import {
   getProductById,
   getCategories,
+  saveCategories,
   getTags,
+  addTag,
   getBrands,
+  addBrand,
   updateProduct,
   Product,
   Variation,
@@ -46,6 +49,13 @@ export default function ProductEditorPage({
   const [bulkStock, setBulkStock] = useState('');
   const [rawAttributes, setRawAttributes] = useState<Record<string, string>>({});
 
+  // Inline create states
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newBrandName, setNewBrandName] = useState('');
+  const [showNewBrand, setShowNewBrand] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [showNewTag, setShowNewTag] = useState(false);
   useEffect(() => {
     async function load() {
       const [prod, cats, tags, brands] = await Promise.all([
@@ -120,6 +130,71 @@ export default function ProductEditorPage({
         tags: tags.includes(name) ? tags.filter(t => t !== name) : [...tags, name],
       };
     });
+  }
+
+  // ── Inline Create Handlers ────────────────────────────────────────────────
+
+  async function handleCreateCategory() {
+    const trimmed = newCategoryName.trim();
+    if (!trimmed) return;
+    if (categories.includes(trimmed)) {
+      showToast('Category already exists', true);
+      return;
+    }
+    try {
+      const updated = [...categories, trimmed].sort();
+      await saveCategories(updated);
+      setCategories(updated);
+      setField('category', trimmed);
+      setNewCategoryName('');
+      setShowNewCategory(false);
+      showToast(`Category "${trimmed}" created!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to create category', true);
+    }
+  }
+
+  async function handleCreateBrand() {
+    const trimmed = newBrandName.trim();
+    if (!trimmed) return;
+    if (allBrands.some(b => b.name.toLowerCase() === trimmed.toLowerCase())) {
+      showToast('Brand already exists', true);
+      return;
+    }
+    try {
+      await addBrand(trimmed);
+      const id = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').trim();
+      setAllBrands(prev => [...prev, { id, name: trimmed }].sort((a, b) => a.name.localeCompare(b.name)));
+      setField('brand', trimmed);
+      setNewBrandName('');
+      setShowNewBrand(false);
+      showToast(`Brand "${trimmed}" created!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to create brand', true);
+    }
+  }
+
+  async function handleCreateTag() {
+    const trimmed = newTagName.trim();
+    if (!trimmed) return;
+    if (allTags.some(t => t.name.toLowerCase() === trimmed.toLowerCase())) {
+      showToast('Tag already exists', true);
+      return;
+    }
+    try {
+      await addTag(trimmed);
+      const id = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').trim();
+      setAllTags(prev => [...prev, { id, name: trimmed }].sort((a, b) => a.name.localeCompare(b.name)));
+      toggleTag(trimmed);
+      setNewTagName('');
+      setShowNewTag(false);
+      showToast(`Tag "${trimmed}" created & added!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to create tag', true);
+    }
   }
 
   // ── Attributes & Variations ───────────────────────────────────────────────
@@ -347,6 +422,23 @@ export default function ProductEditorPage({
                     <option key={b.id} value={b.name}>{b.name}</option>
                   ))}
                 </select>
+                {showNewBrand ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <input
+                      className={styles.input}
+                      placeholder="New brand name…"
+                      value={newBrandName}
+                      onChange={e => setNewBrandName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleCreateBrand()}
+                      autoFocus
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={handleCreateBrand}>Add</button>
+                    <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }} onClick={() => { setShowNewBrand(false); setNewBrandName(''); }}>✕</button>
+                  </div>
+                ) : (
+                  <button type="button" style={{ background: 'none', border: 'none', color: 'var(--deep-teal, #009688)', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', marginTop: '0.4rem', padding: 0 }} onClick={() => setShowNewBrand(true)}>+ Create New Brand</button>
+                )}
               </div>
 
               <div className={styles.formGroup}>
@@ -360,6 +452,23 @@ export default function ProductEditorPage({
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
+                {showNewCategory ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <input
+                      className={styles.input}
+                      placeholder="New category name…"
+                      value={newCategoryName}
+                      onChange={e => setNewCategoryName(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                      autoFocus
+                      style={{ flex: 1 }}
+                    />
+                    <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={handleCreateCategory}>Add</button>
+                    <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }} onClick={() => { setShowNewCategory(false); setNewCategoryName(''); }}>✕</button>
+                  </div>
+                ) : (
+                  <button type="button" style={{ background: 'none', border: 'none', color: 'var(--deep-teal, #009688)', fontSize: '0.8rem', fontWeight: 500, cursor: 'pointer', marginTop: '0.4rem', padding: 0 }} onClick={() => setShowNewCategory(true)}>+ Create New Category</button>
+                )}
               </div>
 
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
@@ -378,9 +487,23 @@ export default function ProductEditorPage({
                         + {t.name}
                       </span>
                     ))}
-                  {allTags.length === 0 && (
-                    <span style={{ fontSize: '0.8rem', color: '#86868b', padding: '0.2rem 0.4rem' }}>
-                      No tags yet — add some in Tags →
+                  {showNewTag ? (
+                    <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                      <input
+                        className={styles.input}
+                        placeholder="New tag…"
+                        value={newTagName}
+                        onChange={e => setNewTagName(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleCreateTag()}
+                        autoFocus
+                        style={{ width: 140, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}
+                      />
+                      <button type="button" className={`${styles.btn} ${styles.btnPrimary}`} style={{ padding: '0.2rem 0.6rem', fontSize: '0.75rem' }} onClick={handleCreateTag}>Add</button>
+                      <button type="button" className={`${styles.btn} ${styles.btnSecondary}`} style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }} onClick={() => { setShowNewTag(false); setNewTagName(''); }}>✕</button>
+                    </div>
+                  ) : (
+                    <span className={styles.chipOption} onClick={() => setShowNewTag(true)} style={{ borderStyle: 'solid', color: 'var(--deep-teal, #009688)' }}>
+                      + New Tag
                     </span>
                   )}
                 </div>
