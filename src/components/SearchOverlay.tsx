@@ -117,8 +117,8 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                 <span>{results.length} result{results.length !== 1 ? 's' : ''} found</span>
               </div>
               <ul className={styles.resultsList}>
-                {results.map(product => (
-                  <li key={product.id}>
+                {results.map((product, idx) => (
+                  <li key={`${product.id}-${idx}`}>
                     <Link
                       href={`/product/${product.slug}`}
                       className={styles.resultItem}
