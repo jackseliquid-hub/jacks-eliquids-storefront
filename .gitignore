@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Data and large files
+/master image files/
+*.csv
+/scripts/
+cleaner.py
+
+# Security
+serviceAccountKey.json
