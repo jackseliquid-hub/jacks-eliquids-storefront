@@ -46,6 +46,29 @@
   padding: 0 4px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.headerIconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  padding: 0.35rem;
+  border-radius: 50%;
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.headerIconBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  opacity: 0.7;
+}
+
 .loadingScreen {
   display: flex;
   flex-direction: column;
