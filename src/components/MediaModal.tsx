@@ -117,9 +117,8 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
 
       const originalName = rawFile.name.replace(/\.[^/.]+$/, "");
       const safeName = originalName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      const timestamp = Date.now();
       const uuidStr = uuidv4().substring(0, 8);
-      const fileName = `${timestamp}_${safeName}_${uuidStr}.${fileExtension}`;
+      const fileName = `${safeName}_${uuidStr}.${fileExtension}`;
 
       const storageRef = ref(storage, `media/${fileName}`);
       const uploadTask = uploadBytesResumable(storageRef, fileToUpload, {
