@@ -1,167 +1,125 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL, listAll, deleteObject, StorageReference } from 'firebase/storage';
+import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import styles from '../admin.module.css';
 import mediaStyles from './media.module.css';
 
+const BUCKET = 'media';
+const PAGE_SIZE = 30;
+
 interface MediaFile {
   name: string;
   url: string;
-  ref: StorageReference;
 }
 
-// Clean internal filename to human readable format (e.g. "vape hang")
+// Clean internal filename to human readable format
 function getCleanName(rawName: string) {
-  let name = rawName.replace(/\.[^/.]+$/, ""); // strip extension
-  name = name.replace(/^\d+_/, "");            // strip starting timestamp if present
-  name = name.replace(/_[a-f0-9]{8}$/i, "");   // strip ending UUID if present
-  return name.replace(/_/g, ' ');              // replace underscores with spaces
+  let name = rawName.replace(/\.[^/.]+$/, '');
+  name = name.replace(/^\d+_/, '');
+  name = name.replace(/_[a-f0-9]{8}$/i, '');
+  return name.replace(/_/g, ' ');
+}
+
+function guessContentType(filename: string) {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const types: Record<string, string> = {
+    webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+    png: 'image/png', gif: 'image/gif', avif: 'image/avif',
+  };
+  return types[ext || ''] || 'application/octet-stream';
 }
 
 export default function MediaLibraryPage() {
-  const [files, setFiles] = useState<MediaFile[]>([]);
-  const [allRefs, setAllRefs] = useState<StorageReference[]>([]);
-  const [filteredRefs, setFilteredRefs] = useState<StorageReference[]>([]);
+  const [allFiles, setAllFiles]       = useState<MediaFile[]>([]);
+  const [filteredFiles, setFiltered]  = useState<MediaFile[]>([]);
+  const [displayed, setDisplayed]     = useState<MediaFile[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]         = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading]     = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastMessage, setToastMessage]     = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const PAGE_SIZE = 30;
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
-  // Load all references from Firebase Storage and initialize first page
   const loadImages = async () => {
     try {
       setLoading(true);
-      const listRef = ref(storage, 'media');
-      const res = await listAll(listRef);
-      
-      // Sort references so newest are first
-      const sortedRefs = [...res.items].sort((a, b) => b.name.localeCompare(a.name));
-      setAllRefs(sortedRefs);
-      setFilteredRefs(sortedRefs);
-      
-      // Load first page
-      await fetchNextPage(sortedRefs, 0);
-    } catch (error) {
-      console.error('Error loading media:', error);
+      const { data, error } = await supabase.storage.from(BUCKET).list('', {
+        limit: 1000,
+        sortBy: { column: 'name', order: 'desc' },
+      });
+      if (error) throw error;
+
+      const files: MediaFile[] = (data || [])
+        .filter(f => f.name !== '.emptyFolderPlaceholder')
+        .map(f => ({
+          name: f.name,
+          url: supabase.storage.from(BUCKET).getPublicUrl(f.name).data.publicUrl,
+        }));
+
+      setAllFiles(files);
+      setFiltered(files);
+      setDisplayed(files.slice(0, PAGE_SIZE));
+    } catch (err) {
+      console.error('Error loading media:', err);
       showToast('Failed to load images');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadMore = async () => {
-    await fetchNextPage(filteredRefs, files.length);
-  };
-
-  const fetchNextPage = async (refs: StorageReference[], startIndex: number) => {
-    if (startIndex >= refs.length && startIndex !== 0) return;
-    
-    setLoadingMore(true);
-    try {
-      const nextBatch = refs.slice(startIndex, startIndex + PAGE_SIZE);
-      const newFiles: MediaFile[] = await Promise.all(
-        nextBatch.map(async (itemRef) => {
-          const url = await getDownloadURL(itemRef);
-          return {
-            name: itemRef.name,
-            url,
-            ref: itemRef
-          };
-        })
-      );
-      
-      if (startIndex === 0) {
-        setFiles(newFiles);
-      } else {
-        setFiles(prev => [...prev, ...newFiles]);
-      }
-    } catch (error) {
-      console.error('Error resolving image URLs:', error);
-      showToast('Failed to load some images');
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => { loadImages(); }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchQuery(val);
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      const trimmedVal = val.trim();
-      let newRefs = allRefs;
-      
-      if (trimmedVal.length >= 3) {
-        const searchTerms = trimmedVal.toLowerCase().split(/\s+/);
-        newRefs = allRefs.filter(ref => {
-          const nameLower = getCleanName(ref.name).toLowerCase();
-          return searchTerms.every(term => nameLower.includes(term));
-        });
+      const trimmed = val.trim();
+      let newFiles = allFiles;
+      if (trimmed.length >= 3) {
+        const terms = trimmed.toLowerCase().split(/\s+/);
+        newFiles = allFiles.filter(f =>
+          terms.every(t => getCleanName(f.name).toLowerCase().includes(t))
+        );
       }
-
-      setFilteredRefs(newRefs);
-      fetchNextPage(newRefs, 0);
+      setFiltered(newFiles);
+      setDisplayed(newFiles.slice(0, PAGE_SIZE));
     }, 300);
   };
 
-  useEffect(() => {
-    loadImages();
-  }, []);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 3000);
+  const loadMore = () => {
+    setLoadingMore(true);
+    const next = filteredFiles.slice(displayed.length, displayed.length + PAGE_SIZE);
+    setDisplayed(prev => [...prev, ...next]);
+    setLoadingMore(false);
   };
 
-  // Convert File to WebP and resize if longest side > 800px
-  const convertToWebP = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
+  const convertToWebP = (file: File): Promise<Blob> =>
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = e => {
         const img = new Image();
         img.onload = () => {
-          let targetWidth = img.width;
-          let targetHeight = img.height;
-          
-          if (img.width > 800 || img.height > 800) {
-            if (img.width > img.height) {
-              targetWidth = 800;
-              targetHeight = Math.round((img.height * 800) / img.width);
-            } else {
-              targetHeight = 800;
-              targetWidth = Math.round((img.width * 800) / img.height);
-            }
+          let w = img.width, h = img.height;
+          if (w > 800 || h > 800) {
+            if (w > h) { h = Math.round((h * 800) / w); w = 800; }
+            else { w = Math.round((w * 800) / h); h = 800; }
           }
-
           const canvas = document.createElement('canvas');
-          canvas.width = targetWidth;
-          canvas.height = targetHeight;
+          canvas.width = w; canvas.height = h;
           const ctx = canvas.getContext('2d');
           if (!ctx) return reject(new Error('Canvas context failed'));
-          
-          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
-          canvas.toBlob(
-            (blob) => {
-              if (blob) resolve(blob);
-              else reject(new Error('Canvas toBlob failed'));
-            },
-            'image/webp',
-            0.8 // 80% quality
-          );
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('toBlob failed')), 'image/webp', 0.8);
         };
         img.onerror = () => reject(new Error('Image load failed'));
         img.src = e.target?.result as string;
@@ -169,84 +127,50 @@ export default function MediaLibraryPage() {
       reader.onerror = () => reject(new Error('File read failed'));
       reader.readAsDataURL(file);
     });
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fileList = e.target.files;
-    if (!fileList || fileList.length === 0) return;
-    processUpload(fileList[0]);
-  };
 
   const processUpload = async (rawFile: File) => {
     try {
       setUploading(true);
-      setUploadProgress(0);
+      setUploadProgress(10);
 
-      // 1. Convert to webp if it's an image
-      let fileToUpload: File | Blob = rawFile;
-      let fileExtension = rawFile.name.split('.').pop()?.toLowerCase();
-      let isWebPConverted = false;
+      let blob: Blob = rawFile;
+      let ext = rawFile.name.split('.').pop()?.toLowerCase() || 'jpg';
 
-      if (rawFile.type.startsWith('image/') && fileExtension !== 'webp') {
-        try {
-          fileToUpload = await convertToWebP(rawFile);
-          fileExtension = 'webp';
-          isWebPConverted = true;
-        } catch (err) {
-          console.warn('WebP conversion failed, using original file', err);
-        }
+      if (rawFile.type.startsWith('image/') && ext !== 'webp') {
+        try { blob = await convertToWebP(rawFile); ext = 'webp'; }
+        catch { /* fall back to original */ }
       }
 
-      // 2. Build unique filename
-      const originalName = rawFile.name.replace(/\.[^/.]+$/, ""); // Strip extension
-      const safeName = originalName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      // Added UUID to avoid collisions with images of the same name
-      const uuidStr = uuidv4().substring(0, 8);
-      const fileName = `${safeName}_${uuidStr}.${fileExtension}`;
+      setUploadProgress(40);
 
-      // 3. Upload to Firebase
-      const storageRef = ref(storage, `media/${fileName}`);
-      const uploadTask = uploadBytesResumable(storageRef, fileToUpload, {
-        contentType: isWebPConverted ? 'image/webp' : rawFile.type,
-      });
+      const baseName = rawFile.name.replace(/\.[^/.]+$/, '');
+      const safeName = baseName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const fileName = `${safeName}_${uuidv4().substring(0, 8)}.${ext}`;
 
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(Math.round(progress));
-        },
-        (error) => {
-          console.error("Upload failed", error);
-          showToast('Upload failed. See console.');
-          setUploading(false);
-        },
-        async () => {
-          // Success
-          setUploading(false);
-          setUploadProgress(0);
-          showToast('Image uploaded successfully');
-          if (fileInputRef.current) fileInputRef.current.value = '';
-          await loadImages();
-        }
-      );
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8       = new Uint8Array(arrayBuffer);
+
+      const { error } = await supabase.storage
+        .from(BUCKET)
+        .upload(fileName, uint8, { contentType: guessContentType(fileName), upsert: false });
+
+      if (error) throw error;
+
+      setUploadProgress(100);
+      showToast('Image uploaded successfully!');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      await loadImages();
     } catch (err) {
       console.error(err);
+      showToast('Upload failed. See console.');
+    } finally {
       setUploading(false);
-      showToast('Error processing upload.');
+      setUploadProgress(0);
     }
   };
 
-  // Drag and Drop handlers
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processUpload(e.dataTransfer.files[0]);
-    }
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) processUpload(e.target.files[0]);
   };
 
   const copyUrl = (url: string) => {
@@ -254,18 +178,14 @@ export default function MediaLibraryPage() {
     showToast('Copied URL to clipboard');
   };
 
-  const deleteImage = async (fileRef: StorageReference) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this image permanently?');
-    if (!confirmDelete) return;
-
-    try {
-      await deleteObject(fileRef);
-      setFiles(prev => prev.filter(f => f.ref.fullPath !== fileRef.fullPath));
-      showToast('Image deleted');
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to delete image');
-    }
+  const deleteImage = async (fileName: string) => {
+    if (!window.confirm('Delete this image permanently?')) return;
+    const { error } = await supabase.storage.from(BUCKET).remove([fileName]);
+    if (error) { showToast('Failed to delete image'); return; }
+    setAllFiles(prev => prev.filter(f => f.name !== fileName));
+    setFiltered(prev => prev.filter(f => f.name !== fileName));
+    setDisplayed(prev => prev.filter(f => f.name !== fileName));
+    showToast('Image deleted');
   };
 
   return (
@@ -273,16 +193,18 @@ export default function MediaLibraryPage() {
       <div className={styles.pageHeader}>
         <div>
           <h1 className={styles.pageTitle}>Media Library</h1>
-          <p className={styles.pageSubtitle}>{filteredRefs.length} items {searchQuery.length >= 3 ? 'found' : 'uploaded'}</p>
+          <p className={styles.pageSubtitle}>
+            {filteredFiles.length} items {searchQuery.length >= 3 ? 'found' : 'uploaded'}
+          </p>
         </div>
       </div>
 
       <div className={styles.sections}>
-        {/* Search Bar */}
+        {/* Search */}
         <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-          <input 
-            type="text" 
-            placeholder="Search images (min 3 chars)..." 
+          <input
+            type="text"
+            placeholder="Search images (min 3 chars)..."
             value={searchQuery}
             onChange={handleSearchChange}
             className={styles.input}
@@ -291,26 +213,17 @@ export default function MediaLibraryPage() {
         </div>
 
         {/* Upload Zone */}
-        <div 
+        <div
           className={mediaStyles.dropZone}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
+          onDragOver={e => e.preventDefault()}
+          onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) processUpload(e.dataTransfer.files[0]); }}
           onClick={() => fileInputRef.current?.click()}
         >
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileUpload}
-            accept="image/*"
-            style={{ display: 'none' }}
-          />
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" style={{ display: 'none' }} />
           {uploading ? (
             <div className={mediaStyles.uploadingState}>
               <div className={mediaStyles.progressTrack}>
-                <div 
-                  className={mediaStyles.progressBar} 
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
+                <div className={mediaStyles.progressBar} style={{ width: `${uploadProgress}%` }} />
               </div>
               <p>Uploading... converting to WebP ({uploadProgress}%)</p>
             </div>
@@ -318,7 +231,7 @@ export default function MediaLibraryPage() {
             <div className={mediaStyles.idleState}>
               <div className={mediaStyles.uploadIcon}>⬆️</div>
               <p><strong>Click to browse</strong> or drag &amp; drop an image here</p>
-              <span className={mediaStyles.subText}>Images will be automatically converted to highly optimized WebP format</span>
+              <span className={mediaStyles.subText}>Images auto-converted to optimised WebP · max 800px</span>
             </div>
           )}
         </div>
@@ -326,32 +239,24 @@ export default function MediaLibraryPage() {
         {/* Gallery Grid */}
         <div className={mediaStyles.galleryGrid}>
           {loading ? (
-            <div className={styles.loadingWrap}>
-              <div className={styles.spinner}></div>
-            </div>
-          ) : files.length === 0 ? (
+            <div className={styles.loadingWrap}><div className={styles.spinner} /></div>
+          ) : displayed.length === 0 ? (
             <div className={mediaStyles.emptyState}>No images uploaded yet.</div>
           ) : (
-            files.map((file) => (
-              <div key={file.ref.fullPath} className={mediaStyles.imageCard}>
+            displayed.map(file => (
+              <div key={file.name} className={mediaStyles.imageCard}>
                 <div className={mediaStyles.imageThumbnailWrapper}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={file.url} alt={file.name} className={mediaStyles.imageThumbnail} loading="lazy" />
                   <div className={mediaStyles.imageOverlay}>
-                    <button 
+                    <button
                       className={`${styles.btn} ${styles.btnPrimary} ${mediaStyles.overlayBtn}`}
-                      onClick={(e) => { e.stopPropagation(); copyUrl(file.url); }}
-                      title="Copy URL"
-                    >
-                      🔗 Copy URL
-                    </button>
-                    <button 
+                      onClick={e => { e.stopPropagation(); copyUrl(file.url); }}
+                    >🔗 Copy URL</button>
+                    <button
                       className={`${styles.btn} ${styles.btnDanger} ${mediaStyles.overlayBtn}`}
-                      onClick={(e) => { e.stopPropagation(); deleteImage(file.ref); }}
-                      title="Delete Image"
-                    >
-                      🗑️ Delete
-                    </button>
+                      onClick={e => { e.stopPropagation(); deleteImage(file.name); }}
+                    >🗑️ Delete</button>
                   </div>
                 </div>
                 <div className={mediaStyles.imageInfo}>
@@ -362,24 +267,16 @@ export default function MediaLibraryPage() {
           )}
         </div>
 
-        {!loading && files.length < filteredRefs.length && (
+        {!loading && displayed.length < filteredFiles.length && (
           <div style={{ textAlign: 'center', marginTop: '2rem' }}>
-            <button 
-              className={`${styles.btn} ${styles.btnPrimary}`} 
-              onClick={loadMore} 
-              disabled={loadingMore}
-            >
+            <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={loadMore} disabled={loadingMore}>
               {loadingMore ? 'Loading...' : 'Load More Images'}
             </button>
           </div>
         )}
       </div>
 
-      {toastMessage && (
-        <div className={styles.toast}>
-          {toastMessage}
-        </div>
-      )}
+      {toastMessage && <div className={styles.toast}>{toastMessage}</div>}
     </div>
   );
 }
