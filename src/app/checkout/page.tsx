@@ -11,7 +11,7 @@ import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartItems, cartSubtotal, getCalculatedItemPrice } = useCart();
+  const { cartItems, cartSubtotal, getCalculatedItemPrice, isMounted } = useCart();
   
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
@@ -44,18 +44,20 @@ export default function CheckoutPage() {
       setShippingConfig(config);
 
       // 3. Hand off the local cart state to the Shipping Engine!
+      if (!isMounted) return; // Wait for localStorage to inject to cart
+
       if (cartItems.length > 0) {
         const quote = calculateShippingQuote(cartItems, config);
         setShippingQuote(quote);
       } else {
-        // If cart is empty, kick them back home so they can't checkout nothing
+        // If cart is completely loaded but empty, kick them back home so they can't checkout nothing
         router.push('/');
       }
 
       setLoading(false);
     }
     loadData();
-  }, [cartItems, router]);
+  }, [cartItems, isMounted, router]);
 
   if (loading || !shippingQuote) {
     return <div style={{textAlign: 'center', padding: '5rem'}}>Loading Checkout...</div>;
