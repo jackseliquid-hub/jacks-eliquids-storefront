@@ -109,7 +109,9 @@ export default function CartDrawer() {
               <span className={styles.subtotalLabel}>Subtotal</span>
               <span className={styles.subtotalValue} suppressHydrationWarning>{cartSubtotal}</span>
             </div>
-            <button className={styles.checkoutBtn}>Proceed to Checkout</button>
+            <button className={styles.checkoutBtn} onClick={() => { closeCart(); window.location.href = '/checkout'; }}>
+              Proceed to Checkout
+            </button>
           </div>
         )}
       </aside>

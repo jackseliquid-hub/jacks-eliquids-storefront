@@ -21,6 +21,8 @@ export interface CartItem {
   tags?: string[];
   quantity: number;
   variantName?: string;
+  weight?: number;
+  shippingClass?: string;
 }
 
 interface CartContextValue {

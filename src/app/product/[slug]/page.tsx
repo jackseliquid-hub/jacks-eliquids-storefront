@@ -106,7 +106,9 @@ export default function ProductPage({
       price: displayPrice,
       category: product.category,
       tags: product.tags,
-      variantName: matchingVariation ? Object.values(matchingVariation.attributes).join(' / ') : undefined
+      variantName: matchingVariation ? Object.values(matchingVariation.attributes).join(' / ') : undefined,
+      weight: product.weight,
+      shippingClass: product.shippingClass
     }, quantity);
     openCart();
   }
