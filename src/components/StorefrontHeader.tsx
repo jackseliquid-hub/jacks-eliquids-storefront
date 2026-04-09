@@ -52,6 +52,14 @@ export default function StorefrontHeader() {
             </svg>
           </button>
 
+          {/* Account */}
+          <Link href="/account" className={styles.headerIconBtn} aria-label="Customer Account">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </Link>
+
           {/* Cart */}
           <button className={styles.cartBtn} onClick={openCart} aria-label="Open cart">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

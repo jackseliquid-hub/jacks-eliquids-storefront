@@ -1,0 +1,162 @@
+.dashboardContainer {
+  min-height: 80vh;
+  background-color: #f8f9fa;
+  padding: 3rem 0;
+}
+
+.dashboardInner {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.sidebar {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  overflow: hidden;
+}
+
+.profileSummary {
+  padding: 2rem 1.5rem;
+  text-align: center;
+  border-bottom: 1px solid #f1f1f1;
+}
+
+.avatar {
+  width: 70px;
+  height: 70px;
+  background-color: #0d9488;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 auto 1rem;
+}
+
+.profileSummary h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  color: #111;
+}
+
+.profileSummary p {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
+  word-break: break-all;
+}
+
+.dashboardNav {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboardNav a {
+  padding: 1rem 1.5rem;
+  color: #444;
+  text-decoration: none;
+  font-size: 0.95rem;
+  border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.dashboardNav a:hover {
+  background-color: #f8f9fa;
+}
+
+.dashboardNav a.active {
+  border-left-color: #0d9488;
+  color: #0d9488;
+  font-weight: 600;
+  background-color: #f0fdfa;
+}
+
+.logoutBtn {
+  width: 100%;
+  text-align: left;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  border-top: 1px solid #f1f1f1;
+  color: #dc2626;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.logoutBtn:hover {
+  background-color: #fef2f2;
+}
+
+.mainContent {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+  padding: 2.5rem;
+}
+
+.pageTitle {
+  margin: 0 0 2rem 0;
+  font-size: 1.5rem;
+  color: #111;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.card h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 0.5rem;
+}
+
+.card p {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  color: #4b5563;
+}
+
+.emptyText {
+  color: #6b7280 !important;
+  font-style: italic;
+  margin-bottom: 1rem !important;
+}
+
+.actionBtn {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.actionBtn:hover {
+  border-color: #9ca3af;
+  background-color: #f9fafb;
+}
+
+@media (max-width: 768px) {
+  .dashboardInner {
+    grid-template-columns: 1fr;
+  }
+}
