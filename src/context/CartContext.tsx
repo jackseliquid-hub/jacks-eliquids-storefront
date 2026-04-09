@@ -34,6 +34,7 @@ interface CartContextValue {
   removeFromCart: (id: string) => void;
   updateQty: (id: string, qty: number) => void;
   clearCart: () => void;
+  getCalculatedItemPrice: (item: CartItem) => { price: number; formattedPrice: string };
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -144,8 +145,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeFromCart,
         updateQty,
         clearCart,
-        getCalculatedItemPrice // dynamically appended so UI can call it
-      } as any}
+        getCalculatedItemPrice
+      }}
     >
       {children}
     </CartContext.Provider>

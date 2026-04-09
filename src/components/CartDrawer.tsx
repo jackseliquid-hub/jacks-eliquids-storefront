@@ -4,7 +4,7 @@ import { useCart } from '@/context/CartContext';
 import styles from './CartDrawer.module.css';
 
 export default function CartDrawer() {
-  const { cartItems, cartCount, cartSubtotal, isOpen, closeCart, removeFromCart, updateQty, getCalculatedItemPrice } = useCart() as any;
+  const { cartItems, cartCount, cartSubtotal, isOpen, closeCart, removeFromCart, updateQty, getCalculatedItemPrice } = useCart();
 
   let totalSavings = 0;
 

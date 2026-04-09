@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import styles from './discounts.module.css';
-import { DiscountRule, DiscountRange, getDiscountRules, saveDiscountRule, deleteDiscountRule } from '@/lib/discounts';
+import { DiscountRule, DiscountRange, getDiscountRules, saveDiscountRule, deleteDiscountRule, DiscountTargetType, DiscountRangeType } from '@/lib/discounts';
 import { getAllProducts, getCategories, getTags } from '@/lib/data';
 
 interface SearchItem {
@@ -197,7 +197,7 @@ export default function DiscountsAdminPage() {
                       value={rule.type}
                       onChange={(e) => {
                         updateRule(rule.id, { 
-                          type: e.target.value as any, 
+                          type: e.target.value as DiscountTargetType, 
                           targetValues: [] // clear targets when changing type
                         });
                         setSearchQueries(prev => ({...prev, [rule.id]: ''}));
@@ -309,7 +309,7 @@ export default function DiscountsAdminPage() {
                             <select 
                               className={styles.select}
                               value={range.type}
-                              onChange={(e) => updateRange(rule.id, range.id, { type: e.target.value as any })}
+                              onChange={(e) => updateRange(rule.id, range.id, { type: e.target.value as DiscountRangeType })}
                             >
                               <option value="percent">Percentage Discount (%)</option>
                               <option value="fixed">Fixed Price per Item (£)</option>
