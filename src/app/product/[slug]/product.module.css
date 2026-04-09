@@ -485,3 +485,60 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* ─── Bulk Savings Section ─────────────────────────────────────────── */
+
+.bulkSavingsWrapper {
+  margin-top: 1.5rem;
+  margin-bottom: 2rem;
+  border: 2px solid var(--deep-teal);
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  clear: both;
+}
+
+.bulkTitle {
+  margin: 0 0 1rem 0;
+  font-family: var(--font-sans);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--deep-teal);
+}
+
+.bulkTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.bulkTable th, .bulkTable td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--icy-teal);
+  text-align: left;
+  font-size: 0.9rem;
+  font-family: var(--font-sans);
+}
+
+.bulkTable th {
+  color: var(--deep-teal);
+  font-weight: 700;
+}
+
+.bulkTable td {
+  color: #333;
+}
+
+.savingsNudge {
+  padding: 1rem;
+  background: var(--icy-teal);
+  border: 2px dashed var(--deep-teal);
+  border-radius: 8px;
+  color: var(--deep-teal);
+  font-weight: 600;
+  text-align: center;
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  animation: fadeInToast 0.3s ease;
+}

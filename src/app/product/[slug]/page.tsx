@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import styles from './product.module.css';
 import { getProductBySlug, Product } from '@/lib/data';
+import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discounts';
 
 export default function ProductPage({
   params,
@@ -13,11 +14,12 @@ export default function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
-  const { addToCart, openCart } = useCart();
+  const { addToCart, openCart, cartItems } = useCart();
 
   // Data state
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [globalRules, setGlobalRules] = useState<DiscountRule[]>([]);
 
   // Track selected attributes and quantity
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
@@ -28,9 +30,13 @@ export default function ProductPage({
   useEffect(() => {
     async function fetchData() {
       try {
-        const prod = await getProductBySlug(slug);
+        const [prod, rules] = await Promise.all([
+          getProductBySlug(slug),
+          getDiscountRules() // fetch active discount rules explicitly
+        ]);
         setProduct(prod || null);
         if (prod?.image) setMainImage(prod.image);
+        setGlobalRules(rules || []);
       } catch (err) {
         console.error("ProductPage: Fetch error", err);
       } finally {
@@ -93,10 +99,13 @@ export default function ProductPage({
 
     addToCart({
       id: matchingVariation?.id || product.id,
+      productId: product.id,
       slug: product.slug,
       name: product.name,
       image: product.image,
       price: displayPrice,
+      category: product.category,
+      tags: product.tags,
       variantName: matchingVariation ? Object.values(matchingVariation.attributes).join(' / ') : undefined
     }, quantity);
     openCart();
@@ -111,6 +120,23 @@ export default function ProductPage({
   function slugify(text: string) {
     return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
   }
+
+  // Calculate actual current prices and dynamic tiers
+  const cartItemQty = cartItems.find(i => i.id === (matchingVariation?.id || product.id))?.quantity || 0;
+  const projectedTotalQty = cartItemQty + quantity;
+
+  // We find the BEST overall rule that targets this product based on 1 item to show the table
+  const activeDiscountTemplate = globalRules.find(rule => {
+    if (rule.type === 'product' && rule.targetValues.includes(product.id)) return true;
+    if (rule.type === 'category' && product.category && rule.targetValues.includes(product.category)) return true;
+    if (rule.type === 'tag' && product.tags && product.tags.some(t => rule.targetValues.includes(t))) return true;
+    return false;
+  });
+  
+  // Now evaluate the real-time dynamic best price based ONLY on projected qty
+  const { price: currentTierPrice, formattedPrice: currentTierFormatted } = calculateBestPrice(displayPrice, projectedTotalQty, product, globalRules);
+  const originalBasePriceNum = parseFloat(displayPrice.replace(/[^0-9.]/g, ''));
+  const isDiscountActive = currentTierPrice < (originalBasePriceNum - 0.01);
 
   return (
     <div className={styles.page}>
@@ -194,6 +220,12 @@ export default function ProductPage({
                 <span className={styles.salePrice}>{displaySalePrice}</span>
                 <span className={styles.saleBadge}>On Sale</span>
               </div>
+            ) : isDiscountActive ? (
+              <div className={styles.priceBlock}>
+                <span className={styles.originalPrice}>{displayPrice}</span>
+                <span className={styles.salePrice}>{currentTierFormatted}</span>
+                <span className={styles.saleBadge} style={{backgroundColor: 'var(--deep-teal)'}}>Bulk Value</span>
+              </div>
             ) : (
               <p className={styles.price}>{displayPrice}</p>
             )}
@@ -229,6 +261,82 @@ export default function ProductPage({
 
           {description && <p className={styles.description}>{description}</p>}
           
+          {/* ─── Bulk Savings Table ─────────────────────────────────────── */}
+          {activeDiscountTemplate && activeDiscountTemplate.ranges.length > 0 && (
+            <div className={styles.bulkSavingsWrapper}>
+              <h3 className={styles.bulkTitle}>Bulk Savings:</h3>
+              <table className={styles.bulkTable}>
+                <thead>
+                  <tr>
+                    <th>Total Product Qty</th>
+                    <th>Discount</th>
+                    <th>Price Each</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {activeDiscountTemplate.ranges.sort((a,b) => a.min - b.min).map(range => {
+                    let p = originalBasePriceNum;
+                    let dText = '';
+                    if (range.type === 'percent') {
+                      p = originalBasePriceNum * (1 - (range.value / 100));
+                      dText = `${range.value}% Off`;
+                    } else {
+                      p = range.value;
+                      dText = `£${(originalBasePriceNum - p).toFixed(2)} Off`;
+                    }
+                    const l = range.label || `${range.min}${range.max ? '-' + range.max : '+'}`;
+                    
+                    return (
+                      <tr key={range.id}>
+                        <td>{l}</td>
+                        <td>{dText}</td>
+                        <td>£{p.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Dynamic Savings Nudge */}
+              {(() => {
+                const sortedRanges = [...activeDiscountTemplate.ranges].sort((a, b) => a.min - b.min);
+                const nextTargetRange = sortedRanges.find(r => r.min > projectedTotalQty);
+                
+                if (nextTargetRange) {
+                  let nextPrice = originalBasePriceNum;
+                  if (nextTargetRange.type === 'percent') {
+                    nextPrice = originalBasePriceNum * (1 - (nextTargetRange.value / 100));
+                  } else {
+                    nextPrice = nextTargetRange.value;
+                  }
+                  
+                  const neededGoal = nextTargetRange.min - cartItemQty;
+                  
+                  if (quantity >= neededGoal) {
+                    return (
+                      <div className={styles.savingsNudge}>
+                        🥳 <strong>Save More!</strong> Add <strong>{quantity}</strong> more to your cart and pay just <strong>£{nextPrice.toFixed(2)}</strong> per unit!
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div className={styles.savingsNudge}>
+                        🚀 <strong>Add {neededGoal} items</strong> to your cart & pay just <strong>£{nextPrice.toFixed(2)}</strong> per unit!
+                      </div>
+                    );
+                  }
+                } else if (isDiscountActive) {
+                   return (
+                     <div className={styles.savingsNudge}>
+                       🥳 <strong>Best Value!</strong> You have reached our lowest available price.
+                     </div>
+                   );
+                }
+                return null;
+              })()}
+            </div>
+          )}
+
           <div className={styles.purchaseSection}>
             <div className={styles.qtyContainer}>
               <span className={styles.variationLabel}>Quantity</span>

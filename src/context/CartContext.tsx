@@ -8,13 +8,17 @@ import {
   useCallback,
   ReactNode,
 } from 'react';
+import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discounts';
 
 export interface CartItem {
   id: string;
+  productId?: string;
   slug: string;
   name: string;
   image: string;
-  price: string; // formatted string e.g. "£3.50"
+  price: string; // original un-discounted formatted string e.g. "£3.50"
+  category?: string;
+  tags?: string[];
   quantity: number;
   variantName?: string;
 }
@@ -40,8 +44,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [discountRules, setDiscountRules] = useState<DiscountRule[]>([]);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount and fetch discounts
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -49,6 +54,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setCartItems(JSON.parse(stored));
       }
     } catch {}
+    
+    getDiscountRules().then(rules => setDiscountRules(rules)).catch(console.error);
+
     setIsMounted(true);
   }, []);
 
@@ -88,12 +96,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const cartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
 
-  // Calculate subtotal from formatted price strings like "£3.50"
-  const subtotalNum = cartItems.reduce((sum, i) => {
-    const num = parseFloat(i.price.replace(/[^0-9.]/g, ''));
-    return sum + (isNaN(num) ? 0 : num * i.quantity);
+  // Group quantities by productId to get accurate bulk tiers (e.g., mixing Red and Blue variants counts as 2 total)
+  const productQuantities: Record<string, number> = {};
+  cartItems.forEach(i => {
+    const parentId = i.productId || i.id;
+    productQuantities[parentId] = (productQuantities[parentId] || 0) + i.quantity;
+  });
+
+  // Calculate subtotal from formatted price strings dynamically applying discounts
+  const subtotalNum = cartItems.reduce((sum, item) => {
+    const parentId = item.productId || item.id;
+    const totalQty = productQuantities[parentId] || item.quantity;
+    
+    const { price } = calculateBestPrice(
+      item.price,
+      totalQty,
+      { id: parentId, category: item.category, tags: item.tags },
+      discountRules
+    );
+    
+    return sum + (price * item.quantity);
   }, 0);
   const cartSubtotal = `£${subtotalNum.toFixed(2)}`;
+
+  // Provide a helper to let CartDrawer know the current individual price of an item
+  const getCalculatedItemPrice = (item: CartItem) => {
+    const parentId = item.productId || item.id;
+    const totalQty = productQuantities[parentId] || item.quantity;
+    return calculateBestPrice(
+      item.price,
+      totalQty,
+      { id: parentId, category: item.category, tags: item.tags },
+      discountRules
+    );
+  };
 
   return (
     <CartContext.Provider
@@ -108,7 +144,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeFromCart,
         updateQty,
         clearCart,
-      }}
+        getCalculatedItemPrice // dynamically appended so UI can call it
+      } as any}
     >
       {children}
     </CartContext.Provider>

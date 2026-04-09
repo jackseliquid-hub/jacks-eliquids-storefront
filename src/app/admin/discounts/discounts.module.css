@@ -1,0 +1,340 @@
+.page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.subTitle {
+  color: #64748b;
+  margin: 0.5rem 0 0 0;
+  font-size: 1rem;
+}
+
+.addButton {
+  background: #0d9488;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px rgba(13, 148, 136, 0.2);
+}
+
+.addButton:hover {
+  background: #0f766e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(13, 148, 136, 0.3);
+}
+
+.rulesList {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.ruleCard {
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.ruleHeader {
+  background: #f8fafc;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.select, .input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1e293b;
+  background: white;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.select:focus, .input:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tagsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.selectedTag {
+  background: #0d9488;
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.removeTagBtn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+}
+
+.removeTagBtn:hover {
+  color: white;
+}
+
+.searchResults {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.searchResultItem {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.95rem;
+  color: #334155;
+  transition: background 0.2s;
+}
+
+.searchResultItem:last-child {
+  border-bottom: none;
+}
+
+.searchResultItem:hover {
+  background: #f0fdfa;
+  color: #0d9488;
+}
+
+.deleteRuleBtn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.2s;
+  align-self: flex-end;
+}
+
+.deleteRuleBtn:hover {
+  background: #fef2f2;
+}
+
+.ruleBody {
+  padding: 1.5rem;
+}
+
+.rangesTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.rangesTable th {
+  text-align: left;
+  padding: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.rangesTable td {
+  padding: 0.75rem;
+  vertical-align: top;
+}
+
+.addRangeBtn {
+  background: white;
+  border: 1px dashed #cbd5e1;
+  color: #0d9488;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  justify-content: center;
+}
+
+.addRangeBtn:hover {
+  border-color: #0d9488;
+  background: #f0fdfa;
+}
+
+.ruleFooter {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.saveRuleBtn {
+  flex: 1;
+  background: #0d9488;
+  color: white;
+  border: 1px solid #0d9488;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.1);
+}
+
+.saveRuleBtn:hover:not(:disabled) {
+  background: #0f766e;
+  border-color: #0f766e;
+}
+
+.saveRuleBtn:disabled {
+  background: #94a3b8;
+  border-color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.removeRangeBtn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.removeRangeBtn:hover {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.footer {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.saveButton {
+  background: #0d9488;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px rgba(13, 148, 136, 0.2);
+}
+
+.saveButton:hover {
+  background: #0f766e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(13, 148, 136, 0.3);
+}
+
+.saveButton:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 12px;
+  border: 2px dashed #cbd5e1;
+}
+
+.emptyStateIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.emptyStateText {
+  color: #64748b;
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
