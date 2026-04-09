@@ -11,12 +11,11 @@ import {
   addTag,
   getBrands,
   addBrand,
+  updateProduct,
   Product,
   Variation,
   TaxonomyItem,
 } from '@/lib/data';
-import { db } from '@/lib/firebase';
-import { doc, setDoc, collection } from 'firebase/firestore';
 import styles from '../../admin.module.css';
 import MediaModal from '@/components/MediaModal';
 import SeoEditorCard from '@/components/SeoEditorCard';
@@ -302,23 +301,18 @@ export default function AddProductPage() {
 
     setSaving(true);
     try {
-      // 1. Generate a new document reference with an auto-ID
-      const newDocRef = doc(collection(db, 'products'));
-      
-      // 2. Prep data to inject the ID into itself so our schema matches legacy perfectly
-      const productPayload = {
+      const id = `prod_${Date.now()}`;
+      const productPayload: Product = {
           ...product,
           status: statusText,
-          id: newDocRef.id,
-          createdAt: new Date().toISOString()
+          id,
       };
 
-      // 3. Write directly
-      await setDoc(newDocRef, productPayload);
+      await updateProduct(id, productPayload);
       
       showToast(statusText === 'draft' ? 'Saved as Draft!' : 'Product Published successfully!');
       setTimeout(() => {
-          router.push('/admin'); // Redirect back to grid
+          router.push('/admin');
       }, 1000);
     } catch (e) {
       showToast('Save failed — check console', true);

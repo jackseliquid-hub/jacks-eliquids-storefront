@@ -1,19 +1,4 @@
-import {
-  collection,
-  getDocs,
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  limit,
-  orderBy,
-} from "firebase/firestore";
-import { db } from "./firebase";
-import localProducts from "../data/products.json";
-import localCategories from "../data/categories.json";
+import { supabase } from './supabase';
 
 // ─── Type Definitions ───────────────────────────────────────────────────────
 
@@ -97,207 +82,456 @@ export interface TaxonomyItem {
   seo?: SeoMeta;
 }
 
-const USE_FIRESTORE = process.env.NEXT_PUBLIC_USE_FIRESTORE === 'true';
+// ─── Row mappers (snake_case DB → camelCase TypeScript) ──────────────────────
+
+function mapVariation(v: Record<string, unknown>): Variation {
+  return {
+    id:         v.id as string,
+    sku:        (v.sku as string) || '',
+    price:      (v.price as string) || null,
+    attributes: (v.attributes as Record<string, string>) || {},
+    inStock:    v.in_stock !== undefined ? (v.in_stock as boolean) : true,
+  };
+}
+
+function mapProduct(row: Record<string, unknown>, variations: Variation[] = []): Product {
+  return {
+    id:            row.id as string,
+    slug:          row.slug as string,
+    name:          row.name as string,
+    sku:           (row.sku as string) || '',
+    price:         (row.price as string) || '0.00',
+    salePrice:     (row.sale_price as string) || undefined,
+    costPrice:     (row.cost_price as string) || undefined,
+    weight:        (row.weight as number) || 0,
+    shippingClass: (row.shipping_class as string) || undefined,
+    trackStock:    (row.track_stock as boolean) || false,
+    image:         (row.image as string) || '',
+    gallery:       (row.gallery as string[]) || [],
+    description:   (row.description as string) || '',
+    category:      (row.category as string) || '',
+    tags:          (row.tags as string[]) || [],
+    brand:         (row.brand as string) || undefined,
+    supplierId:    (row.supplier_id as string) || undefined,
+    attributes:    (row.attributes as Record<string, string[]>) || {},
+    variations,
+    status:        (row.status as 'published' | 'draft') || 'draft',
+    seo:           (row.seo as SeoMeta) || {},
+  };
+}
 
 // ─── Products ────────────────────────────────────────────────────────────────
 
 export async function getAllProducts(): Promise<Product[]> {
-  if (!USE_FIRESTORE) {
-    return localProducts as unknown as Product[];
-  }
   try {
-    const snapshot = await getDocs(collection(db, "products"));
-    return snapshot.docs.map(d => d.data() as Product);
+    // Fetch products
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    if (!products || products.length === 0) return [];
+
+    // Fetch all variations in one query
+    const productIds = products.map(p => p.id);
+    const { data: variations } = await supabase
+      .from('product_variations')
+      .select('*')
+      .in('product_id', productIds);
+
+    // Group variations by product_id
+    const variationsByProduct: Record<string, Variation[]> = {};
+    for (const v of (variations || [])) {
+      if (!variationsByProduct[v.product_id]) variationsByProduct[v.product_id] = [];
+      variationsByProduct[v.product_id].push(mapVariation(v));
+    }
+
+    return products.map(p => mapProduct(p, variationsByProduct[p.id] || []));
   } catch (err) {
-    console.error("Firestore getAllProducts:", err);
-    return localProducts as unknown as Product[];
+    console.error('Supabase getAllProducts:', err);
+    return [];
   }
 }
 
 export async function getProductById(id: string): Promise<Product | undefined> {
-  if (!USE_FIRESTORE) {
-    return (localProducts as unknown as Product[]).find(p => p.id === id);
-  }
   try {
-    const snap = await getDoc(doc(db, "products", id));
-    return snap.exists() ? (snap.data() as Product) : undefined;
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !product) return undefined;
+
+    const { data: variations } = await supabase
+      .from('product_variations')
+      .select('*')
+      .eq('product_id', id);
+
+    return mapProduct(product, (variations || []).map(mapVariation));
   } catch (err) {
-    console.error("Firestore getProductById:", err);
-    return (localProducts as unknown as Product[]).find(p => p.id === id);
+    console.error('Supabase getProductById:', err);
+    return undefined;
   }
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | undefined> {
-  if (!USE_FIRESTORE) {
-    return (localProducts as unknown as Product[]).find(p => p.slug === slug);
-  }
   try {
-    const q = query(collection(db, "products"), where("slug", "==", slug), limit(1));
-    const snapshot = await getDocs(q);
-    return snapshot.empty ? undefined : (snapshot.docs[0].data() as Product);
+    const { data: product, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error || !product) return undefined;
+
+    const { data: variations } = await supabase
+      .from('product_variations')
+      .select('*')
+      .eq('product_id', product.id);
+
+    return mapProduct(product, (variations || []).map(mapVariation));
   } catch (err) {
-    console.error("Firestore getProductBySlug:", err);
-    return (localProducts as unknown as Product[]).find(p => p.slug === slug);
+    console.error('Supabase getProductBySlug:', err);
+    return undefined;
   }
 }
 
 export async function updateProduct(id: string, data: Partial<Product>): Promise<void> {
-  await setDoc(doc(db, "products", id), data, { merge: true });
+  // Map camelCase fields back to snake_case for the DB
+  const dbData: Record<string, unknown> = {};
+  if (data.slug           !== undefined) dbData.slug            = data.slug;
+  if (data.name           !== undefined) dbData.name            = data.name;
+  if (data.sku            !== undefined) dbData.sku             = data.sku;
+  if (data.price          !== undefined) dbData.price           = data.price;
+  if (data.salePrice      !== undefined) dbData.sale_price      = data.salePrice;
+  if (data.costPrice      !== undefined) dbData.cost_price      = data.costPrice;
+  if (data.weight         !== undefined) dbData.weight          = data.weight;
+  if (data.shippingClass  !== undefined) dbData.shipping_class  = data.shippingClass;
+  if (data.trackStock     !== undefined) dbData.track_stock     = data.trackStock;
+  if (data.image          !== undefined) dbData.image           = data.image;
+  if (data.gallery        !== undefined) dbData.gallery         = data.gallery;
+  if (data.description    !== undefined) dbData.description     = data.description;
+  if (data.category       !== undefined) dbData.category        = data.category;
+  if (data.tags           !== undefined) dbData.tags            = data.tags;
+  if (data.brand          !== undefined) dbData.brand           = data.brand;
+  if (data.supplierId     !== undefined) dbData.supplier_id     = data.supplierId;
+  if (data.attributes     !== undefined) dbData.attributes      = data.attributes;
+  if (data.status         !== undefined) dbData.status          = data.status;
+  if (data.seo            !== undefined) dbData.seo             = data.seo;
+  dbData.updated_at = Date.now();
+
+  const { error: productError } = await supabase
+    .from('products')
+    .update(dbData)
+    .eq('id', id);
+
+  if (productError) throw productError;
+
+  // If variations are included, replace them
+  if (data.variations !== undefined) {
+    await supabase.from('product_variations').delete().eq('product_id', id);
+
+    if (data.variations.length > 0) {
+      const varRows = data.variations.map(v => ({
+        id:         v.id,
+        product_id: id,
+        sku:        v.sku || null,
+        price:      v.price || null,
+        attributes: v.attributes || {},
+        in_stock:   v.inStock !== undefined ? v.inStock : true,
+      }));
+      const { error: varError } = await supabase.from('product_variations').insert(varRows);
+      if (varError) throw varError;
+    }
+  }
 }
 
-// ─── Categories ─────────────────────────────────────────────────────────────
+// ─── Categories ──────────────────────────────────────────────────────────────
 
 export async function getCategories(): Promise<string[]> {
-  if (!USE_FIRESTORE) return localCategories;
   try {
-    const snap = await getDoc(doc(db, "metadata", "categories"));
-    return snap.exists() ? snap.data().categories : localCategories;
+    const { data, error } = await supabase
+      .from('categories')
+      .select('name')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(row => row.name);
   } catch (err) {
-    console.error("Firestore getCategories:", err);
-    return localCategories;
+    console.error('Supabase getCategories:', err);
+    return [];
   }
 }
 
 export async function saveCategories(categories: string[]): Promise<void> {
-  await setDoc(doc(db, "metadata", "categories"), { categories });
+  // In Supabase we store categories as individual rows — upsert each
+  const rows = categories.map(name => ({
+    id:   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+    name,
+  }));
+  const { error } = await supabase.from('categories').upsert(rows, { onConflict: 'id' });
+  if (error) throw error;
 }
 
-// ─── Tags ────────────────────────────────────────────────────────────────────
+// ─── Tags ─────────────────────────────────────────────────────────────────────
 
 export async function getTags(): Promise<TaxonomyItem[]> {
   try {
-    const snap = await getDocs(query(collection(db, "tags"), orderBy("name")));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as TaxonomyItem));
+    const { data, error } = await supabase
+      .from('tags')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(row => ({
+      id:        row.id,
+      name:      row.name,
+      createdAt: row.created_at,
+    }));
   } catch (err) {
-    console.error("Firestore getTags:", err);
+    console.error('Supabase getTags:', err);
     return [];
   }
 }
 
 export async function addTag(name: string): Promise<void> {
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').trim();
-  await setDoc(doc(db, "tags", id), { name, createdAt: Date.now() });
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const { error } = await supabase
+    .from('tags')
+    .upsert({ id, name, created_at: Date.now() }, { onConflict: 'id' });
+  if (error) throw error;
 }
 
 export async function deleteTag(id: string): Promise<void> {
-  await deleteDoc(doc(db, "tags", id));
+  const { error } = await supabase.from('tags').delete().eq('id', id);
+  if (error) throw error;
 }
 
-// ─── Brands ─────────────────────────────────────────────────────────────────
+// ─── Brands ──────────────────────────────────────────────────────────────────
 
 export async function getBrands(): Promise<TaxonomyItem[]> {
   try {
-    const snap = await getDocs(query(collection(db, "brands"), orderBy("name")));
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as TaxonomyItem));
+    const { data, error } = await supabase
+      .from('brands')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(row => ({
+      id:        row.id,
+      name:      row.name,
+      createdAt: row.created_at,
+    }));
   } catch (err) {
-    console.error("Firestore getBrands:", err);
+    console.error('Supabase getBrands:', err);
     return [];
   }
 }
 
 export async function addBrand(name: string): Promise<void> {
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').trim();
-  await setDoc(doc(db, "brands", id), { name, createdAt: Date.now() });
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const { error } = await supabase
+    .from('brands')
+    .upsert({ id, name, created_at: Date.now() }, { onConflict: 'id' });
+  if (error) throw error;
 }
 
 export async function deleteBrand(id: string): Promise<void> {
-  await deleteDoc(doc(db, "brands", id));
+  const { error } = await supabase.from('brands').delete().eq('id', id);
+  if (error) throw error;
 }
 
-// ─── Blogs ──────────────────────────────────────────────────────────────────
+// ─── Blogs ───────────────────────────────────────────────────────────────────
+
+function mapBlog(row: Record<string, unknown>): Blog {
+  return {
+    id:          row.id as string,
+    slug:        row.slug as string,
+    title:       row.title as string,
+    content:     (row.content as string) || '',
+    author:      (row.author as string) || '',
+    image:       (row.image as string) || undefined,
+    status:      (row.status as 'published' | 'draft') || 'draft',
+    category:    (row.category as string) || undefined,
+    tags:        (row.tags as string[]) || [],
+    publishedAt: (row.published_at as string) || undefined,
+    createdAt:   row.created_at ? String(row.created_at) : undefined,
+    seo:         (row.seo as SeoMeta) || {},
+  };
+}
 
 export async function getAllBlogs(): Promise<Blog[]> {
   try {
-    const snap = await getDocs(query(collection(db, "blogs"), orderBy("createdAt", "desc")));
-    return snap.docs.map(d => d.data() as Blog);
+    const { data, error } = await supabase
+      .from('blogs')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapBlog);
   } catch (err) {
-    console.error("Firestore getAllBlogs:", err);
+    console.error('Supabase getAllBlogs:', err);
     return [];
   }
 }
 
 export async function getBlogById(id: string): Promise<Blog | undefined> {
   try {
-    const snap = await getDoc(doc(db, "blogs", id));
-    return snap.exists() ? (snap.data() as Blog) : undefined;
+    const { data, error } = await supabase
+      .from('blogs')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) return undefined;
+    return mapBlog(data);
   } catch (err) {
-    console.error("Firestore getBlogById:", err);
+    console.error('Supabase getBlogById:', err);
     return undefined;
   }
 }
 
 export async function getBlogBySlug(slug: string): Promise<Blog | undefined> {
   try {
-    const q = query(collection(db, "blogs"), where("slug", "==", slug), limit(1));
-    const snapshot = await getDocs(q);
-    return snapshot.empty ? undefined : (snapshot.docs[0].data() as Blog);
+    const { data, error } = await supabase
+      .from('blogs')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error || !data) return undefined;
+    return mapBlog(data);
   } catch (err) {
-    console.error("Firestore getBlogBySlug:", err);
+    console.error('Supabase getBlogBySlug:', err);
     return undefined;
   }
 }
 
 export async function updateBlog(id: string, data: Partial<Blog>): Promise<void> {
-  await setDoc(doc(db, "blogs", id), data, { merge: true });
+  const dbData: Record<string, unknown> = { updated_at: Date.now() };
+  if (data.slug        !== undefined) dbData.slug         = data.slug;
+  if (data.title       !== undefined) dbData.title        = data.title;
+  if (data.content     !== undefined) dbData.content      = data.content;
+  if (data.author      !== undefined) dbData.author       = data.author;
+  if (data.image       !== undefined) dbData.image        = data.image;
+  if (data.status      !== undefined) dbData.status       = data.status;
+  if (data.category    !== undefined) dbData.category     = data.category;
+  if (data.tags        !== undefined) dbData.tags         = data.tags;
+  if (data.publishedAt !== undefined) dbData.published_at = data.publishedAt;
+  if (data.seo         !== undefined) dbData.seo          = data.seo;
+  if (data.createdAt   !== undefined) dbData.created_at   = Number(data.createdAt);
+
+  const { error } = await supabase.from('blogs').upsert({ id, ...dbData }, { onConflict: 'id' });
+  if (error) throw error;
 }
 
 export async function deleteBlog(id: string): Promise<void> {
-  await deleteDoc(doc(db, "blogs", id));
+  const { error } = await supabase.from('blogs').delete().eq('id', id);
+  if (error) throw error;
 }
 
-// ─── Global SEO ─────────────────────────────────────────────────────────────
+// ─── Global SEO ──────────────────────────────────────────────────────────────
 
 export async function getGlobalSeo(): Promise<GlobalSeo | undefined> {
   try {
-    const snap = await getDoc(doc(db, "metadata", "seo"));
-    return snap.exists() ? (snap.data() as GlobalSeo) : undefined;
+    const { data, error } = await supabase
+      .from('global_settings')
+      .select('value')
+      .eq('key', 'seo')
+      .single();
+
+    if (error || !data) return undefined;
+    return data.value as GlobalSeo;
   } catch (err) {
-    console.error("Firestore getGlobalSeo:", err);
+    console.error('Supabase getGlobalSeo:', err);
     return undefined;
   }
 }
 
 export async function setGlobalSeo(data: GlobalSeo): Promise<void> {
-  await setDoc(doc(db, "metadata", "seo"), data, { merge: true });
+  const { error } = await supabase
+    .from('global_settings')
+    .upsert({ key: 'seo', value: data }, { onConflict: 'key' });
+  if (error) throw error;
 }
 
-// ─── Pages ──────────────────────────────────────────────────────────────────
+// ─── Pages ───────────────────────────────────────────────────────────────────
+
+function mapPage(row: Record<string, unknown>): Page {
+  return {
+    id:        row.id as string,
+    slug:      row.slug as string,
+    title:     row.title as string,
+    content:   (row.content as string) || '',
+    status:    (row.status as 'published' | 'draft') || 'draft',
+    createdAt: row.created_at ? String(row.created_at) : undefined,
+    updatedAt: row.updated_at ? String(row.updated_at) : undefined,
+    seo:       (row.seo as SeoMeta) || {},
+  };
+}
 
 export async function getAllPages(): Promise<Page[]> {
   try {
-    const snap = await getDocs(query(collection(db, "pages"), orderBy("createdAt", "desc")));
-    return snap.docs.map(d => d.data() as Page);
+    const { data, error } = await supabase
+      .from('pages')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapPage);
   } catch (err) {
-    console.error("Firestore getAllPages:", err);
+    console.error('Supabase getAllPages:', err);
     return [];
   }
 }
 
 export async function getPageById(id: string): Promise<Page | undefined> {
   try {
-    const snap = await getDoc(doc(db, "pages", id));
-    return snap.exists() ? (snap.data() as Page) : undefined;
+    const { data, error } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) return undefined;
+    return mapPage(data);
   } catch (err) {
-    console.error("Firestore getPageById:", err);
+    console.error('Supabase getPageById:', err);
     return undefined;
   }
 }
 
 export async function getPageBySlug(slug: string): Promise<Page | undefined> {
   try {
-    const q = query(collection(db, "pages"), where("slug", "==", slug), limit(1));
-    const snapshot = await getDocs(q);
-    return snapshot.empty ? undefined : (snapshot.docs[0].data() as Page);
+    const { data, error } = await supabase
+      .from('pages')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error || !data) return undefined;
+    return mapPage(data);
   } catch (err) {
-    console.error("Firestore getPageBySlug:", err);
+    console.error('Supabase getPageBySlug:', err);
     return undefined;
   }
 }
 
 export async function updatePage(id: string, data: Partial<Page>): Promise<void> {
-  await setDoc(doc(db, "pages", id), data, { merge: true });
+  const dbData: Record<string, unknown> = { updated_at: Date.now() };
+  if (data.slug    !== undefined) dbData.slug    = data.slug;
+  if (data.title   !== undefined) dbData.title   = data.title;
+  if (data.content !== undefined) dbData.content = data.content;
+  if (data.status  !== undefined) dbData.status  = data.status;
+  if (data.seo     !== undefined) dbData.seo     = data.seo;
+
+  const { error } = await supabase.from('pages').upsert({ id, ...dbData }, { onConflict: 'id' });
+  if (error) throw error;
 }
 
 export async function deletePage(id: string): Promise<void> {
-  await deleteDoc(doc(db, "pages", id));
+  const { error } = await supabase.from('pages').delete().eq('id', id);
+  if (error) throw error;
 }

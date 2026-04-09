@@ -4,9 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Blog } from '@/lib/data';
-import { db } from '@/lib/firebase';
-import { doc, setDoc, collection } from 'firebase/firestore';
+import { Blog, updateBlog } from '@/lib/data';
 import styles from '../../admin.module.css';
 import MediaModal from '@/components/MediaModal';
 import SeoEditorCard from '@/components/SeoEditorCard';
@@ -60,16 +58,16 @@ export default function AddBlogPage() {
 
     setSaving(true);
     try {
-      const newDocRef = doc(collection(db, 'blogs'));
-      const payload = {
+      const id = `blog_${Date.now()}`;
+      const payload: Blog = {
           ...blog,
           status: statusText,
-          id: newDocRef.id,
+          id,
           createdAt: new Date().toISOString(),
           publishedAt: statusText === 'published' ? new Date().toISOString() : undefined
       };
 
-      await setDoc(newDocRef, payload);
+      await updateBlog(id, payload);
       
       showToast(statusText === 'draft' ? 'Saved as Draft!' : 'Blog Published successfully!');
       setTimeout(() => {

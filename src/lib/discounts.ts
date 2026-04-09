@@ -1,21 +1,12 @@
-import { db } from './firebase';
-import {
-  collection,
-  doc,
-  getDocs,
-  setDoc,
-  deleteDoc,
-  query,
-  orderBy
-} from 'firebase/firestore';
+import { supabase } from './supabase';
 
 export type DiscountTargetType = 'product' | 'category' | 'tag';
-export type DiscountRangeType = 'percent' | 'fixed';
+export type DiscountRangeType  = 'percent' | 'fixed';
 
 export interface DiscountRange {
   id: string;
   min: number;
-  max: number | null; // null means infinity
+  max: number | null;
   type: DiscountRangeType;
   value: number;
   label: string;
@@ -25,48 +16,74 @@ export interface DiscountRule {
   id: string;
   name: string;
   type: DiscountTargetType;
-  targetValues: string[]; // Product IDs, Category Names, or Tag Names
+  targetValues: string[];
   ranges: DiscountRange[];
   createdAt: number;
 }
 
-// ─── FIRESTORE OPERATIONS ──────────────────────────────────────────────
+// ─── Row mapper ───────────────────────────────────────────────────────────────
+
+function mapRule(row: Record<string, unknown>): DiscountRule {
+  return {
+    id:           row.id as string,
+    name:         row.name as string,
+    type:         row.type as DiscountTargetType,
+    targetValues: (row.target_values as string[]) || [],
+    ranges:       (row.ranges as DiscountRange[]) || [],
+    createdAt:    (row.created_at as number) || Date.now(),
+  };
+}
+
+// ─── SUPABASE OPERATIONS ──────────────────────────────────────────────────────
 
 export async function getDiscountRules(): Promise<DiscountRule[]> {
   try {
-    const q = query(collection(db, 'discounts'), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as DiscountRule[];
+    const { data, error } = await supabase
+      .from('discount_rules')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapRule);
   } catch (err) {
-    console.error("Error fetching discounts:", err);
+    console.error('Supabase getDiscountRules:', err);
     return [];
   }
 }
 
 export async function saveDiscountRule(rule: DiscountRule): Promise<void> {
-  try {
-    await setDoc(doc(db, 'discounts', rule.id), rule);
-  } catch (err) {
-    console.error("Error saving discount rule:", err);
-    throw err;
+  const { error } = await supabase
+    .from('discount_rules')
+    .upsert({
+      id:            rule.id,
+      name:          rule.name,
+      type:          rule.type,
+      target_values: rule.targetValues,
+      ranges:        rule.ranges,
+      created_at:    rule.createdAt,
+    }, { onConflict: 'id' });
+
+  if (error) {
+    console.error('Supabase saveDiscountRule:', error);
+    throw error;
   }
 }
 
 export async function deleteDiscountRule(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'discounts', id));
-  } catch (err) {
-    console.error("Error deleting discount rule:", err);
-    throw err;
+  const { error } = await supabase
+    .from('discount_rules')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Supabase deleteDiscountRule:', error);
+    throw error;
   }
 }
 
-// ─── PRICING LOGIC ─────────────────────────────────────────────────────
+// ─── PRICING LOGIC ─────────────────────────────────────────────────────────────
+// (Pure calculation — no DB calls, works identically to the old version)
 
-// Minimum product representation needed to calculate discounts
 interface DiscountProduct {
   id: string;
   category?: string;
@@ -89,8 +106,7 @@ export function calculateBestPrice(
 
   for (const rule of rules) {
     let match = false;
-    
-    // Check if the product matches the rule's target type
+
     if (rule.type === 'product' && rule.targetValues.includes(product.id)) {
       match = true;
     } else if (rule.type === 'category' && product.category && rule.targetValues.includes(product.category)) {
@@ -104,17 +120,16 @@ export function calculateBestPrice(
         const max = range.max === null ? Infinity : range.max;
         if (quantity >= range.min && quantity <= max) {
           let calculatedPrice = basePrice;
-          
+
           if (range.type === 'percent') {
             calculatedPrice = basePrice * (1 - range.value / 100);
           } else if (range.type === 'fixed') {
             calculatedPrice = range.value;
           }
-          
-          // Apply if this is the lowest price found so far
-          if (calculatedPrice < bestPrice - 0.001) { // 0.001 epsilon for float comparison
-            bestPrice = calculatedPrice;
-            appliedRule = rule;
+
+          if (calculatedPrice < bestPrice - 0.001) {
+            bestPrice    = calculatedPrice;
+            appliedRule  = rule;
             appliedRange = range;
           }
         }
@@ -123,9 +138,9 @@ export function calculateBestPrice(
   }
 
   return {
-    price: bestPrice,
+    price:         bestPrice,
     formattedPrice: `£${bestPrice.toFixed(2)}`,
     appliedRule,
-    appliedRange
+    appliedRange,
   };
 }
