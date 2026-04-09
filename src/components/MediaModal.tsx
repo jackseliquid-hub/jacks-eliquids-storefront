@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { storage } from '@/lib/firebase';
-import { ref, listAll, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
+import { ref, listAll, getDownloadURL, uploadBytesResumable, StorageReference } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import styles from './MediaModal.module.css';
 
@@ -20,9 +20,21 @@ interface MediaModalProps {
 
 type Tab = 'library' | 'upload';
 
+// Clean internal filename to human readable format (e.g. "vape hang")
+function getCleanName(rawName: string) {
+  let name = rawName.replace(/\.[^/.]+$/, ""); // strip extension
+  name = name.replace(/^\d+_/, "");            // strip starting timestamp if present
+  name = name.replace(/_[a-f0-9]{8}$/i, "");   // strip ending UUID if present
+  return name.replace(/_/g, ' ');              // replace underscores with spaces
+}
+
 export default function MediaModal({ onClose, onSelect, title = 'Select Media' }: MediaModalProps) {
   const [files, setFiles] = useState<MediaFile[]>([]);
+  const [allRefs, setAllRefs] = useState<StorageReference[]>([]);
+  const [filteredRefs, setFilteredRefs] = useState<StorageReference[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('library');
 
@@ -34,24 +46,19 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const PAGE_SIZE = 30;
+
   async function fetchMedia() {
     try {
       setLoading(true);
       const listRef = ref(storage, 'media');
       const res = await listAll(listRef);
       
-      const loadedFiles: MediaFile[] = [];
-      for (const itemRef of res.items) {
-        const url = await getDownloadURL(itemRef);
-        loadedFiles.push({
-          name: itemRef.name,
-          url,
-          path: itemRef.fullPath
-        });
-      }
+      const sortedRefs = [...res.items].sort((a, b) => b.name.localeCompare(a.name));
+      setAllRefs(sortedRefs);
+      setFilteredRefs(sortedRefs);
       
-      loadedFiles.sort((a, b) => b.name.localeCompare(a.name));
-      setFiles(loadedFiles);
+      await fetchNextPage(sortedRefs, 0);
     } catch (err) {
       console.error('Failed to load media', err);
       setError('Failed to load media.');
@@ -59,6 +66,67 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
       setLoading(false);
     }
   }
+
+  const loadMore = async () => {
+    await fetchNextPage(filteredRefs, files.length);
+  };
+
+  const fetchNextPage = async (refs: StorageReference[], startIndex: number) => {
+    if (startIndex >= refs.length && startIndex !== 0) return;
+    
+    setLoadingMore(true);
+    try {
+      const nextBatch = refs.slice(startIndex, startIndex + PAGE_SIZE);
+      const newFiles: MediaFile[] = await Promise.all(
+        nextBatch.map(async (itemRef) => {
+          const url = await getDownloadURL(itemRef);
+          return {
+            name: itemRef.name,
+            url,
+            path: itemRef.fullPath
+          };
+        })
+      );
+      
+      if (startIndex === 0) {
+        setFiles(newFiles);
+      } else {
+        setFiles(prev => [...prev, ...newFiles]);
+      }
+    } catch (error) {
+      console.error('Error resolving image URLs:', error);
+      setError('Failed to load some images.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      const trimmedVal = val.trim();
+      let newRefs = allRefs;
+      
+      if (trimmedVal.length >= 3) {
+        const searchTerms = trimmedVal.toLowerCase().split(/\s+/);
+        newRefs = allRefs.filter(ref => {
+          const nameLower = getCleanName(ref.name).toLowerCase();
+          return searchTerms.every(term => nameLower.includes(term));
+        });
+      }
+      
+      setFilteredRefs(newRefs);
+      fetchNextPage(newRefs, 0);
+    }, 300);
+  };
 
   useEffect(() => {
     fetchMedia();
@@ -71,12 +139,26 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
+          let targetWidth = img.width;
+          let targetHeight = img.height;
+          
+          if (img.width > 800 || img.height > 800) {
+            if (img.width > img.height) {
+              targetWidth = 800;
+              targetHeight = Math.round((img.height * 800) / img.width);
+            } else {
+              targetHeight = 800;
+              targetWidth = Math.round((img.width * 800) / img.height);
+            }
+          }
+
           const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
           const ctx = canvas.getContext('2d');
           if (!ctx) return reject(new Error('Canvas context failed'));
-          ctx.drawImage(img, 0, 0);
+          
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
           canvas.toBlob(
             (blob) => {
               if (blob) resolve(blob);
@@ -213,6 +295,23 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
           {/* ─── Library Tab ─── */}
           {activeTab === 'library' && (
             <>
+              {/* Modal Search Bar */}
+              <div style={{ marginBottom: '1rem' }}>
+                <input 
+                  type="text" 
+                  placeholder="Search images (min 3 chars)..." 
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 1rem',
+                    border: '1px solid #e5e5e5',
+                    borderRadius: '8px',
+                    fontSize: '0.95rem'
+                  }}
+                />
+              </div>
+
               {loading ? (
                 <div className={styles.loadingWrap}>
                   <div className={styles.spinner}></div>
@@ -221,13 +320,19 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
                 <div className={styles.emptyState}>{error}</div>
               ) : files.length === 0 ? (
                 <div className={styles.emptyState}>
-                  <p>No images in your library yet.</p>
-                  <button
-                    className={styles.emptyUploadBtn}
-                    onClick={() => setActiveTab('upload')}
-                  >
-                    ⬆️ Upload Your First Image
-                  </button>
+                  {searchQuery.length >= 3 ? (
+                    <p>No images found matching "{searchQuery}"</p>
+                  ) : (
+                    <>
+                      <p>No images in your library yet.</p>
+                      <button
+                        className={styles.emptyUploadBtn}
+                        onClick={() => setActiveTab('upload')}
+                      >
+                        ⬆️ Upload Your First Image
+                      </button>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className={styles.gallery}>
@@ -245,10 +350,23 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
                         </div>
                       </div>
                       <div className={styles.imageInfo}>
-                        <p className={styles.imageName} title={file.name}>{file.name}</p>
+                        <p className={styles.imageName} title={getCleanName(file.name)}>{getCleanName(file.name)}</p>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {!loading && !error && files.length < filteredRefs.length && (
+                <div style={{ textAlign: 'center', marginTop: '1.5rem', marginBottom: '1rem' }}>
+                  <button 
+                    className={styles.uploadAnotherBtn} 
+                    style={{ padding: '0.6rem 1.25rem', cursor: 'pointer' }}
+                    onClick={loadMore} 
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? 'Loading...' : 'Load More Images'}
+                  </button>
                 </div>
               )}
             </>
@@ -304,7 +422,7 @@ export default function MediaModal({ onClose, onSelect, title = 'Select Media' }
                   </div>
                   <div className={styles.uploadSuccessInfo}>
                     <div className={styles.uploadSuccessBadge}>✓ Saved to Media Library</div>
-                    <p className={styles.uploadSuccessName}>{uploadedName}</p>
+                    <p className={styles.uploadSuccessName}>{getCleanName(uploadedName)}</p>
                     <div className={styles.uploadSuccessActions}>
                       <button className={styles.useImageBtn} onClick={handleUseImage}>
                         🖼️ Use This Image

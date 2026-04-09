@@ -73,7 +73,7 @@
 /* Gallery Grid */
 .gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, 200px);
   gap: 1.25rem;
 }
 
@@ -192,4 +192,227 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #f1f5f9;
+  padding: 0.35rem;
+  border-radius: 10px;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #64748b;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tab:hover {
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.tabActive {
+  background: #fff;
+  color: #0d9488; /* Premium Teal */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Upload Area */
+.uploadArea {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem 0;
+}
+
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  border: 2px dashed #cbd5e1;
+  border-radius: 16px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.dropZone:hover, .dropZoneActive {
+  border-color: #0d9488;
+  background: #f0fdfa;
+}
+
+.dropZoneIcon {
+  margin-bottom: 1.5rem;
+  color: #94a3b8;
+  transition: color 0.3s ease;
+}
+
+.dropZone:hover .dropZoneIcon, .dropZoneActive .dropZoneIcon {
+  color: #0d9488;
+}
+
+.dropZoneTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.5rem 0;
+}
+
+.dropZoneSub {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0 0 1rem 0;
+}
+
+.dropZoneSub strong {
+  color: #0d9488;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.dropZoneHint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  padding: 0.5rem 1rem;
+  background: rgba(0,0,0,0.04);
+  border-radius: 20px;
+}
+
+.uploadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  background: #f8fafc;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+}
+
+.progressTrack {
+  width: 100%;
+  max-width: 400px;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.uploadingText {
+  color: #475569;
+  font-weight: 500;
+}
+
+.uploadSuccess {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 16px;
+  padding: 2rem;
+}
+
+.uploadPreview {
+  width: 200px;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px rgba(13, 148, 136, 0.2);
+  margin-bottom: 1.5rem;
+  background: #fff;
+}
+
+.uploadPreviewImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.uploadSuccessBadge {
+  display: inline-block;
+  background: #10b981;
+  color: #fff;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.uploadSuccessName {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 1.5rem;
+}
+
+.uploadSuccessActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.useImageBtn, .emptyUploadBtn {
+  background: #0d9488;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.emptyUploadBtn {
+  margin-top: 1rem;
+}
+
+.useImageBtn:hover, .emptyUploadBtn:hover {
+  background: #0f766e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+}
+
+.uploadAnotherBtn {
+  background: white;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.uploadAnotherBtn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #94a3b8;
 }
