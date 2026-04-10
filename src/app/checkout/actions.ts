@@ -6,27 +6,21 @@ import { ShippingConfig, calculateShippingQuote } from '@/lib/shipping';
 import { calculateBestPrice, getDiscountRules } from '@/lib/discounts';
 
 interface CheckoutPayload {
-  email: string;
-  firstName: string;
-  lastName: string;
-  address: string;
-  city: string;
-  postcode: string;
   paymentMethod: 'viva' | 'bacs';
   cartItems: CartItem[];
   shippingConfig: ShippingConfig;
+  shipToDifferent: boolean;
+  billingAddress: any;
+  shippingAddress: any | null;
 }
 
 export async function processOrder(payload: CheckoutPayload) {
   const supabase = await createClient();
-
-  // 1. Re-validate pricing on the server for security (Never trust client prices)
   const rules = await getDiscountRules();
   
   let subtotal = 0;
   let discountTotal = 0;
   
-  // Recalculate cart
   const productQuantities: Record<string, number> = {};
   payload.cartItems.forEach(i => {
     const parentId = i.productId || i.id;
@@ -37,10 +31,8 @@ export async function processOrder(payload: CheckoutPayload) {
     const parentId = item.productId || item.id;
     const totalQty = productQuantities[parentId] || item.quantity;
     
-    // We assume item.price is the raw original price string e.g., "£10.00"
     const originalPriceNum = parseFloat(item.price.replace(/[^0-9.]/g, ''));
     
-    // Calculate best dynamic price
     const { price: bestPrice } = calculateBestPrice(
       item.price,
       totalQty,
@@ -66,26 +58,19 @@ export async function processOrder(payload: CheckoutPayload) {
     };
   });
 
-  // 2. Re-validate Shipping exactly like the client
   const shippingQuote = calculateShippingQuote(payload.cartItems, payload.shippingConfig);
   const finalTotal = subtotal + shippingQuote.shippingCost;
 
-  // 3. Attempt to link to a customer account if they are logged in
   const { data: { user } } = await supabase.auth.getUser();
   let customerId = null;
   if (user) {
     customerId = user.id;
   }
 
-  // 4. Save to Database
-  const shippingAddress = {
-    first_name: payload.firstName,
-    last_name: payload.lastName,
-    address: payload.address,
-    city: payload.city,
-    postcode: payload.postcode,
-    email: payload.email
-  };
+  // The final address we ship to
+  const finalShippingAddress = payload.shipToDifferent 
+    ? payload.shippingAddress 
+    : payload.billingAddress;
 
   const { data: orderParams, error: orderError } = await supabase
     .from('orders')
@@ -96,8 +81,8 @@ export async function processOrder(payload: CheckoutPayload) {
       shipping_cost: shippingQuote.shippingCost,
       discount_total: discountTotal,
       total: finalTotal,
-      shipping_address: shippingAddress,
-      billing_address: shippingAddress,
+      billing_address: payload.billingAddress,
+      shipping_address: finalShippingAddress,
       notes: `Requested Payment Method: ${payload.paymentMethod}`
     })
     .select('id')
@@ -110,7 +95,6 @@ export async function processOrder(payload: CheckoutPayload) {
 
   const orderId = orderParams.id;
 
-  // 5. Save Line Items
   const itemsToInsert = validOrderItems.map(i => ({
     ...i,
     order_id: orderId
@@ -125,9 +109,7 @@ export async function processOrder(payload: CheckoutPayload) {
     return { error: 'Failed to record cart items to database.' };
   }
 
-  // 6. Branch Payment Logic
   if (payload.paymentMethod === 'bacs') {
-    // Return success to redirect them to the BACS confirmation screen
     return { 
       success: true, 
       redirectUrl: `/checkout/success?order_id=${orderId}&method=bacs` 
@@ -135,14 +117,12 @@ export async function processOrder(payload: CheckoutPayload) {
   }
 
   if (payload.paymentMethod === 'viva') {
-    // Integrate Viva Smart Checkout API
     const merchantId = process.env.VIVA_WALLET_MERCHANT_ID;
     const apiKey = process.env.VIVA_WALLET_API_KEY;
     const sourceCode = process.env.VIVA_WALLET_SOURCE_CODE;
     const vivaApiUrl = process.env.VIVA_WALLET_API_URL || "https://api.vivapayments.com/checkout/v2";
     const vivaCheckoutUrl = process.env.NEXT_PUBLIC_VIVA_WALLET_URL || "https://www.vivapayments.com/web/checkout";
 
-    // If missing keys, we will soft-fail and redirect to a fallback or simulate
     if (!merchantId || !apiKey) {
       console.warn("Viva Wallet Keys are missing. Entering Sandbox / Simulation Mode.");
       return { 
@@ -153,8 +133,6 @@ export async function processOrder(payload: CheckoutPayload) {
 
     try {
       const authObj = Buffer.from(`${merchantId}:${apiKey}`).toString('base64');
-      
-      // Amount must be in cents/pence (e.g., 10.50 => 1050)
       const amountInPence = Math.round(finalTotal * 100);
 
       const response = await fetch(`${vivaApiUrl}/orders`, {
@@ -167,8 +145,8 @@ export async function processOrder(payload: CheckoutPayload) {
           amount: amountInPence,
           customerTrns: `Jacks eLiquid Order #${orderId.substring(0,8)}`,
           customer: {
-            email: payload.email,
-            fullName: `${payload.firstName} ${payload.lastName}`,
+            email: payload.billingAddress.email,
+            fullName: `${payload.billingAddress.first_name} ${payload.billingAddress.last_name}`,
             countryCode: "GB"
           },
           sourceCode: sourceCode || "Default",
