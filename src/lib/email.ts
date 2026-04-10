@@ -8,6 +8,19 @@ import React from 'react';
 
 const resend = new Resend(process.env.RESEND_API_KEY || '');
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://jacks-eliquids-storefront.vercel.app';
+
+// Ensure product image URLs are always absolute - Supabase Storage URLs start with https://
+// but some older records may have relative paths stored.
+function sanitizeItems(items: any[]): any[] {
+  return items.map(item => ({
+    ...item,
+    image_url: item.image_url && item.image_url.startsWith('http')
+      ? item.image_url
+      : undefined  // drop non-absolute URLs so the email shows the grey placeholder
+  }));
+}
+
 interface SendOrderEmailParams {
   emailTo: string;
   orderId?: string;
@@ -29,8 +42,6 @@ export async function sendOrderConfirmationEmail(params: SendOrderEmailParams) {
     return { success: false, error: "Missing API Key" };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquid.co.uk';
-
   try {
     const data = await resend.emails.send({
       from: 'Jacks E-Liquid <sales@jackseliquid.co.uk>',
@@ -44,10 +55,10 @@ export async function sendOrderConfirmationEmail(params: SendOrderEmailParams) {
         shipping: params.shipping,
         discount: params.discount,
         total: params.total,
-        items: params.items,
+        items: sanitizeItems(params.items),
         billingAddress: params.billingAddress,
         shippingAddress: params.shippingAddress,
-        siteUrl
+        siteUrl: SITE_URL
       })
     });
 
@@ -65,8 +76,6 @@ export async function sendOrderShippedEmail(params: SendOrderEmailParams) {
     return { success: false, error: "Missing API Key" };
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquid.co.uk';
-
   try {
     const data = await resend.emails.send({
       from: 'Jacks E-Liquid <sales@jackseliquid.co.uk>',
@@ -80,10 +89,10 @@ export async function sendOrderShippedEmail(params: SendOrderEmailParams) {
         shipping: params.shipping,
         discount: params.discount,
         total: params.total,
-        items: params.items,
+        items: sanitizeItems(params.items),
         billingAddress: params.billingAddress,
         shippingAddress: params.shippingAddress,
-        siteUrl
+        siteUrl: SITE_URL
       })
     });
 
@@ -97,7 +106,6 @@ export async function sendOrderShippedEmail(params: SendOrderEmailParams) {
 
 export async function sendAdminOrderAlert(params: SendOrderEmailParams, adminEmail: string = 'jackseliquid@gmail.com') {
   if (!process.env.RESEND_API_KEY) return { success: false, error: "Missing API Key" };
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquid.co.uk';
 
   try {
     const data = await resend.emails.send({
@@ -111,10 +119,10 @@ export async function sendAdminOrderAlert(params: SendOrderEmailParams, adminEma
         paymentMethod: params.paymentMethod,
         subtotal: params.subtotal,
         total: params.total,
-        items: params.items,
+        items: sanitizeItems(params.items),
         billingAddress: params.billingAddress,
         shippingAddress: params.shippingAddress,
-        siteUrl
+        siteUrl: SITE_URL
       })
     });
     return { success: true, data };

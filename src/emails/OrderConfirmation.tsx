@@ -72,7 +72,7 @@ export const OrderConfirmationEmail = ({
           {/* Header Section */}
           <Section style={headerBlock}>
             <Img
-              src={`${siteUrl}/logo.png`}
+              src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png"
               width="180"
               alt="Jacks eLiquid"
               style={logo}
@@ -99,7 +99,7 @@ export const OrderConfirmationEmail = ({
               <Text style={introSubText}>We are now processing your order.</Text>
             )}
 
-            <Button style={btn} href={`${siteUrl}/account`}>
+            <Button style={btn} href={`${siteUrl}/account/orders`}>
               VIEW YOUR ORDER
             </Button>
           </Section>

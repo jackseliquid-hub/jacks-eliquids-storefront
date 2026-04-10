@@ -72,7 +72,7 @@ export const OrderShippedEmail = ({
           {/* Header Section */}
           <Section style={headerBlock}>
             <Img
-              src={`${siteUrl}/logo.png`}
+              src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png"
               width="180"
               alt="Jacks eLiquid"
               style={logo}
@@ -85,7 +85,7 @@ export const OrderShippedEmail = ({
             <Text style={introText}>Hi {firstName}, great news.</Text>
             <Text style={introSubText}>Your order has been packaged and is now on its way to you!</Text>
 
-            <Button style={btn} href={`${siteUrl}/account`}>
+            <Button style={btn} href={`${siteUrl}/account/orders`}>
               VIEW YOUR ORDER
             </Button>
           </Section>

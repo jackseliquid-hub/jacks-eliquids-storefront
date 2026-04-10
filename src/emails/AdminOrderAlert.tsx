@@ -65,6 +65,12 @@ export const AdminOrderAlert = ({
           
           {/* Header */}
           <Section style={{ backgroundColor: isBacs ? '#b91c1c' : '#1f2937', padding: '20px', textAlign: 'center' }}>
+            <Img
+              src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png"
+              width="140"
+              alt="Jacks eLiquid"
+              style={{ margin: '0 auto 12px' }}
+            />
             <Text style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
               {isBacs ? '⚠️ NEW BACS ORDER - ACTION REQUIRED' : '✅ NEW ORDER RECEIVED'}
             </Text>
