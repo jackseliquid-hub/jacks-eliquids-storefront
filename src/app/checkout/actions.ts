@@ -97,7 +97,7 @@ export async function processOrder(payload: CheckoutPayload) {
       shipping_address: finalShippingAddress,
       notes: `Requested Payment Method: ${payload.paymentMethod}`
     })
-    .select('id')
+    .select('id, order_number')
     .single();
 
   if (orderError || !orderParams) {
@@ -106,6 +106,7 @@ export async function processOrder(payload: CheckoutPayload) {
   }
 
   const orderId = orderParams.id;
+  const orderNumberStr = orderParams.order_number ? orderParams.order_number.toString() : orderId.substring(0, 8).toUpperCase();
 
   const itemsToInsert = validOrderItems.map(i => ({
     ...i,
@@ -126,7 +127,7 @@ export async function processOrder(payload: CheckoutPayload) {
     // Dispatch BACS "On Hold" Confirmation Email
     await sendOrderConfirmationEmail({
       emailTo: payload.billingAddress.email,
-      orderNumber: orderId.substring(0, 8).toUpperCase(),
+      orderNumber: orderNumberStr,
       firstName: payload.billingAddress.first_name,
       paymentMethod: 'bacs',
       subtotal: subtotal,
@@ -138,10 +139,10 @@ export async function processOrder(payload: CheckoutPayload) {
       shippingAddress: finalShippingAddress
     });
 
-    // Dispatch BACS Alert to Admin (jackseliquid@gmail.com)
     await sendAdminOrderAlert({
       emailTo: 'jackseliquid@gmail.com', // Not used physically by Admin Alert but required by interface
-      orderNumber: orderId.substring(0, 8).toUpperCase(),
+      orderId: orderId,
+      orderNumber: orderNumberStr,
       firstName: payload.billingAddress.first_name,
       paymentMethod: 'bacs',
       subtotal: subtotal,
@@ -155,7 +156,7 @@ export async function processOrder(payload: CheckoutPayload) {
 
     return { 
       success: true, 
-      redirectUrl: `/checkout/success?order_id=${orderId}&method=bacs` 
+      redirectUrl: `/checkout/success?order_id=${orderId}&order_number=${orderNumberStr}&method=bacs` 
     };
   }
 
@@ -172,7 +173,7 @@ export async function processOrder(payload: CheckoutPayload) {
       // Sandbox Mode: Manually dispatch the "Processing" and Admin emails immediately
       await sendOrderConfirmationEmail({
         emailTo: payload.billingAddress.email,
-        orderNumber: orderId.substring(0, 8).toUpperCase(),
+        orderNumber: orderNumberStr,
         firstName: payload.billingAddress.first_name,
         paymentMethod: 'viva',
         subtotal: subtotal,
@@ -186,7 +187,8 @@ export async function processOrder(payload: CheckoutPayload) {
 
       await sendAdminOrderAlert({
         emailTo: 'jackseliquid@gmail.com',
-        orderNumber: orderId.substring(0, 8).toUpperCase(),
+        orderId: orderId,
+        orderNumber: orderNumberStr,
         firstName: payload.billingAddress.first_name,
         paymentMethod: 'viva',
         subtotal: subtotal,
@@ -200,7 +202,7 @@ export async function processOrder(payload: CheckoutPayload) {
 
       return { 
         success: true, 
-        redirectUrl: `/checkout/success?order_id=${orderId}&method=viva_simulation` 
+        redirectUrl: `/checkout/success?order_id=${orderId}&order_number=${orderNumberStr}&method=viva_simulation` 
       };
     }
 
@@ -216,7 +218,7 @@ export async function processOrder(payload: CheckoutPayload) {
         },
         body: JSON.stringify({
           amount: amountInPence,
-          customerTrns: `Jacks eLiquid Order #${orderId.substring(0,8)}`,
+          customerTrns: `Jacks eLiquid Order #${orderNumberStr}`,
           customer: {
             email: payload.billingAddress.email,
             fullName: `${payload.billingAddress.first_name} ${payload.billingAddress.last_name}`,

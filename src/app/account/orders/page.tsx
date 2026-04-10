@@ -76,9 +76,11 @@ export default async function OrdersHistoryPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map((order) => (
+                      {orders.map((order) => {
+                        const shortId = order.order_number ? order.order_number.toString() : order.id.split('-')[0].toUpperCase();
+                        return (
                         <tr key={order.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                          <td style={{ padding: '16px 8px', fontWeight: '500' }}>#{order.id.split('-')[0].toUpperCase()}</td>
+                          <td style={{ padding: '16px 8px', fontWeight: '500' }}>#{shortId}</td>
                           <td style={{ padding: '16px 8px', color: '#6b7280' }}>
                             {new Date(order.created_at).toLocaleDateString('en-GB')}
                           </td>
@@ -102,7 +104,8 @@ export default async function OrdersHistoryPage() {
                             </Link>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

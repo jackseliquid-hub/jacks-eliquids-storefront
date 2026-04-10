@@ -9,6 +9,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || '');
 
 interface SendOrderEmailParams {
   emailTo: string;
+  orderId?: string;
   orderNumber: string;
   firstName: string;
   paymentMethod: string;
@@ -67,6 +68,7 @@ export async function sendAdminOrderAlert(params: SendOrderEmailParams, adminEma
       to: [adminEmail],
       subject: `[Admin Alert] ${params.paymentMethod === 'bacs' ? '⚠️ BACS' : '✅'} Order #${params.orderNumber}`,
       react: React.createElement(AdminOrderAlert, {
+        orderId: params.orderId || params.orderNumber,
         orderNumber: params.orderNumber,
         customerName: `${params.firstName} ${params.billingAddress?.last_name || ''}`,
         paymentMethod: params.paymentMethod,

@@ -39,13 +39,13 @@ export async function GET(request: Request) {
       break;
     case 'admin_alert_viva':
       html = await render(React.createElement(AdminOrderAlert, {
-        orderNumber: 'TEST-123', customerName: 'John Doe', paymentMethod: 'viva', subtotal: 15.00, total: 18.99,
+        orderId: 'TEST-UUID-1234', orderNumber: 'TEST-123', customerName: 'John Doe', paymentMethod: 'viva', subtotal: 15.00, total: 18.99,
         items: dummyItems, billingAddress: dummyAddress, shippingAddress: dummyAddress, siteUrl
       }));
       break;
     case 'admin_alert_bacs':
       html = await render(React.createElement(AdminOrderAlert, {
-        orderNumber: 'TEST-123', customerName: 'John Doe', paymentMethod: 'bacs', subtotal: 15.00, total: 18.99,
+        orderId: 'TEST-UUID-1234', orderNumber: 'TEST-123', customerName: 'John Doe', paymentMethod: 'bacs', subtotal: 15.00, total: 18.99,
         items: dummyItems, billingAddress: dummyAddress, shippingAddress: dummyAddress, siteUrl
       }));
       break;

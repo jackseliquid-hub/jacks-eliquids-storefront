@@ -105,7 +105,9 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <Link href="/account/orders" style={{ color: '#0d9488', marginRight: '1rem', textDecoration: 'none' }}>&larr; Back</Link>
-              <h1 className={styles.pageTitle} style={{ margin: 0 }}>Order #{order.id.split('-')[0].toUpperCase()}</h1>
+              <h1 className={styles.pageTitle} style={{ margin: 0 }}>
+                Order #{order.order_number ? order.order_number.toString() : order.id.split('-')[0].toUpperCase()}
+              </h1>
             </div>
             {items && <OrderAgainButton items={items} />}
           </div>

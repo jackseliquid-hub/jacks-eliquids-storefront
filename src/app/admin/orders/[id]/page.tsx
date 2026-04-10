@@ -26,7 +26,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
     .eq('order_id', id);
 
   const items = orderItems || [];
-  const shortId = order.id.substring(0, 8).toUpperCase();
+  const shortId = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
   const date = new Date(order.created_at);
 
   return (

@@ -14,6 +14,7 @@ export default function CheckoutSuccessPage({
   const params = use(searchParams);
   
   const orderId = typeof params.order_id === 'string' ? params.order_id : null;
+  const orderNumberParam = typeof params.order_number === 'string' ? params.order_number : null;
   const method = typeof params.method === 'string' ? params.method : null;
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function CheckoutSuccessPage({
 
   if (!orderId) return null;
 
-  const shortOrderId = orderId.substring(0, 8).toUpperCase();
+  const shortOrderId = orderNumberParam ? orderNumberParam : orderId.substring(0, 8).toUpperCase();
 
   return (
     <div className={styles.checkoutContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>

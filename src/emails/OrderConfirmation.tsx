@@ -92,7 +92,7 @@ export const OrderConfirmationEmail = ({
                   <strong>Bank:</strong> Barclays<br/>
                   <strong>Sort Code:</strong> 20-00-00<br/>
                   <strong>Account:</strong> 12345678<br/>
-                  <strong>Reference:</strong> {orderNumber.substring(0,8)}
+                  <strong>Reference:</strong> #{orderNumber}
                 </Text>
               </div>
             ) : (

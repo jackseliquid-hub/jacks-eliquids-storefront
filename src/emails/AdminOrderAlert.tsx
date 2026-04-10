@@ -30,6 +30,7 @@ interface AddressData {
 }
 
 interface AdminOrderAlertProps {
+  orderId: string;
   orderNumber: string;
   customerName: string;
   paymentMethod: 'bacs' | 'viva' | string;
@@ -42,6 +43,7 @@ interface AdminOrderAlertProps {
 }
 
 export const AdminOrderAlert = ({
+  orderId = "uuid",
   orderNumber = "000000",
   customerName = "Customer",
   paymentMethod = "bacs",
@@ -123,7 +125,7 @@ export const AdminOrderAlert = ({
 
             <Button 
               style={{ backgroundColor: '#1f2937', color: '#fff', padding: '12px 24px', textDecoration: 'none', borderRadius: '4px', display: 'inline-block', marginTop: '30px' }}
-              href={`${siteUrl}/admin/orders/${orderNumber.toLowerCase()}`}
+              href={`${siteUrl}/admin/orders/${orderId}`}
             >
               Open in Kitchen
             </Button>
