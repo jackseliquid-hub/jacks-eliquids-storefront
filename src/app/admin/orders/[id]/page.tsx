@@ -118,25 +118,45 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
 
           <div className={styles.dashboardCard} style={{ padding: '1.5rem', background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
             <h2 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#111' }}>Customer</h2>
-            {order.shipping_address ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem', color: '#374151' }}>
-                <p style={{ margin: 0, fontWeight: 600, color: '#111' }}>
-                  {order.shipping_address.first_name} {order.shipping_address.last_name}
-                </p>
-                <a href={`mailto:${order.shipping_address.email}`} style={{ color: '#0d9488', textDecoration: 'none' }}>
-                  {order.shipping_address.email}
-                </a>
-                
-                <h3 style={{ fontSize: '1rem', marginTop: '1rem', marginBottom: '0.25rem', color: '#111' }}>Shipping Address</h3>
-                <p style={{ margin: 0, lineHeight: 1.5 }}>
-                  {order.shipping_address.address}<br />
-                  {order.shipping_address.city}<br />
-                  {order.shipping_address.postcode}
-                </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.9rem', color: '#374151' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#111', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.25rem' }}>Shipping Details</h3>
+                {order.shipping_address ? (
+                  <div style={{ lineHeight: 1.5 }}>
+                    <strong style={{ display: 'block', color: '#111' }}>{order.shipping_address.first_name} {order.shipping_address.last_name}</strong>
+                    {order.shipping_address.address}<br />
+                    {order.shipping_address.city}<br />
+                    {order.shipping_address.county && <>{order.shipping_address.county}<br /></>}
+                    {order.shipping_address.postcode}<br />
+                    {order.shipping_address.country}<br />
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <a href={`mailto:${order.shipping_address.email}`} style={{ color: '#0d9488', textDecoration: 'none', display: 'block' }}>{order.shipping_address.email}</a>
+                      {order.shipping_address.phone && <span>{order.shipping_address.phone}</span>}
+                    </div>
+                  </div>
+                ) : <p>No shipping mapping found.</p>}
               </div>
-            ) : (
-              <p>No address mapped.</p>
-            )}
+
+              <div>
+                <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#111', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.25rem' }}>Billing Details</h3>
+                {order.billing_address ? (
+                  <div style={{ lineHeight: 1.5 }}>
+                    <strong style={{ display: 'block', color: '#111' }}>{order.billing_address.first_name} {order.billing_address.last_name}</strong>
+                    {order.billing_address.address}<br />
+                    {order.billing_address.city}<br />
+                    {order.billing_address.county && <>{order.billing_address.county}<br /></>}
+                    {order.billing_address.postcode}<br />
+                    {order.billing_address.country}<br />
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <a href={`mailto:${order.billing_address.email}`} style={{ color: '#0d9488', textDecoration: 'none', display: 'block' }}>{order.billing_address.email}</a>
+                      {order.billing_address.phone && <span>{order.billing_address.phone}</span>}
+                    </div>
+                  </div>
+                ) : <p>No billing mapping found.</p>}
+              </div>
+            </div>
+
           </div>
 
         </div>

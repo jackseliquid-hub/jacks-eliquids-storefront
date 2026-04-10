@@ -65,6 +65,17 @@ export async function processOrder(payload: CheckoutPayload) {
   let customerId = null;
   if (user) {
     customerId = user.id;
+
+    // Automatically update the user's saved account profile with their latest checkout addresses
+    const adminSupabase = await import('@/utils/supabase/admin').then(m => m.createAdminClient());
+    await adminSupabase.from('customers').upsert({
+      id: user.id,
+      email: payload.billingAddress.email || user.email,
+      billing_address: payload.billingAddress,
+      shipping_address: payload.shipToDifferent ? payload.shippingAddress : payload.billingAddress,
+      first_name: payload.billingAddress.first_name,
+      last_name: payload.billingAddress.last_name
+    }, { onConflict: 'id' });
   }
 
   // The final address we ship to
