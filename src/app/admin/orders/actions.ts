@@ -4,6 +4,29 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { sendOrderConfirmationEmail, sendOrderShippedEmail } from '@/lib/email';
 
+// Shared helper: fetches order items and enriches them with product images
+async function getItemsWithImages(supabase: any, orderId: string) {
+  const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+  const rawItems = items || [];
+  if (rawItems.length === 0) return [];
+
+  const productIds = Array.from(new Set(rawItems.map((i: any) => i.product_id)));
+  const { data: products } = await supabase
+    .from('products')
+    .select('id, image')
+    .in('id', productIds);
+
+  const imgMap = (products || []).reduce((acc: any, p: any) => {
+    if (p.image) acc[p.id] = p.image;
+    return acc;
+  }, {});
+
+  return rawItems.map((item: any) => ({
+    ...item,
+    image_url: imgMap[item.product_id] || undefined
+  }));
+}
+
 export async function updateOrderStatus(orderId: string, newStatus: string) {
   const supabase = createAdminClient();
 
@@ -17,46 +40,32 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
     return { error: 'Failed to update order status.' };
   }
 
-  // If status moved to processing, dispatch the processing confirmation email!
-  if (newStatus === 'processing') {
+  if (newStatus === 'processing' || newStatus === 'shipped') {
     const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
-    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
 
     if (order && order.billing_address) {
       const orderNumberStr = order.order_number ? order.order_number.toString() : orderId.substring(0, 8).toUpperCase();
-      await sendOrderConfirmationEmail({
+      const itemsWithImages = await getItemsWithImages(supabase, orderId);
+
+      const emailParams = {
         emailTo: order.billing_address.email,
         orderNumber: orderNumberStr,
         firstName: order.billing_address.first_name,
-        paymentMethod: 'viva', // This triggers the processing text instead of BACS on-hold text
+        paymentMethod: 'viva',
         subtotal: order.subtotal,
         shipping: order.shipping_cost,
         discount: order.discount_total,
         total: order.total,
-        items: items || [],
+        items: itemsWithImages,
         billingAddress: order.billing_address,
         shippingAddress: order.shipping_address
-      });
-    }
-  } else if (newStatus === 'shipped') {
-    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
-    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+      };
 
-    if (order && order.billing_address) {
-      const orderNumberStr = order.order_number ? order.order_number.toString() : orderId.substring(0, 8).toUpperCase();
-      await sendOrderShippedEmail({
-        emailTo: order.billing_address.email,
-        orderNumber: orderNumberStr,
-        firstName: order.billing_address.first_name,
-        paymentMethod: 'viva', 
-        subtotal: order.subtotal,
-        shipping: order.shipping_cost,
-        discount: order.discount_total,
-        total: order.total,
-        items: items || [],
-        billingAddress: order.billing_address,
-        shippingAddress: order.shipping_address
-      });
+      if (newStatus === 'processing') {
+        await sendOrderConfirmationEmail(emailParams);
+      } else {
+        await sendOrderShippedEmail(emailParams);
+      }
     }
   }
 
@@ -79,50 +88,33 @@ export async function bulkUpdateOrderStatuses(orderIds: string[], newStatus: str
     return { error: 'Failed to bulk update order status.' };
   }
 
-  // If moved to processing, we should ideally fire off emails for ALL of them.
-  if (newStatus === 'processing') {
+  if (newStatus === 'processing' || newStatus === 'shipped') {
     const { data: orders } = await supabase.from('orders').select('*').in('id', orderIds);
     if (orders) {
       for (const order of orders) {
         if (order.billing_address) {
-          const { data: items } = await supabase.from('order_items').select('*').eq('order_id', order.id);
           const orderNumberStr = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
-          await sendOrderConfirmationEmail({
+          const itemsWithImages = await getItemsWithImages(supabase, order.id);
+
+          const emailParams = {
             emailTo: order.billing_address.email,
             orderNumber: orderNumberStr,
             firstName: order.billing_address.first_name,
-            paymentMethod: 'viva', 
+            paymentMethod: 'viva',
             subtotal: order.subtotal,
             shipping: order.shipping_cost,
             discount: order.discount_total,
             total: order.total,
-            items: items || [],
+            items: itemsWithImages,
             billingAddress: order.billing_address,
             shippingAddress: order.shipping_address
-          });
-        }
-      }
-    }
-  } else if (newStatus === 'shipped') {
-    const { data: orders } = await supabase.from('orders').select('*').in('id', orderIds);
-    if (orders) {
-      for (const order of orders) {
-        if (order.billing_address) {
-          const { data: items } = await supabase.from('order_items').select('*').eq('order_id', order.id);
-          const orderNumberStr = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
-          await sendOrderShippedEmail({
-            emailTo: order.billing_address.email,
-            orderNumber: orderNumberStr,
-            firstName: order.billing_address.first_name,
-            paymentMethod: 'viva', 
-            subtotal: order.subtotal,
-            shipping: order.shipping_cost,
-            discount: order.discount_total,
-            total: order.total,
-            items: items || [],
-            billingAddress: order.billing_address,
-            shippingAddress: order.shipping_address
-          });
+          };
+
+          if (newStatus === 'processing') {
+            await sendOrderConfirmationEmail(emailParams);
+          } else {
+            await sendOrderShippedEmail(emailParams);
+          }
         }
       }
     }
