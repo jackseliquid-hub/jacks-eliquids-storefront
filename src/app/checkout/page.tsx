@@ -85,11 +85,13 @@ export default function CheckoutPage() {
 
     const formData = new FormData(e.currentTarget);
     
+    const shipDifferentDOM = formData.get('ship_to_different_checkbox') === 'on';
+    
     const payload = {
       paymentMethod,
       cartItems,
       shippingConfig: shippingConfig!,
-      shipToDifferent: shipDifferent,
+      shipToDifferent: shipDifferentDOM,
       
       billingAddress: {
         first_name: formData.get('b_first_name') as string,
@@ -102,7 +104,7 @@ export default function CheckoutPage() {
         phone: formData.get('b_phone') as string,
         email: formData.get('b_email') as string,
       },
-      shippingAddress: shipDifferent ? {
+      shippingAddress: shipDifferentDOM ? {
         first_name: formData.get('s_first_name') as string,
         last_name: formData.get('s_last_name') as string,
         country: formData.get('s_country') as string,
