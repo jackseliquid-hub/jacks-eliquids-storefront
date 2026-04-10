@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { CartItem } from '@/context/CartContext';
 import { ShippingConfig, calculateShippingQuote } from '@/lib/shipping';
 import { calculateBestPrice, getDiscountRules } from '@/lib/discounts';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import { sendOrderConfirmationEmail, sendAdminOrderAlert } from '@/lib/email';
 
 interface CheckoutPayload {
   paymentMethod: 'viva' | 'bacs';
@@ -138,6 +138,21 @@ export async function processOrder(payload: CheckoutPayload) {
       shippingAddress: finalShippingAddress
     });
 
+    // Dispatch BACS Alert to Admin (jackseliquid@gmail.com)
+    await sendAdminOrderAlert({
+      emailTo: 'jackseliquid@gmail.com', // Not used physically by Admin Alert but required by interface
+      orderNumber: orderId.substring(0, 8).toUpperCase(),
+      firstName: payload.billingAddress.first_name,
+      paymentMethod: 'bacs',
+      subtotal: subtotal,
+      shipping: shippingQuote.shippingCost,
+      discount: discountTotal,
+      total: finalTotal,
+      items: validOrderItems,
+      billingAddress: payload.billingAddress,
+      shippingAddress: finalShippingAddress
+    });
+
     return { 
       success: true, 
       redirectUrl: `/checkout/success?order_id=${orderId}&method=bacs` 
@@ -153,6 +168,36 @@ export async function processOrder(payload: CheckoutPayload) {
 
     if (!merchantId || !apiKey) {
       console.warn("Viva Wallet Keys are missing. Entering Sandbox / Simulation Mode.");
+      
+      // Sandbox Mode: Manually dispatch the "Processing" and Admin emails immediately
+      await sendOrderConfirmationEmail({
+        emailTo: payload.billingAddress.email,
+        orderNumber: orderId.substring(0, 8).toUpperCase(),
+        firstName: payload.billingAddress.first_name,
+        paymentMethod: 'viva',
+        subtotal: subtotal,
+        shipping: shippingQuote.shippingCost,
+        discount: discountTotal,
+        total: finalTotal,
+        items: validOrderItems,
+        billingAddress: payload.billingAddress,
+        shippingAddress: finalShippingAddress
+      });
+
+      await sendAdminOrderAlert({
+        emailTo: 'jackseliquid@gmail.com',
+        orderNumber: orderId.substring(0, 8).toUpperCase(),
+        firstName: payload.billingAddress.first_name,
+        paymentMethod: 'viva',
+        subtotal: subtotal,
+        shipping: shippingQuote.shippingCost,
+        discount: discountTotal,
+        total: finalTotal,
+        items: validOrderItems,
+        billingAddress: payload.billingAddress,
+        shippingAddress: finalShippingAddress
+      });
+
       return { 
         success: true, 
         redirectUrl: `/checkout/success?order_id=${orderId}&method=viva_simulation` 
