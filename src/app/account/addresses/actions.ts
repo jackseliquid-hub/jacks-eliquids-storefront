@@ -17,8 +17,15 @@ export async function saveAddress(formData: FormData) {
 
   const { error } = await supabase
     .from('customers')
-    .update({ address, city, postcode })
-    .eq('id', user.id);
+    .upsert({ 
+      id: user.id,
+      email: user.email,
+      first_name: user.user_metadata?.first_name || '',
+      last_name: user.user_metadata?.last_name || '',
+      address, 
+      city, 
+      postcode 
+    }, { onConflict: 'id' });
 
   if (error) {
     console.error('Save Address Error:', error);
