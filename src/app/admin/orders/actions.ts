@@ -2,7 +2,7 @@
 
 import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
-import { sendOrderConfirmationEmail } from '@/lib/email';
+import { sendOrderConfirmationEmail, sendOrderShippedEmail } from '@/lib/email';
 
 export async function updateOrderStatus(orderId: string, newStatus: string) {
   const supabase = createAdminClient();
@@ -29,6 +29,26 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
         orderNumber: orderNumberStr,
         firstName: order.billing_address.first_name,
         paymentMethod: 'viva', // This triggers the processing text instead of BACS on-hold text
+        subtotal: order.subtotal,
+        shipping: order.shipping_cost,
+        discount: order.discount_total,
+        total: order.total,
+        items: items || [],
+        billingAddress: order.billing_address,
+        shippingAddress: order.shipping_address
+      });
+    }
+  } else if (newStatus === 'shipped') {
+    const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+
+    if (order && order.billing_address) {
+      const orderNumberStr = order.order_number ? order.order_number.toString() : orderId.substring(0, 8).toUpperCase();
+      await sendOrderShippedEmail({
+        emailTo: order.billing_address.email,
+        orderNumber: orderNumberStr,
+        firstName: order.billing_address.first_name,
+        paymentMethod: 'viva', 
         subtotal: order.subtotal,
         shipping: order.shipping_cost,
         discount: order.discount_total,
@@ -68,6 +88,29 @@ export async function bulkUpdateOrderStatuses(orderIds: string[], newStatus: str
           const { data: items } = await supabase.from('order_items').select('*').eq('order_id', order.id);
           const orderNumberStr = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
           await sendOrderConfirmationEmail({
+            emailTo: order.billing_address.email,
+            orderNumber: orderNumberStr,
+            firstName: order.billing_address.first_name,
+            paymentMethod: 'viva', 
+            subtotal: order.subtotal,
+            shipping: order.shipping_cost,
+            discount: order.discount_total,
+            total: order.total,
+            items: items || [],
+            billingAddress: order.billing_address,
+            shippingAddress: order.shipping_address
+          });
+        }
+      }
+    }
+  } else if (newStatus === 'shipped') {
+    const { data: orders } = await supabase.from('orders').select('*').in('id', orderIds);
+    if (orders) {
+      for (const order of orders) {
+        if (order.billing_address) {
+          const { data: items } = await supabase.from('order_items').select('*').eq('order_id', order.id);
+          const orderNumberStr = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
+          await sendOrderShippedEmail({
             emailTo: order.billing_address.email,
             orderNumber: orderNumberStr,
             firstName: order.billing_address.first_name,
