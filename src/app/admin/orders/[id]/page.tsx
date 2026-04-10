@@ -25,7 +25,20 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
     .select('*')
     .eq('order_id', id);
 
-  const items = orderItems || [];
+  const rawItems = orderItems || [];
+  
+  // Fetch product images
+  let items: any[] = rawItems;
+  if (rawItems.length > 0) {
+    const productIds = Array.from(new Set(rawItems.map((i: any) => i.product_id)));
+    const { data: productData } = await supabase
+      .from('products')
+      .select('id, image')
+      .in('id', productIds);
+    const imgMap = (productData || []).reduce((acc: any, p: any) => { acc[p.id] = p.image; return acc; }, {});
+    items = rawItems.map((item: any) => ({ ...item, image_url: imgMap[item.product_id] || null }));
+  }
+
   const shortId = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
   const date = new Date(order.created_at);
 
@@ -60,12 +73,20 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                 </tr>
               </thead>
               <tbody>
-                {items.map(item => (
+                {items.map((item: any) => (
                   <tr key={item.id} style={{ borderBottom: '1px solid #f9fafb' }}>
                     <td style={{ paddingLeft: 0 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontWeight: 600 }}>{item.product_name}</span>
-                        {item.variant_name && <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.variant_name}</span>}
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        {item.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={item.image_url} alt={item.product_name} style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: '48px', height: '48px', background: '#f3f4f6', borderRadius: '6px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>📦</div>
+                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600 }}>{item.product_name}</span>
+                          {item.variant_name && <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>{item.variant_name}</span>}
+                        </div>
                       </div>
                     </td>
                     <td style={{ textAlign: 'center' }}>

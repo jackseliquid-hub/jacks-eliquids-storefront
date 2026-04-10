@@ -122,6 +122,21 @@ export async function processOrder(payload: CheckoutPayload) {
     return { error: 'Failed to record cart items to database.' };
   }
 
+  // Fetch product images to include in emails
+  const productIds = Array.from(new Set(validOrderItems.map(i => i.product_id)));
+  const { data: productImageData } = await supabase
+    .from('products')
+    .select('id, image')
+    .in('id', productIds);
+  const productImageMap: Record<string, string> = (productImageData || []).reduce((acc: any, p: any) => {
+    if (p.image) acc[p.id] = p.image;
+    return acc;
+  }, {});
+  const itemsWithImages = validOrderItems.map(i => ({
+    ...i,
+    image_url: productImageMap[i.product_id] || undefined
+  }));
+
   if (payload.paymentMethod === 'bacs') {
     
     // Dispatch BACS "On Hold" Confirmation Email
@@ -134,7 +149,7 @@ export async function processOrder(payload: CheckoutPayload) {
       shipping: shippingQuote.shippingCost,
       discount: discountTotal,
       total: finalTotal,
-      items: validOrderItems,
+      items: itemsWithImages,
       billingAddress: payload.billingAddress,
       shippingAddress: finalShippingAddress
     });
@@ -149,7 +164,7 @@ export async function processOrder(payload: CheckoutPayload) {
       shipping: shippingQuote.shippingCost,
       discount: discountTotal,
       total: finalTotal,
-      items: validOrderItems,
+      items: itemsWithImages,
       billingAddress: payload.billingAddress,
       shippingAddress: finalShippingAddress
     });
@@ -180,7 +195,7 @@ export async function processOrder(payload: CheckoutPayload) {
         shipping: shippingQuote.shippingCost,
         discount: discountTotal,
         total: finalTotal,
-        items: validOrderItems,
+        items: itemsWithImages,
         billingAddress: payload.billingAddress,
         shippingAddress: finalShippingAddress
       });
@@ -195,7 +210,7 @@ export async function processOrder(payload: CheckoutPayload) {
         shipping: shippingQuote.shippingCost,
         discount: discountTotal,
         total: finalTotal,
-        items: validOrderItems,
+        items: itemsWithImages,
         billingAddress: payload.billingAddress,
         shippingAddress: finalShippingAddress
       });

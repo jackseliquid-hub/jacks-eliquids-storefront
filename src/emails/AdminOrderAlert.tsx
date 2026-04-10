@@ -64,7 +64,7 @@ export const AdminOrderAlert = ({
         <Container style={{ margin: '0 auto', width: '600px', backgroundColor: '#ffffff' }}>
           
           {/* Header */}
-          <Section style={{ backgroundColor: isBacs ? '#b91c1c' : '#1f2937', padding: '20px', textAlign: 'center' }}>
+          <Section style={{ backgroundColor: isBacs ? '#b91c1c' : '#0f766e', padding: '20px', textAlign: 'center' }}>
             <Img
               src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png"
               width="140"

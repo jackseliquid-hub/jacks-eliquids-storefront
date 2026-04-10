@@ -61,20 +61,20 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
   // Fetch product images for Order Again Cart injection
   let items = rawItems || [];
   if (items.length > 0) {
-    const productIds = Array.from(new Set(items.map(i => i.product_id)));
+    const productIds = Array.from(new Set(items.map((i: any) => i.product_id)));
     const { data: products } = await supabase
       .from('products')
-      .select('id, images')
+      .select('id, image')
       .in('id', productIds);
       
     const productMap = (products || []).reduce((acc: any, p: any) => {
-      acc[p.id] = p.images && p.images.length > 0 ? p.images[0] : '/placeholder.png';
+      acc[p.id] = p.image || null;
       return acc;
     }, {});
     
-    items = items.map(item => ({
+    items = items.map((item: any) => ({
       ...item,
-      image_url: productMap[item.product_id] || '/placeholder.png'
+      image_url: productMap[item.product_id] || null
     }));
   }
 
