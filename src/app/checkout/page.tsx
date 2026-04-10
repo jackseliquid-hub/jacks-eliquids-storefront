@@ -10,6 +10,13 @@ import { getShippingConfig, calculateShippingQuote, ShippingConfig } from '@/lib
 import { processOrder } from './actions';
 import styles from './checkout.module.css';
 
+const InputGroup = ({ label, name, defaultValue, type = 'text', required = false }: any) => (
+  <div className={styles.inputGroup} style={{ marginBottom: '1rem' }}>
+    <label>{label} {required && '*'}</label>
+    <input name={name} type={type} defaultValue={defaultValue} required={required} />
+  </div>
+);
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { cartItems, cartSubtotal, getCalculatedItemPrice, isMounted } = useCart();
@@ -131,13 +138,6 @@ export default function CheckoutPage() {
       setSubmitting(false);
     }
   }
-
-  const InputGroup = ({ label, name, defaultValue, type = 'text', required = false }: any) => (
-    <div className={styles.inputGroup} style={{ marginBottom: '1rem' }}>
-      <label>{label} {required && '*'}</label>
-      <input name={name} type={type} defaultValue={defaultValue} required={required} />
-    </div>
-  );
 
   return (
     <div className={styles.checkoutContainer}>

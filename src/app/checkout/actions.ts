@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { CartItem } from '@/context/CartContext';
 import { ShippingConfig, calculateShippingQuote } from '@/lib/shipping';
 import { calculateBestPrice, getDiscountRules } from '@/lib/discounts';
+import { sendOrderConfirmationEmail } from '@/lib/email';
 
 interface CheckoutPayload {
   paymentMethod: 'viva' | 'bacs';
@@ -94,7 +95,7 @@ export async function processOrder(payload: CheckoutPayload) {
       total: finalTotal,
       billing_address: payload.billingAddress,
       shipping_address: finalShippingAddress,
-      notes: `Requested Payment Method: ${payload.paymentMethod}`
+      notes: `Requested Payment Method: ${payload.paymentMethod}\nDEBUG PAYLOAD:\n${JSON.stringify({shipToDifferent: payload.shipToDifferent, b_name: payload.billingAddress.first_name, s_name: payload.shippingAddress?.first_name}, null, 2)}`
     })
     .select('id')
     .single();
@@ -121,6 +122,22 @@ export async function processOrder(payload: CheckoutPayload) {
   }
 
   if (payload.paymentMethod === 'bacs') {
+    
+    // Dispatch BACS "On Hold" Confirmation Email
+    await sendOrderConfirmationEmail({
+      emailTo: payload.billingAddress.email,
+      orderNumber: orderId.substring(0, 8).toUpperCase(),
+      firstName: payload.billingAddress.first_name,
+      paymentMethod: 'bacs',
+      subtotal: subtotal,
+      shipping: shippingQuote.shippingCost,
+      discount: discountTotal,
+      total: finalTotal,
+      items: validOrderItems,
+      billingAddress: payload.billingAddress,
+      shippingAddress: finalShippingAddress
+    });
+
     return { 
       success: true, 
       redirectUrl: `/checkout/success?order_id=${orderId}&method=bacs` 
