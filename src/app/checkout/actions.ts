@@ -95,7 +95,7 @@ export async function processOrder(payload: CheckoutPayload) {
       total: finalTotal,
       billing_address: payload.billingAddress,
       shipping_address: finalShippingAddress,
-      notes: `Requested Payment Method: ${payload.paymentMethod}\nDEBUG PAYLOAD:\n${JSON.stringify({shipToDifferent: payload.shipToDifferent, b_name: payload.billingAddress.first_name, s_name: payload.shippingAddress?.first_name}, null, 2)}`
+      notes: `Requested Payment Method: ${payload.paymentMethod}`
     })
     .select('id')
     .single();

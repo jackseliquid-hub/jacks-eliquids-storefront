@@ -7,6 +7,7 @@ import styles from './admin.module.css';
 // I added the "Add Product" link to this list right below "Products"
 const navItems = [
   { href: '/admin/orders', label: 'Orders', icon: '🛒' },
+  { href: '/admin/emails', label: 'Emails', icon: '✉️' },
   { href: '/admin', label: 'Products', icon: '📦' },
   { href: '/admin/product/new', label: 'Add Product', icon: '➕' },
   { href: '/admin/blogs', label: 'Blogs', icon: '📝' },

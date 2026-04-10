@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { signout } from '@/app/login/actions';
 import styles from './account.module.css';
+import Link from 'next/link';
 
 export default async function AccountPage() {
   const supabase = await createClient();
@@ -49,13 +50,13 @@ export default async function AccountPage() {
               <h3>Profile Info</h3>
               <p><strong>Name:</strong> {profile?.first_name} {profile?.last_name}</p>
               <p><strong>Email:</strong> {profile?.email}</p>
-              <button className={styles.actionBtn}>Edit Profile</button>
+              <Link href="/account/addresses" className={styles.actionBtn} style={{display: 'inline-block', textDecoration: 'none'}}>Edit Profile</Link>
             </div>
             
             <div className={styles.card}>
               <h3>Recent Orders</h3>
               <p className={styles.emptyText}>You haven't placed any orders yet.</p>
-              <button className={styles.actionBtn}>Start Shopping</button>
+              <Link href="/products" className={styles.actionBtn} style={{display: 'inline-block', textDecoration: 'none'}}>Start Shopping</Link>
             </div>
           </div>
         </main>
