@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export async function saveAddress(formData: FormData) {
@@ -37,7 +38,9 @@ export async function saveAddress(formData: FormData) {
     email: formData.get('s_email') as string,
   } : billingAddress;
 
-  const { error } = await supabase
+  const adminSupabase = createAdminClient();
+
+  const { error } = await adminSupabase
     .from('customers')
     .upsert({ 
       id: user.id,
@@ -50,7 +53,7 @@ export async function saveAddress(formData: FormData) {
 
   if (error) {
     console.error('Save Address Error:', error);
-    return { error: 'Failed to update address profile.' };
+    return { error: `Failed: ${error.message}` };
   }
 
   revalidatePath('/account/addresses');
