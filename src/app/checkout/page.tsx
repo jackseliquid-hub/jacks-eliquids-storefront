@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/client';
 import { getShippingConfig, calculateShippingQuote, ShippingConfig } from '@/lib/shipping';
 import { processOrder } from './actions';
 import styles from './checkout.module.css';
@@ -34,6 +34,8 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     async function loadData() {
+      const supabase = createClient();
+
       // 1. Fetch user to auto-fill address if possible
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -153,15 +155,15 @@ export default function CheckoutPage() {
               </div>
               <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
                 <label>Address</label>
-                <input name="address" type="text" placeholder="House number and street name" required />
+                <input name="address" type="text" defaultValue={profile?.address || ''} placeholder="House number and street name" required />
               </div>
               <div className={styles.inputGroup}>
                 <label>City</label>
-                <input name="city" type="text" required />
+                <input name="city" type="text" defaultValue={profile?.city || ''} required />
               </div>
               <div className={styles.inputGroup}>
                 <label>Postcode</label>
-                <input name="postcode" type="text" required />
+                <input name="postcode" type="text" defaultValue={profile?.postcode || ''} required />
               </div>
             </div>
 
