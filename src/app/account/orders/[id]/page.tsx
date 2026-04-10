@@ -53,10 +53,30 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
   }
 
   // Fetch Items
-  const { data: items } = await supabase
+  const { data: rawItems } = await supabase
     .from('order_items')
     .select('*')
     .eq('order_id', order.id);
+
+  // Fetch product images for Order Again Cart injection
+  let items = rawItems || [];
+  if (items.length > 0) {
+    const productIds = Array.from(new Set(items.map(i => i.product_id)));
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, images')
+      .in('id', productIds);
+      
+    const productMap = (products || []).reduce((acc: any, p: any) => {
+      acc[p.id] = p.images && p.images.length > 0 ? p.images[0] : '/placeholder.png';
+      return acc;
+    }, {});
+    
+    items = items.map(item => ({
+      ...item,
+      image_url: productMap[item.product_id] || '/placeholder.png'
+    }));
+  }
 
   return (
     <div className={styles.dashboardContainer}>
@@ -129,7 +149,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                           <p style={{ margin: 0, fontWeight: 500 }}>{item.product_name}</p>
                           {item.variant_name && <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>{item.variant_name}</p>}
                         </td>
-                        <td style={{ padding: '12px 16px' }}>£{Number(item.price_at_time).toFixed(2)}</td>
+                        <td style={{ padding: '12px 16px' }}>£{Number(item.discounted_price || item.unit_price).toFixed(2)}</td>
                         <td style={{ padding: '12px 16px' }}>{item.quantity}</td>
                         <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 500 }}>£{Number(item.line_total).toFixed(2)}</td>
                       </tr>

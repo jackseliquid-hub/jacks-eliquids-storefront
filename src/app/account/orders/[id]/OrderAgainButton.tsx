@@ -15,8 +15,8 @@ export default function OrderAgainButton({ items }: { items: any[] }) {
         productId: item.product_id,
         slug: item.product_id,
         name: item.product_name,
-        price: `£${item.price_at_time}`,
-        image: '/placeholder.png',
+        price: `£${Number(item.discounted_price || item.unit_price).toFixed(2)}`,
+        image: item.image_url || '/placeholder.png',
         variantName: item.variant_name
       }, item.quantity);
     });
