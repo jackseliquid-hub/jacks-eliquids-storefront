@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { getShippingConfig, calculateShippingQuote, ShippingConfig } from '@/lib/shipping';
+import { processOrder } from './actions';
 import styles from './checkout.module.css';
 
 export default function CheckoutPage() {
@@ -14,7 +15,12 @@ export default function CheckoutPage() {
   const { cartItems, cartSubtotal, getCalculatedItemPrice, isMounted } = useCart();
   
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  
+  // Payment Method
+  const [paymentMethod, setPaymentMethod] = useState<'viva' | 'bacs'>('viva');
   
   // Shipping Engine State
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig | null>(null);
@@ -67,6 +73,43 @@ export default function CheckoutPage() {
   const subtotalNum = parseFloat(cartSubtotal.replace(/[^0-9.]/g, ''));
   const finalTotal = subtotalNum + shippingQuote.shippingCost;
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (submitting) return;
+
+    setSubmitError(null);
+    setSubmitting(true);
+
+    const formData = new FormData(e.currentTarget);
+    
+    const payload = {
+      email: formData.get('email') as string,
+      firstName: formData.get('firstName') as string,
+      lastName: formData.get('lastName') as string,
+      address: formData.get('address') as string,
+      city: formData.get('city') as string,
+      postcode: formData.get('postcode') as string,
+      paymentMethod,
+      cartItems,
+      shippingConfig: shippingConfig!
+    };
+
+    try {
+      const res = await processOrder(payload);
+      if (res.error) {
+        setSubmitError(res.error);
+        setSubmitting(false);
+      } else if (res.redirectUrl) {
+        // Clear the cart securely locally before we leave the page
+        localStorage.removeItem('jacks-cart'); 
+        window.location.href = res.redirectUrl;
+      }
+    } catch (err) {
+      setSubmitError("An unexpected error occurred. Please try again.");
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div className={styles.checkoutContainer}>
       <header className={styles.checkoutHeader}>
@@ -84,12 +127,13 @@ export default function CheckoutPage() {
       <div className={styles.checkoutBody}>
         {/* Left: Forms */}
         <div>
-          <form className={styles.formSection}>
+          <form className={styles.formSection} onSubmit={handleSubmit}>
             <h2 className={styles.sectionTitle}>Contact information</h2>
             
             <div className={styles.inputGroup} style={{marginBottom: '2rem'}}>
               <label>Email address</label>
               <input 
+                name="email"
                 type="email" 
                 defaultValue={profile?.email || ''} 
                 required 
@@ -101,23 +145,23 @@ export default function CheckoutPage() {
             <div className={styles.formGrid}>
               <div className={styles.inputGroup}>
                 <label>First name</label>
-                <input type="text" defaultValue={profile?.first_name || ''} required />
+                <input name="firstName" type="text" defaultValue={profile?.first_name || ''} required />
               </div>
               <div className={styles.inputGroup}>
                 <label>Last name</label>
-                <input type="text" defaultValue={profile?.last_name || ''} required />
+                <input name="lastName" type="text" defaultValue={profile?.last_name || ''} required />
               </div>
               <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
                 <label>Address</label>
-                <input type="text" placeholder="House number and street name" required />
+                <input name="address" type="text" placeholder="House number and street name" required />
               </div>
               <div className={styles.inputGroup}>
                 <label>City</label>
-                <input type="text" required />
+                <input name="city" type="text" required />
               </div>
               <div className={styles.inputGroup}>
                 <label>Postcode</label>
-                <input type="text" required />
+                <input name="postcode" type="text" required />
               </div>
             </div>
 
@@ -128,8 +172,41 @@ export default function CheckoutPage() {
               <p>Selected Courier Bracket: <strong>{shippingQuote.shippingName}</strong></p>
             </div>
 
-            <button type="button" className={styles.checkoutBtn} onClick={() => alert("Payment Gateway coming in Phase 3!")}>
-              Continue to Payment
+            <h2 className={styles.sectionTitle}>Payment Method</h2>
+            <div className={styles.paymentMethodsGrid}>
+              <label className={`${styles.paymentOption} ${paymentMethod === 'viva' ? styles.paymentOptionActive : ''}`}>
+                <input 
+                  type="radio" 
+                  name="paymentMethod" 
+                  value="viva" 
+                  checked={paymentMethod === 'viva'} 
+                  onChange={() => setPaymentMethod('viva')} 
+                />
+                <div className={styles.paymentOptionDetails}>
+                  <strong>Credit / Debit Card</strong>
+                  <span>Pay securely via Viva Wallet</span>
+                </div>
+              </label>
+
+              <label className={`${styles.paymentOption} ${paymentMethod === 'bacs' ? styles.paymentOptionActive : ''}`}>
+                <input 
+                  type="radio" 
+                  name="paymentMethod" 
+                  value="bacs" 
+                  checked={paymentMethod === 'bacs'} 
+                  onChange={() => setPaymentMethod('bacs')} 
+                />
+                <div className={styles.paymentOptionDetails}>
+                  <strong>Direct Bank Transfer (BACS)</strong>
+                  <span>Your order stays pending until we confirm payment.</span>
+                </div>
+              </label>
+            </div>
+
+            {submitError && <div className={styles.errorMessage}>{submitError}</div>}
+
+            <button type="submit" className={styles.checkoutBtn} disabled={submitting}>
+              {submitting ? 'Processing...' : (paymentMethod === 'viva' ? 'Proceed to Payment (Card)' : 'Confirm Order (BACS)')}
             </button>
           </form>
         </div>
