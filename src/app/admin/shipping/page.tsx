@@ -95,9 +95,6 @@ export default function ShippingPage() {
           <h1 className={adminStyles.title}>Shipping</h1>
           <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Manage shipping zones and methods</span>
         </div>
-        <button className={styles.addBtn} onClick={() => setZoneModal({ open: true })}>
-          + Add zone
-        </button>
       </div>
 
       {loading && (
@@ -232,7 +229,33 @@ export default function ShippingPage() {
         );
       })}
 
-      {/* ── Info card ───────────────────────────────────────────────── */}
+      {/* ── Add Zone Card ───────────────────────────────────────────── */}
+      {!loading && (
+        <div
+          style={{
+            border: '2px dashed #e5e7eb',
+            borderRadius: 14,
+            padding: '1.25rem 1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.25rem',
+            background: '#fafafa',
+            cursor: 'pointer',
+            transition: 'border-color 0.15s, background 0.15s',
+          }}
+          onClick={() => setZoneModal({ open: true })}
+          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#0d9488'; (e.currentTarget as HTMLDivElement).style.background = '#f0fdfa'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = '#e5e7eb'; (e.currentTarget as HTMLDivElement).style.background = '#fafafa'; }}
+        >
+          <div>
+            <div style={{ fontWeight: 700, color: '#374151', fontSize: '0.95rem' }}>+ Add shipping zone</div>
+            <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.2rem' }}>e.g. Republic of Ireland, Europe, Rest of World</div>
+          </div>
+          <span style={{ fontSize: '1.5rem', color: '#d1d5db' }}>🌍</span>
+        </div>
+      )}
+
       {!loading && (
         <div className={styles.infoCard}>
           <h3 className={styles.infoTitle}>💡 How shipping zones work</h3>

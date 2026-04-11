@@ -115,83 +115,86 @@ export default function AdminProductsPage() {
 
   return (
     <>
-      <div className={styles.pageHeader}>
-        <div>
-          <h1 className={styles.pageTitle}>Products</h1>
-          <p className={styles.pageSubtitle}>{filtered.length} products showing</p>
+      <div className={styles.pageHeader} style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h1 className={styles.pageTitle}>Products</h1>
+            <p className={styles.pageSubtitle}>{filtered.length} products showing</p>
+          </div>
+          {/* ── Row 1: Main filters ───────────────────────────────── */}
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+            <select
+              className={styles.select}
+              style={{ padding: '0.4rem 0.75rem', borderRadius: 20, fontSize: '0.85rem' }}
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+            >
+              <option value="">All Categories</option>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+
+            <select
+              className={styles.select}
+              style={{ padding: '0.4rem 0.75rem', borderRadius: 20, fontSize: '0.85rem' }}
+              value={brandFilter}
+              onChange={e => setBrandFilter(e.target.value)}
+            >
+              <option value="">All Brands</option>
+              {brands.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+
+            <div className={styles.searchBar} style={{ margin: 0, borderRadius: 20 }}>
+              <span className={styles.searchIcon}>🔍</span>
+              <input
+                className={styles.searchInput}
+                style={{ padding: '0.4rem', fontSize: '0.85rem', width: 180, background: 'transparent' }}
+                type="text"
+                placeholder="Search by name or SKU…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
-        
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <select 
-             className={styles.select} 
-             style={{ minWidth: 160, padding: '0.45rem 1rem', borderRadius: 20 }} 
-             value={categoryFilter} 
-             onChange={e => setCategoryFilter(e.target.value)}
-          >
-             <option value="">All Categories</option>
-             {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
 
-          <select 
-             className={styles.select} 
-             style={{ minWidth: 160, padding: '0.45rem 1rem', borderRadius: 20 }} 
-             value={brandFilter} 
-             onChange={e => setBrandFilter(e.target.value)}
-          >
-             <option value="">All Brands</option>
-             {brands.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-
-          <div className={styles.searchBar} style={{ margin: 0, borderRadius: 20 }}>
-            <span className={styles.searchIcon}>🔍</span>
-            <input
-              className={styles.searchInput}
-              style={{ padding: '0.45rem', fontSize: '0.9rem', width: 200, background: 'transparent' }}
-              type="text"
-              placeholder="Search by name or SKU…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-
-          {/* ── Missing Data Filter Chips ───────────────────────────── */}
-          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Missing:</span>
-            {(['weight', 'sku', 'cost'] as const).map(type => {
-              const labels = { weight: '⚖️ Weight', sku: '🔖 SKU', cost: '💷 Cost' };
-              const active = missingFilter === type;
-              return (
-                <button
-                  key={type}
-                  onClick={() => setMissingFilter(active ? null : type)}
-                  style={{
-                    padding: '0.35rem 0.75rem',
-                    borderRadius: 20,
-                    border: '1.5px solid',
-                    borderColor: active ? '#ef4444' : '#e5e7eb',
-                    background: active ? '#fef2f2' : '#fff',
-                    color: active ? '#dc2626' : '#6b7280',
-                    fontSize: '0.78rem',
-                    fontWeight: active ? 700 : 500,
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {labels[type]}
-                </button>
-              );
-            })}
-            {missingFilter && (
+        {/* ── Row 2: Missing data filter ───────────────────────────── */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid #f3f4f6', paddingTop: '0.6rem' }}>
+          <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>
+            Find Products Missing:
+          </span>
+          {(['weight', 'sku', 'cost'] as const).map(type => {
+            const labels = { weight: '⚖️ Weight', sku: '🔖 SKU', cost: '💷 Cost Price' };
+            const active = missingFilter === type;
+            return (
               <button
-                onClick={() => setMissingFilter(null)}
-                style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem' }}
-                title="Clear filter"
+                key={type}
+                onClick={() => setMissingFilter(active ? null : type)}
+                style={{
+                  padding: '0.32rem 0.75rem',
+                  borderRadius: 20,
+                  border: '1.5px solid',
+                  borderColor: active ? '#ef4444' : '#e5e7eb',
+                  background: active ? '#fef2f2' : '#fff',
+                  color: active ? '#dc2626' : '#6b7280',
+                  fontSize: '0.8rem',
+                  fontWeight: active ? 700 : 500,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s',
+                }}
               >
-                ✕ Clear
+                {labels[type]}
               </button>
-            )}
-          </div>
+            );
+          })}
+          {missingFilter && (
+            <button
+              onClick={() => setMissingFilter(null)}
+              style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem 0.4rem' }}
+            >
+              ✕ Clear
+            </button>
+          )}
         </div>
       </div>
 
