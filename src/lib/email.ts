@@ -118,6 +118,8 @@ export async function sendAdminOrderAlert(params: SendOrderEmailParams, adminEma
         customerName: `${params.firstName} ${params.billingAddress?.last_name || ''}`,
         paymentMethod: params.paymentMethod,
         subtotal: params.subtotal,
+        shipping: params.shipping,
+        discount: params.discount,
         total: params.total,
         items: sanitizeItems(params.items),
         billingAddress: params.billingAddress,
