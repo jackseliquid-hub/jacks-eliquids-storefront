@@ -35,7 +35,7 @@ export default function StorefrontFooter() {
           <h3 className={styles.groupTitle}>Discover</h3>
           <Link href="/blog" className={styles.link}>The Base (Blog)</Link>
           <Link href="/" className={styles.link}>About Us</Link>
-          <Link href="/" className={styles.link}>Contact</Link>
+          <Link href="/contact" className={styles.link}>Contact</Link>
           <Link href="/" className={styles.link}>Wholesale</Link>
         </div>
 
