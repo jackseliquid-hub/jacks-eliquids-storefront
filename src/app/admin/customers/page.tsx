@@ -2,12 +2,16 @@ export const dynamic = 'force-dynamic';
 
 import Link from 'next/link';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { getCurrentRole } from '@/lib/roles.server';
+import type { UserRole } from '@/lib/roles';
+import RoleDropdown from './RoleDropdown';
 import styles from '../admin.module.css';
 
 export default async function AdminCustomersPage() {
   const supabase = createAdminClient();
+  const callerRole = await getCurrentRole();
+  const isHeadChef = callerRole === 'head_chef';
 
-  // Fetch all customers
   const { data: customers, error } = await supabase
     .from('customers')
     .select('*')
@@ -17,13 +21,11 @@ export default async function AdminCustomersPage() {
     return <div><h2>Error loading customers</h2><p>{error.message}</p></div>;
   }
 
-  // Fetch all orders to compute stats per customer
   const { data: orders } = await supabase
     .from('orders')
     .select('customer_id, total, created_at')
     .order('created_at', { ascending: false });
 
-  // Build a stats map: customer_id → { count, total, lastOrder }
   const statsMap: Record<string, { count: number; total: number; lastOrder: string | null }> = {};
   for (const order of orders || []) {
     if (!order.customer_id) continue;
@@ -51,6 +53,7 @@ export default async function AdminCustomersPage() {
               <th>Name</th>
               <th>Email</th>
               <th>Phone</th>
+              <th>Role</th>
               <th>Registered</th>
               <th>Last Order</th>
               <th style={{ textAlign: 'center' }}>Orders</th>
@@ -63,8 +66,8 @@ export default async function AdminCustomersPage() {
             {(customers || []).map(customer => {
               const stats = statsMap[customer.id] || { count: 0, total: 0, lastOrder: null };
               const aov = stats.count > 0 ? stats.total / stats.count : 0;
-              // Phone from dedicated column first, fallback to billing_address.phone
               const phone = customer.phone || customer.billing_address?.phone || null;
+              const role = (customer.role || 'customer') as UserRole;
 
               return (
                 <tr key={customer.id}>
@@ -78,6 +81,13 @@ export default async function AdminCustomersPage() {
                   </td>
                   <td style={{ color: '#4b5563', fontSize: '0.9rem' }}>{customer.email}</td>
                   <td style={{ color: '#4b5563', fontSize: '0.9rem' }}>{phone || <span style={{ color: '#d1d5db' }}>—</span>}</td>
+                  <td>
+                    <RoleDropdown
+                      customerId={customer.id}
+                      currentRole={role}
+                      canEdit={isHeadChef}
+                    />
+                  </td>
                   <td style={{ color: '#6b7280', fontSize: '0.85rem' }}>
                     {new Date(customer.created_at).toLocaleDateString('en-GB')}
                   </td>
@@ -89,16 +99,9 @@ export default async function AdminCustomersPage() {
                       <Link
                         href={`/admin/customers/${customer.id}`}
                         style={{
-                          display: 'inline-block',
-                          backgroundColor: '#0f766e',
-                          color: '#fff',
-                          borderRadius: '9999px',
-                          padding: '2px 12px',
-                          fontWeight: 700,
-                          fontSize: '0.85rem',
-                          textDecoration: 'none',
-                          minWidth: '32px',
-                          textAlign: 'center'
+                          display: 'inline-block', backgroundColor: '#0f766e', color: '#fff',
+                          borderRadius: '9999px', padding: '2px 12px', fontWeight: 700,
+                          fontSize: '0.85rem', textDecoration: 'none', minWidth: '32px', textAlign: 'center'
                         }}
                       >
                         {stats.count}
@@ -114,9 +117,7 @@ export default async function AdminCustomersPage() {
                     {aov > 0 ? `£${aov.toFixed(2)}` : <span style={{ color: '#d1d5db' }}>—</span>}
                   </td>
                   <td>
-                    <Link href={`/admin/customers/${customer.id}`} className={styles.editBtn}>
-                      View
-                    </Link>
+                    <Link href={`/admin/customers/${customer.id}`} className={styles.editBtn}>View</Link>
                   </td>
                 </tr>
               );

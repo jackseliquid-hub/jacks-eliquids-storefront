@@ -1,40 +1,82 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import SearchOverlay from './SearchOverlay';
+import { createClient } from '@/utils/supabase/client';
 import styles from '../app/home.module.css';
 
 export default function StorefrontHeader() {
   const pathname = usePathname();
   const { cartCount, openCart } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [isKitchenStaff, setIsKitchenStaff] = useState(false);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
-  
+
+  // Check role client-side to show/hide the Kitchen link
+  useEffect(() => {
+    async function checkRole() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('customers')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (data?.role === 'head_chef' || data?.role === 'sous_chef') {
+        setIsKitchenStaff(true);
+      }
+    }
+    checkRole();
+  }, []);
+
   // Hide global storefront header if we are inside the admin dashboard
   if (pathname.startsWith('/admin')) {
-      return null;
+    return null;
   }
 
   return (
     <>
+      {/* Kitchen Staff Banner */}
+      {isKitchenStaff && (
+        <div style={{
+          background: '#0f766e', color: '#fff', textAlign: 'center',
+          padding: '6px 16px', fontSize: '0.82rem', fontWeight: 600,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
+        }}>
+          <span>👨‍🍳 You&apos;re viewing the storefront as staff</span>
+          <Link
+            href="/admin"
+            style={{
+              color: '#fff', background: 'rgba(255,255,255,0.2)',
+              padding: '3px 12px', borderRadius: '9999px',
+              textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem',
+              border: '1px solid rgba(255,255,255,0.4)'
+            }}
+          >
+            → Back to Kitchen
+          </Link>
+        </div>
+      )}
+
       <header className={`${styles.header} container`}>
         <div className={styles.logo}>
-           <Link href="/" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-             <Image 
-               src="/logo.png" 
-               alt="Jack's E-Liquid" 
-               width={160} 
-               height={60} 
-               style={{ objectFit: 'contain' }} 
-               priority 
-             />
-           </Link>
+          <Link href="/" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+            <Image
+              src="/logo.png"
+              alt="Jack's E-Liquid"
+              width={160}
+              height={60}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
+          </Link>
         </div>
         <nav className={styles.nav}>
           <Link href="/" className={styles.navLink}>Shop All</Link>
