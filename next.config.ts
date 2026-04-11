@@ -11,12 +11,19 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'jackseliquid.com', // Keeping this for now so old images don't break
+        hostname: 'jackseliquid.com',
         port: '',
         pathname: '/wp-content/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'jlauicuvxldslzciebyu.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/**',
       },
     ],
   },
 };
+
 
 export default nextConfig;
