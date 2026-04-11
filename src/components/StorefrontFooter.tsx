@@ -41,10 +41,11 @@ export default function StorefrontFooter() {
 
         <div className={styles.linkGroup}>
           <h3 className={styles.groupTitle}>Legal</h3>
-          <Link href="/p/terms-and-conditions" className={styles.link}>Terms and Conditions</Link>
+          <Link href="/p/terms-and-conditions" className={styles.link}>Terms &amp; Conditions</Link>
           <Link href="/p/privacy-policy" className={styles.link}>Privacy Policy</Link>
+          <Link href="/p/returns-policy" className={styles.link}>Returns &amp; Refunds</Link>
           <Link href="/p/cookie-policy" className={styles.link}>Cookie Policy</Link>
-          <Link href="/p/delivery-postage" className={styles.link}>Delivery / Postage</Link>
+          <Link href="/p/delivery-postage" className={styles.link}>Delivery &amp; Postage</Link>
           <button
             className={styles.link}
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', font: 'inherit' }}
@@ -53,8 +54,8 @@ export default function StorefrontFooter() {
             🍪 Cookie Settings
           </button>
           <Link href="/sitemap.xml" className={styles.link}>Site Map</Link>
-
         </div>
+
       </div>
       
       <div className={styles.bottomBar}>
