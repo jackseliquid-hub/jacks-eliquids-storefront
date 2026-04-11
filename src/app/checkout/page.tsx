@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { createClient } from '@/utils/supabase/client';
-import { getEnabledShippingMethods, calculateAllQuotes, ShippingQuote } from '@/lib/shipping';
+import { getEnabledShippingMethodsForCountry, calculateAllQuotes, ShippingQuote } from '@/lib/shipping';
 import { processOrder } from './actions';
 import styles from './checkout.module.css';
 
@@ -266,7 +266,7 @@ export default function CheckoutPage() {
       if (!isMounted) return;
       if (cartItems.length === 0) { router.push('/'); return; }
 
-      const methods = await getEnabledShippingMethods();
+      const methods = await getEnabledShippingMethodsForCountry('United Kingdom (UK)');
       const quotes = calculateAllQuotes(methods, cartItems);
       setShippingOptions(quotes);
       if (quotes.length > 0) setSelectedShipping(quotes[0]);

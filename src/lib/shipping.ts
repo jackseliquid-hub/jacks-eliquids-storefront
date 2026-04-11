@@ -3,8 +3,16 @@ import { supabase } from '@/lib/supabase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
+export interface ShippingZone {
+  id: string;
+  name: string;
+  countries: string[];
+  sort_order: number;
+}
+
 export interface ShippingMethod {
   id: string;
+  zone_id: string | null;
   title: string;
   enabled: boolean;
   sort_order: number;
@@ -64,6 +72,21 @@ export async function getShippingMethods(): Promise<ShippingMethod[]> {
 }
 
 /**
+ * Fetch all zones with their methods nested inside.
+ */
+export async function getShippingZonesWithMethods(): Promise<Array<ShippingZone & { methods: ShippingMethod[] }>> {
+  const [{ data: zones }, { data: methods }] = await Promise.all([
+    supabase.from('shipping_zones').select('*').order('sort_order', { ascending: true }),
+    supabase.from('shipping_methods').select('*').order('sort_order', { ascending: true }),
+  ]);
+  if (!zones) return [];
+  return (zones as ShippingZone[]).map(zone => ({
+    ...zone,
+    methods: ((methods || []) as ShippingMethod[]).filter(m => m.zone_id === zone.id),
+  }));
+}
+
+/**
  * Fetch only ENABLED shipping methods (for the checkout).
  */
 export async function getEnabledShippingMethods(): Promise<ShippingMethod[]> {
@@ -75,6 +98,42 @@ export async function getEnabledShippingMethods(): Promise<ShippingMethod[]> {
 
   if (error || !data) return [];
   return data as ShippingMethod[];
+}
+
+/**
+ * Fetch enabled shipping methods for a specific country.
+ * Matches the zone whose countries array contains the given country string.
+ * Falls back to the first zone if no match (covers legacy UK-only setup).
+ */
+export async function getEnabledShippingMethodsForCountry(country: string): Promise<ShippingMethod[]> {
+  // Find a zone matching this country
+  const { data: zones } = await supabase
+    .from('shipping_zones')
+    .select('id, countries')
+    .order('sort_order', { ascending: true });
+
+  if (!zones || zones.length === 0) {
+    // No zones yet — fall back to all enabled methods
+    return getEnabledShippingMethods();
+  }
+
+  // Match country (case-insensitive substring)
+  const countryLower = country.toLowerCase();
+  let matchedZone = (zones as ShippingZone[]).find(z =>
+    z.countries.some(c => c.toLowerCase().includes(countryLower) || countryLower.includes(c.toLowerCase()))
+  );
+
+  // Fall back to first zone
+  if (!matchedZone) matchedZone = zones[0] as ShippingZone;
+
+  const { data: methods } = await supabase
+    .from('shipping_methods')
+    .select('*')
+    .eq('zone_id', matchedZone.id)
+    .eq('enabled', true)
+    .order('sort_order', { ascending: true });
+
+  return (methods || []) as ShippingMethod[];
 }
 
 /**

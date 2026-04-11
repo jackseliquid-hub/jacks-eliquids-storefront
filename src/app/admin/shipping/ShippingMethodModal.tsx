@@ -6,6 +6,7 @@ import { createShippingMethod, updateShippingMethod } from './actions';
 import styles from './shipping.module.css';
 
 const EMPTY: Omit<ShippingMethod, 'id'> = {
+  zone_id: null,
   title: '',
   enabled: true,
   sort_order: 99,
@@ -24,11 +25,12 @@ const EMPTY: Omit<ShippingMethod, 'id'> = {
 
 interface Props {
   method?: ShippingMethod;
+  zoneId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function ShippingMethodModal({ method, onClose, onSaved }: Props) {
+export default function ShippingMethodModal({ method, zoneId, onClose, onSaved }: Props) {
   const isEdit = !!method;
   const [form, setForm] = useState<Omit<ShippingMethod, 'id'>>(
     method ? { ...method } : { ...EMPTY }
@@ -51,7 +53,7 @@ export default function ShippingMethodModal({ method, onClose, onSaved }: Props)
 
     const res = isEdit
       ? await updateShippingMethod(method!.id, form)
-      : await createShippingMethod(form);
+      : await createShippingMethod({ ...form, zone_id: zoneId ?? null } as any);
 
     setSaving(false);
     if (res.error) { setError(res.error); return; }

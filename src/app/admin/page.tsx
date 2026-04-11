@@ -15,6 +15,7 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [brandFilter, setBrandFilter] = useState('');
+  const [missingFilter, setMissingFilter] = useState<'weight' | 'sku' | 'cost' | null>(null);
 
   // Inline editing state  
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -58,8 +59,12 @@ export default function AdminProductsPage() {
         return n.toLowerCase().includes(q) || s.toLowerCase().includes(q) || i.toLowerCase().includes(q);
       });
     }
+    // Missing data filters
+    if (missingFilter === 'weight') result = result.filter(p => !p.weight || Number(p.weight) === 0);
+    if (missingFilter === 'sku')    result = result.filter(p => !p.sku || p.sku.trim() === '');
+    if (missingFilter === 'cost')   result = result.filter(p => !p.costPrice || p.costPrice.trim() === '');
     return result;
-  }, [search, categoryFilter, brandFilter, products]);
+  }, [search, categoryFilter, brandFilter, missingFilter, products]);
 
   // ─── Inline Save Helper ──────────────────────────────────────────────
   async function inlineSave(productId: string, field: string, value: string | string[]) {
@@ -116,7 +121,7 @@ export default function AdminProductsPage() {
           <p className={styles.pageSubtitle}>{filtered.length} products showing</p>
         </div>
         
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <select 
              className={styles.select} 
              style={{ minWidth: 160, padding: '0.45rem 1rem', borderRadius: 20 }} 
@@ -147,6 +152,45 @@ export default function AdminProductsPage() {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
+          </div>
+
+          {/* ── Missing Data Filter Chips ───────────────────────────── */}
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, whiteSpace: 'nowrap' }}>Missing:</span>
+            {(['weight', 'sku', 'cost'] as const).map(type => {
+              const labels = { weight: '⚖️ Weight', sku: '🔖 SKU', cost: '💷 Cost' };
+              const active = missingFilter === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setMissingFilter(active ? null : type)}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: 20,
+                    border: '1.5px solid',
+                    borderColor: active ? '#ef4444' : '#e5e7eb',
+                    background: active ? '#fef2f2' : '#fff',
+                    color: active ? '#dc2626' : '#6b7280',
+                    fontSize: '0.78rem',
+                    fontWeight: active ? 700 : 500,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {labels[type]}
+                </button>
+              );
+            })}
+            {missingFilter && (
+              <button
+                onClick={() => setMissingFilter(null)}
+                style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem', padding: '0.2rem' }}
+                title="Clear filter"
+              >
+                ✕ Clear
+              </button>
+            )}
           </div>
         </div>
       </div>
