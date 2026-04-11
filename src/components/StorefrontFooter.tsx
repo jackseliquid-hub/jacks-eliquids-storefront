@@ -45,7 +45,15 @@ export default function StorefrontFooter() {
           <Link href="/p/privacy-policy" className={styles.link}>Privacy Policy</Link>
           <Link href="/p/cookie-policy" className={styles.link}>Cookie Policy</Link>
           <Link href="/p/delivery-postage" className={styles.link}>Delivery / Postage</Link>
+          <button
+            className={styles.link}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', font: 'inherit' }}
+            onClick={() => (window as any).__openCookiePreferences?.()}
+          >
+            🍪 Cookie Settings
+          </button>
           <Link href="/sitemap.xml" className={styles.link}>Site Map</Link>
+
         </div>
       </div>
       
