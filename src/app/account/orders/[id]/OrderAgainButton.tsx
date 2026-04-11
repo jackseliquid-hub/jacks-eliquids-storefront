@@ -10,14 +10,18 @@ export default function OrderAgainButton({ items }: { items: any[] }) {
   const handleOrderAgain = () => {
     // Add all items to the cart
     items.forEach(item => {
+      // id must be the variation_id (for variant items) or product_id (for simple items)
+      // This matches how the checkout action maps: variation_id: item.variantName ? item.id : null
+      const cartId = item.variation_id || item.product_id;
+      
       addToCart({
-        id: item.variant_id ? item.variant_id : item.product_id,
+        id: cartId,
         productId: item.product_id,
         slug: item.product_id,
         name: item.product_name,
         price: `£${Number(item.discounted_price || item.unit_price).toFixed(2)}`,
         image: item.image_url || '/placeholder.png',
-        variantName: item.variant_name
+        variantName: item.variant_name || undefined,
       }, item.quantity);
     });
 
