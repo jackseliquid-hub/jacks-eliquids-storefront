@@ -47,6 +47,7 @@ export default function ProductEditorPage({
   // Bulk variation fields
   const [bulkPrice, setBulkPrice] = useState('');
   const [bulkStock, setBulkStock] = useState('');
+  const [bulkQty, setBulkQty] = useState('');
   const [rawAttributes, setRawAttributes] = useState<Record<string, string>>({});
 
   // Inline create states
@@ -84,7 +85,7 @@ export default function ProductEditorPage({
     setProduct(prev => prev ? { ...prev, [key]: value } : null);
   }
 
-  function setVariationField(index: number, key: keyof Variation, value: string | boolean) {
+  function setVariationField(index: number, key: keyof Variation, value: string | boolean | number | null) {
     setProduct(prev => {
       if (!prev) return null;
       const variations = [...prev.variations];
@@ -117,6 +118,19 @@ export default function ProductEditorPage({
       };
     });
     showToast(`Stock status "${inStock ? 'In Stock' : 'Out of Stock'}" applied to all variations`);
+  }
+
+  function applyQtyToAll() {
+    const qty = parseInt(bulkQty, 10);
+    if (isNaN(qty) || qty < 0) return;
+    setProduct(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        variations: prev.variations.map(v => ({ ...v, stockQty: qty })),
+      };
+    });
+    showToast(`Quantity ${qty} applied to all ${product?.variations.length} variations`);
   }
 
   // ── Tag / Brand multi-select ──────────────────────────────────────────────
@@ -596,6 +610,21 @@ export default function ProductEditorPage({
                     {product.trackStock ? 'Yes — stock is tracked' : 'No — always available'}
                   </span>
                 </div>
+                {/* Stock qty — only for simple products with no variations */}
+                {product.trackStock && product.variations.length === 0 && (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <label className={styles.label} style={{ fontSize: '0.8rem', color: '#666' }}>Stock Quantity</label>
+                    <input
+                      className={styles.input}
+                      type="number"
+                      min="0"
+                      placeholder="e.g. 50"
+                      value={product.stockQty ?? ''}
+                      onChange={e => setField('stockQty', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                      style={{ maxWidth: '120px' }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -820,6 +849,26 @@ export default function ProductEditorPage({
               >
                 Apply Stock to All
               </button>
+              {product.trackStock && (
+                <>
+                  <input
+                    className={styles.bulkInput}
+                    type="number"
+                    min="0"
+                    placeholder="Set Qty e.g. 10"
+                    value={bulkQty}
+                    onChange={e => setBulkQty(e.target.value)}
+                    style={{ width: '130px' }}
+                  />
+                  <button
+                    className={`${styles.btn} ${styles.btnSecondary}`}
+                    style={{ padding: '0.4rem 0.9rem', fontSize: '0.8rem' }}
+                    onClick={applyQtyToAll}
+                  >
+                    Apply Qty to All
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Variation Rows */}
@@ -831,6 +880,7 @@ export default function ProductEditorPage({
                     <th>SKU</th>
                     <th>Price</th>
                     <th>In Stock</th>
+                    {product.trackStock && <th>Qty</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -852,6 +902,19 @@ export default function ProductEditorPage({
                           <td>
                             <button type="button" className={`${styles.toggle} ${v.inStock ? styles.toggleOn : ''}`} onClick={() => setVariationField(i, 'inStock', !v.inStock)} />
                           </td>
+                          {product.trackStock && (
+                            <td>
+                              <input
+                                className={styles.varInput}
+                                type="number"
+                                min="0"
+                                placeholder="—"
+                                value={v.stockQty ?? ''}
+                                onChange={e => setVariationField(i, 'stockQty', e.target.value === '' ? null : parseInt(e.target.value, 10))}
+                                style={{ width: '70px' }}
+                              />
+                            </td>
+                          )}
                           <td>
                              <button type="button" onClick={() => setProduct(prev => { if(!prev) return null; return {...prev, variations: prev.variations.filter((_, idx) => idx !== i)}})} style={{ color: 'red', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
                           </td>

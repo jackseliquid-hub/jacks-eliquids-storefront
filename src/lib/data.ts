@@ -23,6 +23,7 @@ export interface Variation {
   price: string | null;
   attributes: Record<string, string>;
   inStock: boolean;
+  stockQty?: number | null;  // null = not tracked, number = quantity
 }
 
 export interface Product {
@@ -36,6 +37,7 @@ export interface Product {
   weight: number;
   shippingClass?: string;
   trackStock?: boolean;
+  stockQty?: number | null;  // For simple (non-variation) products
   image: string;
   gallery?: string[];
   description: string;
@@ -91,6 +93,7 @@ function mapVariation(v: Record<string, unknown>): Variation {
     price:      (v.price as string) || null,
     attributes: (v.attributes as Record<string, string>) || {},
     inStock:    v.in_stock !== undefined ? (v.in_stock as boolean) : true,
+    stockQty:   v.stock_qty !== undefined && v.stock_qty !== null ? (v.stock_qty as number) : null,
   };
 }
 
@@ -106,6 +109,7 @@ function mapProduct(row: Record<string, unknown>, variations: Variation[] = []):
     weight:        (row.weight as number) || 0,
     shippingClass: (row.shipping_class as string) || undefined,
     trackStock:    (row.track_stock as boolean) || false,
+    stockQty:      row.stock_qty !== undefined && row.stock_qty !== null ? (row.stock_qty as number) : null,
     image:         (row.image as string) || '',
     gallery:       (row.gallery as string[]) || [],
     description:   (row.description as string) || '',
@@ -210,6 +214,7 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
   if (data.weight         !== undefined) dbData.weight          = data.weight;
   if (data.shippingClass  !== undefined) dbData.shipping_class  = data.shippingClass;
   if (data.trackStock     !== undefined) dbData.track_stock     = data.trackStock;
+  if (data.stockQty       !== undefined) dbData.stock_qty       = data.stockQty;
   if (data.image          !== undefined) dbData.image           = data.image;
   if (data.gallery        !== undefined) dbData.gallery         = data.gallery;
   if (data.description    !== undefined) dbData.description     = data.description;
@@ -241,6 +246,7 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
         price:      v.price || null,
         attributes: v.attributes || {},
         in_stock:   v.inStock !== undefined ? v.inStock : true,
+        stock_qty:  v.stockQty !== undefined ? v.stockQty : null,
       }));
       const { error: varError } = await supabase.from('product_variations').insert(varRows);
       if (varError) throw varError;
