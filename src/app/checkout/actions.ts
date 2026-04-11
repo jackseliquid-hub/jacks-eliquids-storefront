@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createAdminClient } from '@/utils/supabase/admin';
 import { CartItem } from '@/context/CartContext';
 import { ShippingConfig, calculateShippingQuote } from '@/lib/shipping';
 import { calculateBestPrice, getDiscountRules } from '@/lib/discounts';
@@ -17,6 +18,7 @@ interface CheckoutPayload {
 
 export async function processOrder(payload: CheckoutPayload) {
   const supabase = await createClient();
+  const adminSupabase = createAdminClient(); // bypasses RLS — needed for guest checkout
   const rules = await getDiscountRules();
   
   let subtotal = 0;
@@ -68,7 +70,6 @@ export async function processOrder(payload: CheckoutPayload) {
     customerId = user.id;
 
     // Automatically update the user's saved account profile with their latest checkout addresses
-    const adminSupabase = await import('@/utils/supabase/admin').then(m => m.createAdminClient());
     await adminSupabase.from('customers').upsert({
       id: user.id,
       email: payload.billingAddress.email || user.email,
@@ -84,7 +85,8 @@ export async function processOrder(payload: CheckoutPayload) {
     ? payload.shippingAddress 
     : payload.billingAddress;
 
-  const { data: orderParams, error: orderError } = await supabase
+  // Use admin client so guests (unauthenticated) can also place orders — RLS would block them
+  const { data: orderParams, error: orderError } = await adminSupabase
     .from('orders')
     .insert({
       customer_id: customerId,
@@ -113,7 +115,7 @@ export async function processOrder(payload: CheckoutPayload) {
     order_id: orderId
   }));
   
-  const { error: itemsError } = await supabase
+  const { error: itemsError } = await adminSupabase
     .from('order_items')
     .insert(itemsToInsert);
 
