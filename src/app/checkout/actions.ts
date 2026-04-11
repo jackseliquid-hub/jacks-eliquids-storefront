@@ -3,14 +3,15 @@
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
 import { CartItem } from '@/context/CartContext';
-import { ShippingConfig, calculateShippingQuote } from '@/lib/shipping';
+import { ShippingQuote } from '@/lib/shipping';
+
 import { calculateBestPrice, getDiscountRules } from '@/lib/discounts';
 import { sendOrderConfirmationEmail, sendAdminOrderAlert } from '@/lib/email';
 
 interface CheckoutPayload {
   paymentMethod: 'viva' | 'bacs';
   cartItems: CartItem[];
-  shippingConfig: ShippingConfig;
+  selectedShipping: ShippingQuote;
   shipToDifferent: boolean;
   billingAddress: any;
   shippingAddress: any | null;
@@ -61,7 +62,7 @@ export async function processOrder(payload: CheckoutPayload) {
     };
   });
 
-  const shippingQuote = calculateShippingQuote(payload.cartItems, payload.shippingConfig);
+  const shippingQuote = payload.selectedShipping;
   const finalTotal = subtotal + shippingQuote.shippingCost;
 
   const { data: { user } } = await supabase.auth.getUser();

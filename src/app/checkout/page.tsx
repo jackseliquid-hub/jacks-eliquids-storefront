@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { createClient } from '@/utils/supabase/client';
-import { getShippingConfig, calculateShippingQuote, ShippingConfig } from '@/lib/shipping';
+import { getEnabledShippingMethods, calculateAllQuotes, ShippingQuote } from '@/lib/shipping';
 import { processOrder } from './actions';
 import styles from './checkout.module.css';
 
@@ -250,11 +250,8 @@ export default function CheckoutPage() {
   const shippingObj = profile?.shipping_address || {};
 
   const [paymentMethod, setPaymentMethod] = useState<'viva' | 'bacs'>('viva');
-  const [shippingConfig, setShippingConfig] = useState<ShippingConfig | null>(null);
-  const [shippingQuote, setShippingQuote] = useState<{
-    packageType: string; totalWeight: number;
-    shippingName: string; shippingCost: number; formattedCost: string;
-  } | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<ShippingQuote[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingQuote | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -266,21 +263,19 @@ export default function CheckoutPage() {
         if (customerData) setProfile(customerData);
       }
 
-      const config = await getShippingConfig();
-      setShippingConfig(config);
-
       if (!isMounted) return;
-      if (cartItems.length > 0) {
-        setShippingQuote(calculateShippingQuote(cartItems, config));
-      } else {
-        router.push('/');
-      }
+      if (cartItems.length === 0) { router.push('/'); return; }
+
+      const methods = await getEnabledShippingMethods();
+      const quotes = calculateAllQuotes(methods, cartItems);
+      setShippingOptions(quotes);
+      if (quotes.length > 0) setSelectedShipping(quotes[0]);
       setLoading(false);
     }
     loadData();
   }, [cartItems, isMounted, router]);
 
-  if (loading || !shippingQuote) {
+  if (loading || shippingOptions.length === 0) {
     return <div style={{ textAlign: 'center', padding: '5rem' }}>Loading Checkout...</div>;
   }
 
@@ -290,7 +285,7 @@ export default function CheckoutPage() {
       <CheckoutAuthGate
         onGuest={() => setGuestMode(true)}
         cartItems={cartItems}
-        shippingQuote={shippingQuote}
+        shippingQuote={selectedShipping}
         cartSubtotal={cartSubtotal}
         getCalculatedItemPrice={getCalculatedItemPrice}
       />
@@ -298,7 +293,8 @@ export default function CheckoutPage() {
   }
 
   const subtotalNum = parseFloat(cartSubtotal.replace(/[^0-9.]/g, ''));
-  const finalTotal = subtotalNum + shippingQuote.shippingCost;
+  const shippingCost = selectedShipping?.shippingCost ?? 0;
+  const finalTotal = subtotalNum + shippingCost;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -312,7 +308,7 @@ export default function CheckoutPage() {
     const payload = {
       paymentMethod,
       cartItems,
-      shippingConfig: shippingConfig!,
+      selectedShipping: selectedShipping!,
       shipToDifferent: shipDifferentDOM,
       billingAddress: {
         first_name: formData.get('b_first_name') as string,
@@ -441,12 +437,34 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div className={styles.shippingInfoBox}>
-              <h4>📦 Custom Delivery Class Detected</h4>
-              <p>Total Cart Weight: <strong>{shippingQuote.totalWeight}g</strong></p>
-              <p>Generated Package Protocol: <strong>{shippingQuote.packageType === 'large-letter' ? 'Large Letter' : 'Small Parcel'}</strong></p>
-              <p>Selected Courier Bracket: <strong>{shippingQuote.shippingName}</strong></p>
+            {/* ── Shipping Method Selector ─────────────────────────── */}
+            <h2 className={styles.sectionTitle}>Shipping</h2>
+            <div className={styles.shippingOptions}>
+              {shippingOptions.map(opt => (
+                <label
+                  key={opt.methodId}
+                  className={`${styles.shippingOption} ${selectedShipping?.methodId === opt.methodId ? styles.shippingOptionActive : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="shippingMethod"
+                    value={opt.methodId}
+                    checked={selectedShipping?.methodId === opt.methodId}
+                    onChange={() => setSelectedShipping(opt)}
+                    style={{ display: 'none' }}
+                  />
+                  <span className={styles.shippingRadio} />
+                  <span className={styles.shippingLabel}>{opt.label}</span>
+                  <span className={styles.shippingCost}>{opt.formattedCost}</span>
+                </label>
+              ))}
+              {shippingOptions.length === 0 && (
+                <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>No shipping methods available.</p>
+              )}
             </div>
+            <p style={{ fontSize: '0.78rem', color: '#9ca3af', margin: '0.25rem 0 0' }}>
+              Cart weight: {selectedShipping?.totalWeight ?? 0}g
+            </p>
 
             <h2 className={styles.sectionTitle}>Payment Method</h2>
             <div className={styles.paymentMethodsGrid}>
@@ -498,7 +516,7 @@ export default function CheckoutPage() {
           </div>
           <div className={styles.totalsBlock}>
             <div className={styles.totalRow}><span>Subtotal</span><span>{cartSubtotal}</span></div>
-            <div className={styles.totalRow}><span>Shipping</span><span>{shippingQuote.formattedCost}</span></div>
+            <div className={styles.totalRow}><span>Shipping</span><span>{selectedShipping?.formattedCost ?? '—'}</span></div>
             <div className={`${styles.totalRow} ${styles.grandTotal}`}><span>Total</span><span>£{finalTotal.toFixed(2)}</span></div>
           </div>
         </aside>

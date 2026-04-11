@@ -1,0 +1,285 @@
+/* ── Zone card ─────────────────────────────────────────────────────────────── */
+.zoneCard {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.zoneHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  background: #f9fafb;
+}
+
+.zoneName {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 0.25rem;
+}
+
+.zoneDesc {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin: 0;
+}
+
+/* ── Table ─────────────────────────────────────────────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.table td {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: #fafafa;
+}
+
+/* ── Toggle ────────────────────────────────────────────────────────────────── */
+.toggle {
+  width: 44px;
+  height: 24px;
+  background: #d1d5db;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle.toggleOn {
+  background: #0d9488;
+}
+
+.toggleKnob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left 0.2s;
+}
+
+.toggleOn .toggleKnob {
+  left: calc(100% - 21px);
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.editBtn {
+  background: none;
+  border: 1px solid #0d9488;
+  color: #0d9488;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.editBtn:hover { background: #0d9488; color: #fff; }
+
+.deleteBtn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  color: #ef4444;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.deleteBtn:hover:not(:disabled) { background: #fef2f2; border-color: #fecaca; }
+.deleteBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.addRow {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+.addBtn {
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.addBtn:hover { background: #0f766e; }
+
+/* ── Info card ─────────────────────────────────────────────────────────────── */
+.infoCard {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+}
+.infoTitle { font-size: 0.95rem; font-weight: 700; color: #0f766e; margin: 0 0 0.75rem; }
+.infoList { margin: 0; padding-left: 1.25rem; color: #374151; font-size: 0.875rem; line-height: 1.8; }
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+.modalTitle { font-size: 1.1rem; font-weight: 700; color: #111; margin: 0; }
+.modalClose {
+  background: none; border: none; font-size: 1.1rem; color: #6b7280;
+  cursor: pointer; padding: 0.25rem; line-height: 1;
+}
+.modalClose:hover { color: #111; }
+
+.modalBody {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.cancelBtn {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  color: #374151;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cancelBtn:hover:not(:disabled) { background: #f9fafb; }
+
+.saveBtn {
+  background: #0d9488;
+  border: none;
+  color: #fff;
+  padding: 0.6rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.saveBtn:hover:not(:disabled) { background: #0f766e; }
+.saveBtn:disabled, .cancelBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Fields ────────────────────────────────────────────────────────────────── */
+.sectionDivider {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #0f766e;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
+  margin-top: 0.5rem;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.fieldLabel { font-size: 0.8rem; font-weight: 600; color: #374151; }
+.fieldHint { font-size: 0.75rem; color: #9ca3af; margin: 0; }
+.fieldInput {
+  padding: 0.55rem 0.75rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.fieldInput:focus { outline: none; border-color: #0d9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.12); }
+
+.tierGrid { display: flex; flex-direction: column; gap: 0.6rem; }
+.tierRow { display: flex; align-items: flex-start; gap: 0.75rem; }
+.tierLabel { min-width: 70px; font-size: 0.8rem; font-weight: 700; color: #6b7280; padding-top: 1.6rem; }
+.tierHint { font-weight: 400; color: #9ca3af; }
+.tierFields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; flex: 1; }
+
+.errorMsg {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.83rem;
+  font-weight: 500;
+}
