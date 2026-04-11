@@ -5,7 +5,7 @@ import styles from './auth.module.css';
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message: string }>;
+  searchParams: Promise<{ message: string; success: string }>;
 }) {
   const resolvedParams = await searchParams;
 
@@ -36,6 +36,11 @@ export default async function LoginPage({
               placeholder="••••••••"
               required 
             />
+            <div style={{ textAlign: 'right', marginTop: '-4px' }}>
+              <Link href="/forgot-password" className={styles.forgotLink}>
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button formAction={login} className={styles.submitBtn}>
@@ -46,8 +51,12 @@ export default async function LoginPage({
             <p className={styles.errorMessage}>{resolvedParams.message}</p>
           )}
 
+          {resolvedParams?.success && (
+            <p className={styles.successMessage}>{resolvedParams.success}</p>
+          )}
+
           <p className={styles.switchPrompt}>
-            Don't have an account? <Link href="/register">Sign Up here.</Link>
+            Don&apos;t have an account? <Link href="/register">Sign Up here.</Link>
           </p>
         </form>
       </div>
