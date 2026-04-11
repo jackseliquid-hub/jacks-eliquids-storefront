@@ -138,6 +138,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead style={{ backgroundColor: '#f9fafb' }}>
                     <tr>
+                      <th style={{ padding: '12px 16px', color: '#4b5563', fontSize: '14px', fontWeight: 500, width: '64px' }}></th>
                       <th style={{ padding: '12px 16px', color: '#4b5563', fontSize: '14px', fontWeight: 500 }}>Product</th>
                       <th style={{ padding: '12px 16px', color: '#4b5563', fontSize: '14px', fontWeight: 500 }}>Price</th>
                       <th style={{ padding: '12px 16px', color: '#4b5563', fontSize: '14px', fontWeight: 500 }}>Qty</th>
@@ -145,8 +146,20 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                     </tr>
                   </thead>
                   <tbody>
-                    {items?.map((item, i) => (
+                    {items?.map((item: any, i: number) => (
                       <tr key={i} style={{ borderTop: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '12px 16px', width: '64px' }}>
+                          {item.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={item.image_url}
+                              alt={item.product_name}
+                              style={{ width: '56px', height: '56px', objectFit: 'cover', borderRadius: '8px', display: 'block' }}
+                            />
+                          ) : (
+                            <div style={{ width: '56px', height: '56px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>📦</div>
+                          )}
+                        </td>
                         <td style={{ padding: '12px 16px' }}>
                           <p style={{ margin: 0, fontWeight: 500 }}>{item.product_name}</p>
                           {item.variant_name && <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>{item.variant_name}</p>}
@@ -160,9 +173,9 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                 </table>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '2rem', marginTop: '1.5rem' }}>
                 <div>
-                  <h3 style={{ fontSize: '16px', marginBottom: '1rem' }}>Summary</h3>
+                  <h3 style={{ fontSize: '16px', marginBottom: '1rem' }}>Order Summary</h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
                     <span>Subtotal</span>
                     <span>£{Number(order.subtotal).toFixed(2)}</span>
@@ -184,15 +197,30 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                 </div>
 
                 <div>
-                  <h3 style={{ fontSize: '16px', marginBottom: '1rem' }}>Shipping Details</h3>
-                  {order.shipping_address ? (
-                    <div style={{ color: '#4b5563', lineHeight: '1.5', fontSize: '14px' }}>
-                      <p style={{ margin: 0, fontWeight: 500, color: '#111827' }}>{order.shipping_address.first_name} {order.shipping_address.last_name}</p>
-                      <p style={{ margin: '4px 0 0' }}>{order.shipping_address.address}</p>
-                      <p style={{ margin: '4px 0 0' }}>{order.shipping_address.city}, {order.shipping_address.postcode}</p>
+                  <h3 style={{ fontSize: '16px', marginBottom: '1rem' }}>Billing Address</h3>
+                  {order.billing_address ? (
+                    <div style={{ color: '#4b5563', lineHeight: '1.8', fontSize: '14px' }}>
+                      <p style={{ margin: 0, fontWeight: 500, color: '#111827' }}>{order.billing_address.first_name} {order.billing_address.last_name}</p>
+                      <p style={{ margin: '4px 0 0' }}>{order.billing_address.address}</p>
+                      {order.billing_address.city && <p style={{ margin: '4px 0 0' }}>{order.billing_address.city}{order.billing_address.county ? `, ${order.billing_address.county}` : ''}</p>}
+                      <p style={{ margin: '4px 0 0' }}>{order.billing_address.postcode}</p>
                     </div>
                   ) : (
-                    <p style={{ color: '#6b7280' }}>No shipping details found.</p>
+                    <p style={{ color: '#6b7280', fontSize: '14px' }}>No billing address on record.</p>
+                  )}
+                </div>
+
+                <div>
+                  <h3 style={{ fontSize: '16px', marginBottom: '1rem' }}>Shipping Address</h3>
+                  {order.shipping_address ? (
+                    <div style={{ color: '#4b5563', lineHeight: '1.8', fontSize: '14px' }}>
+                      <p style={{ margin: 0, fontWeight: 500, color: '#111827' }}>{order.shipping_address.first_name} {order.shipping_address.last_name}</p>
+                      <p style={{ margin: '4px 0 0' }}>{order.shipping_address.address}</p>
+                      {order.shipping_address.city && <p style={{ margin: '4px 0 0' }}>{order.shipping_address.city}{order.shipping_address.county ? `, ${order.shipping_address.county}` : ''}</p>}
+                      <p style={{ margin: '4px 0 0' }}>{order.shipping_address.postcode}</p>
+                    </div>
+                  ) : (
+                    <p style={{ color: '#6b7280', fontSize: '14px' }}>No shipping details found.</p>
                   )}
                 </div>
               </div>
