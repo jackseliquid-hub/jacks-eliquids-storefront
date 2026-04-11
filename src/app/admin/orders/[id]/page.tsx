@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { createAdminClient } from '@/utils/supabase/admin';
 import styles from '../../admin.module.css';
 import StatusSelector from './StatusSelector';
+import RoyalMailButton from './RoyalMailButton';
 
 export default async function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -135,6 +136,17 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
                 <p style={{ margin: 0, fontSize: '0.9rem', color: '#111' }}>{order.notes}</p>
               </div>
             )}
+          </div>
+
+          {/* ── Royal Mail Shipping ─────────────────────────────────── */}
+          <div className={styles.dashboardCard} style={{ padding: '1.5rem', background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
+            <h2 style={{ fontSize: '1.1rem', marginBottom: '0.35rem', color: '#111' }}>
+              🏣 Royal Mail Click &amp; Drop
+            </h2>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.82rem', color: '#6b7280' }}>
+              Push this order to Click &amp; Drop to generate a shipping label.
+            </p>
+            <RoyalMailButton orderId={order.id} existingRmOrderId={order.royal_mail_order_id ?? null} />
           </div>
 
           <div className={styles.dashboardCard} style={{ padding: '1.5rem', background: 'white', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
