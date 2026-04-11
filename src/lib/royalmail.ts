@@ -100,7 +100,14 @@ export function buildRMPayload(order: {
   shipping_cost: number;
   shipping_address: Record<string, string>;
   billing_address:  Record<string, string>;
-  items?: Array<{ product_name: string; quantity: number; unit_price: number }>;
+  items?: Array<{
+    product_name: string;
+    variant_name?: string | null;
+    quantity: number;
+    unit_price: number;
+    discounted_price?: number | null;
+    line_total?: number;
+  }>;
 }): RMOrderPayload {
   const sa = order.shipping_address;
   const ba = order.billing_address;
@@ -131,6 +138,21 @@ export function buildRMPayload(order: {
     : new Date(order.created_at).getTime();
   const orderDate = new Date(createdMs).toISOString();
 
+  // Build package contents from order items
+  const items = order.items || [];
+  const contents = items.map(item => ({
+    name:         item.variant_name
+                    ? `${item.product_name} — ${item.variant_name}`
+                    : item.product_name,
+    quantity:     item.quantity,
+    unitValue:    Number((item.discounted_price ?? item.unit_price).toFixed(2)),
+    unitWeightInGrams: 150, // sensible default per e-liquid bottle
+  }));
+
+  // Estimate total weight: 150g per item unit, minimum 100g
+  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
+  const weightInGrams = Math.max(100, totalItems * 150);
+
   return {
     orderReference:      orderRef.substring(0, 40),
     recipient: {
@@ -143,10 +165,15 @@ export function buildRMPayload(order: {
     },
     orderDate,
     plannedDispatchDate: dispatchDate,
-    packages: [{ weightInGrams: 500, packageFormatIdentifier: 'parcel' }], // default — no weight field yet
+    packages: [{
+      weightInGrams,
+      packageFormatIdentifier: 'parcel',
+      contents: contents.length > 0 ? contents : undefined,
+    }],
     subtotal:            order.subtotal,
     shippingCostCharged: order.shipping_cost,
     total:               order.total,
     currencyCode:        'GBP',
   };
 }
+

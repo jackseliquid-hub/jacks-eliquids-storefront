@@ -34,7 +34,7 @@ export async function pushToRoyalMail(orderId: string): Promise<PushResult> {
   // Fetch order items for the payload contents
   const { data: rawItems } = await supabase
     .from('order_items')
-    .select('product_name, quantity, unit_price')
+    .select('product_name, variant_name, quantity, unit_price, discounted_price, line_total')
     .eq('order_id', orderId);
 
   const orderWithItems = {
