@@ -1,15 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { getAllProducts, getCategories, getTags, updateProduct, Product, TaxonomyItem } from '@/lib/data';
+import dynamic from 'next/dynamic';
+import { getAllProducts, getCategories, getTags, getBrands, updateProduct, getProductById, Product, TaxonomyItem, Variation } from '@/lib/data';
 import styles from './admin.module.css';
+import MediaModal from '@/components/MediaModal';
+
+const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<TaxonomyItem[]>([]);
+  const [allBrands, setAllBrands] = useState<TaxonomyItem[]>([]);
   
   // Filters
   const [search, setSearch] = useState('');
@@ -23,6 +28,12 @@ export default function AdminProductsPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Expanded edit panel state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [mediaModalOpen, setMediaModalOpen] = useState<{ isOpen: boolean; target: 'main' | 'gallery' | null }>({ isOpen: false, target: null });
+
   // Extract unique taxonomies for filters
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort(), [products]);
   const brands = useMemo(() => Array.from(new Set(products.map(p => p.brand).filter(Boolean))).sort(), [products]);
@@ -31,12 +42,14 @@ export default function AdminProductsPage() {
     Promise.all([
       getAllProducts(),
       getCategories(),
-      getTags()
-    ]).then(([prodData, catData, tagData]) => {
+      getTags(),
+      getBrands(),
+    ]).then(([prodData, catData, tagData, brandData]) => {
       const sorted = [...prodData].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setProducts(sorted);
       setAllCategories(catData);
       setAllTags(tagData);
+      setAllBrands(brandData);
       setLoading(false);
     });
   }, []);
@@ -101,7 +114,55 @@ export default function AdminProductsPage() {
     inlineSave(productId, 'category', newCategory);
   }
 
-  // ─── Tag Toggle ──────────────────────────────────────────────────────
+  // ─── Brand Quick-Change ──────────────────────────────────────────────
+  function handleBrandChange(productId: string, newBrand: string) {
+    inlineSave(productId, 'brand', newBrand);
+  }
+
+  // ─── Expand/Collapse Edit Panel ─────────────────────────────────────
+  async function toggleEditPanel(productId: string) {
+    if (expandedId === productId) {
+      setExpandedId(null);
+      setEditProduct(null);
+      return;
+    }
+    // Load full product data
+    const fullProduct = await getProductById(productId);
+    if (fullProduct) {
+      setEditProduct(fullProduct);
+      setExpandedId(productId);
+    }
+  }
+
+  function setEditField<K extends keyof Product>(key: K, value: Product[K]) {
+    setEditProduct(prev => prev ? { ...prev, [key]: value } : null);
+  }
+
+  function setEditVariationField(index: number, key: keyof Variation, value: string | boolean | number | null) {
+    setEditProduct(prev => {
+      if (!prev) return null;
+      const variations = [...prev.variations];
+      variations[index] = { ...variations[index], [key]: value };
+      return { ...prev, variations };
+    });
+  }
+
+  async function saveEditPanel() {
+    if (!editProduct) return;
+    setEditSaving(true);
+    try {
+      await updateProduct(editProduct.id, editProduct);
+      setProducts(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...editProduct } : p));
+      showToast('Product saved ✓');
+      setExpandedId(null);
+      setEditProduct(null);
+    } catch (err) {
+      console.error(err);
+      showToast('Save failed!');
+    } finally {
+      setEditSaving(false);
+    }
+  }
   function handleTagToggle(product: Product, tagName: string) {
     const currentTags = product.tags || [];
     const updated = currentTags.includes(tagName)
@@ -213,6 +274,7 @@ export default function AdminProductsPage() {
                     <th style={{ width: 60 }}>Image</th>
                     <th>Name</th>
                     <th>SKU</th>
+                    <th>Brand</th>
                     <th>Category</th>
                     <th>Tags</th>
                     <th>Cost</th>
@@ -223,7 +285,8 @@ export default function AdminProductsPage() {
                 </thead>
                 <tbody>
                   {filtered.map((product, index) => (
-                    <tr key={product.id || `prod-${index}`} style={{ opacity: savingId === product.id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                    <React.Fragment key={product.id || `prod-${index}`}>
+                    <tr style={{ opacity: savingId === product.id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
                       <td>
                         {product.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -244,6 +307,18 @@ export default function AdminProductsPage() {
                       </td>
                       <td style={{ color: '#86868b', fontFamily: 'monospace', fontSize: '0.82rem' }}>
                         {product.sku || '—'}
+                      </td>
+                      {/* ─── Inline Brand Selector ─── */}
+                      <td>
+                        <select
+                          className={styles.select}
+                          style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem', borderRadius: 8, minWidth: 100, background: '#fafafa' }}
+                          value={product.brand || ''}
+                          onChange={e => handleBrandChange(product.id, e.target.value)}
+                        >
+                          <option value="">—</option>
+                          {allBrands.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                        </select>
                       </td>
 
                       {/* ─── Inline Category Selector ─── */}
@@ -399,19 +474,211 @@ export default function AdminProductsPage() {
                         )}
                       </td>
                       <td>
-                        <Link
-                          href={`/admin/product/${product.id}`}
+                        <button
+                          onClick={() => toggleEditPanel(product.id)}
                           className={`${styles.btn} ${styles.btnSecondary}`}
-                          style={{ padding: '0.4rem 0.9rem', fontSize: '0.82rem' }}
+                          style={{
+                            padding: '0.4rem 0.9rem',
+                            fontSize: '0.82rem',
+                            background: expandedId === product.id ? '#0f766e' : undefined,
+                            color: expandedId === product.id ? '#fff' : undefined,
+                            borderColor: expandedId === product.id ? '#0f766e' : undefined,
+                          }}
                         >
-                          Edit
-                        </Link>
+                          {expandedId === product.id ? '▲ Close' : 'Edit'}
+                        </button>
                       </td>
                     </tr>
+
+                    {/* ─── Inline Edit Panel ─── */}
+                    {expandedId === product.id && editProduct && (
+                      <tr key={`edit-${product.id}`}>
+                        <td colSpan={11} style={{ padding: 0, border: 'none' }}>
+                          <div style={{
+                            background: '#f9fafb',
+                            borderTop: '2px solid #0f766e',
+                            borderBottom: '2px solid #e5e7eb',
+                            padding: '1.5rem 2rem',
+                            animation: 'slideDown 0.25s ease-out',
+                          }}>
+                            {/* Quick edit grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Name</label>
+                                <input
+                                  className={styles.varInput}
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.name || ''}
+                                  onChange={e => setEditField('name', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Price</label>
+                                <input
+                                  className={styles.varInput}
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.price || ''}
+                                  onChange={e => setEditField('price', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Cost Price</label>
+                                <input
+                                  className={styles.varInput}
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.costPrice || ''}
+                                  onChange={e => setEditField('costPrice', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Status</label>
+                                <select
+                                  className={styles.select}
+                                  style={{ width: '100%', marginTop: 4, padding: '0.4rem', borderRadius: 8 }}
+                                  value={editProduct.status || 'published'}
+                                  onChange={e => setEditField('status', e.target.value as 'published' | 'draft')}
+                                >
+                                  <option value="published">Published</option>
+                                  <option value="draft">Draft</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>SKU</label>
+                                <input
+                                  className={styles.varInput}
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.sku || ''}
+                                  onChange={e => setEditField('sku', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Weight (g)</label>
+                                <input
+                                  className={styles.varInput}
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.weight || ''}
+                                  onChange={e => setEditField('weight', Number(e.target.value) || 0)}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Shipping Class</label>
+                                <input
+                                  className={styles.varInput}
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.shippingClass || ''}
+                                  onChange={e => setEditField('shippingClass', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Stock Qty</label>
+                                <input
+                                  className={styles.varInput}
+                                  type="number"
+                                  style={{ width: '100%', marginTop: 4 }}
+                                  value={editProduct.stockQty ?? ''}
+                                  onChange={e => setEditField('stockQty', parseInt(e.target.value) || 0)}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Description */}
+                            <div style={{ marginBottom: '1rem' }}>
+                              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 4 }}>Description</label>
+                              <div data-color-mode="light">
+                                <MDEditor
+                                  value={editProduct.description || ''}
+                                  onChange={(val) => setEditField('description', val || '')}
+                                  height={180}
+                                  preview="edit"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Variations */}
+                            {(editProduct.variations || []).length > 0 && (
+                              <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: 8 }}>Variations ({editProduct.variations.length})</label>
+                                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff' }}>
+                                  <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                      <tr style={{ borderBottom: '1px solid #e5e7eb', background: '#f3f4f6' }}>
+                                        <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>SKU</th>
+                                        <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>Option</th>
+                                        <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>Price</th>
+                                        <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>Cost</th>
+                                        <th style={{ padding: '0.4rem 0.6rem', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', color: '#6b7280' }}>Qty</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {editProduct.variations.map((v, i) => (
+                                        <tr key={v.id || i} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                                          <td style={{ padding: '0.35rem 0.6rem', fontFamily: 'monospace', fontSize: '0.78rem', color: '#6b7280' }}>{v.sku || '—'}</td>
+                                          <td style={{ padding: '0.35rem 0.6rem', fontSize: '0.8rem' }}>
+                                            {v.attributes ? Object.values(v.attributes).flat().join(', ') : '—'}
+                                          </td>
+                                          <td style={{ padding: '0.35rem 0.6rem' }}>
+                                            <input className={styles.varInput} style={{ width: 70 }} value={v.price || ''} onChange={e => setEditVariationField(i, 'price', e.target.value)} />
+                                          </td>
+                                          <td style={{ padding: '0.35rem 0.6rem' }}>
+                                            <input className={styles.varInput} style={{ width: 70 }} value={(v as any).cost_price || (v as any).costPrice || ''} onChange={e => setEditVariationField(i, 'price', e.target.value)} />
+                                          </td>
+                                          <td style={{ padding: '0.35rem 0.6rem' }}>
+                                            <input className={styles.varInput} type="number" style={{ width: 60 }} value={v.stockQty ?? ''} onChange={e => setEditVariationField(i, 'stockQty', parseInt(e.target.value) || 0)} />
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Action buttons */}
+                            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Link
+                                href={`/admin/product/${product.id}`}
+                                style={{ fontSize: '0.82rem', color: '#6b7280', textDecoration: 'underline' }}
+                              >
+                                Open full editor →
+                              </Link>
+                              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                                <button
+                                  onClick={() => { setExpandedId(null); setEditProduct(null); }}
+                                  className={`${styles.btn} ${styles.btnSecondary}`}
+                                  style={{ padding: '0.5rem 1.2rem', fontSize: '0.85rem' }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={saveEditPanel}
+                                  disabled={editSaving}
+                                  style={{
+                                    padding: '0.5rem 1.5rem',
+                                    fontSize: '0.85rem',
+                                    fontWeight: 600,
+                                    background: editSaving ? '#9ca3af' : 'linear-gradient(135deg, #0d9488, #0f766e)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: 10,
+                                    cursor: editSaving ? 'not-allowed' : 'pointer',
+                                  }}
+                                >
+                                  {editSaving ? 'Saving...' : '💾 Save Product'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   ))}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: '#86868b' }}>
+                      <td colSpan={11} style={{ textAlign: 'center', padding: '3rem', color: '#86868b' }}>
                         No products match your search.
                       </td>
                     </tr>
@@ -426,6 +693,26 @@ export default function AdminProductsPage() {
       {toast && (
         <div className={styles.toast}>{toast}</div>
       )}
+
+      {/* Media Modal for inline editor */}
+      {mediaModalOpen.isOpen && editProduct && (
+        <MediaModal
+          onClose={() => setMediaModalOpen({ isOpen: false, target: null })}
+          onSelect={(url) => {
+            if (mediaModalOpen.target === 'main') {
+              setEditField('image', url);
+            }
+            setMediaModalOpen({ isOpen: false, target: null });
+          }}
+        />
+      )}
+
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; max-height: 0; transform: translateY(-10px); }
+          to { opacity: 1; max-height: 2000px; transform: translateY(0); }
+        }
+      `}</style>
     </>
   );
 }
