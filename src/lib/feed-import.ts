@@ -354,12 +354,16 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   }
 
   // ── 5. Process each parent product ─────────────────────────────────────
+  // Collect all DB operations, then execute in parallel batches
+  const pendingProductUpdates: { id: string; data: Record<string, any> }[] = [];
+  const pendingVarUpdates: { id: string; cost_price: string; stock_qty: number }[] = [];
+  const pendingNewVars: any[] = [];
+
   for (const [sku, parent] of parents) {
     try {
       const existing = existingMap.get(sku);
 
       if (existing) {
-        // ── EXISTING PRODUCT — check for changes ──────────────────────
         const feedCostPrice = parent.costprice_exvat.toFixed(2);
         const feedTotalQty = parent.prod_type === 'variable'
           ? parent.variations.reduce((sum, v) => sum + v.qty, 0)
@@ -368,15 +372,11 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
         const currentCostPrice = existing.cost_price || '0.00';
         const currentStockQty = existing.stock_qty ?? 0;
 
-        // Check if parent attributes changed
         const feedAttributes = buildAttributes(parent);
         const currentAttributes = existing.attributes || {};
         const attrChanged = JSON.stringify(feedAttributes) !== JSON.stringify(currentAttributes);
 
-        // Check variation-level changes
         let varChanged = false;
-        const varUpdates: { id: string; cost_price: string; stock_qty: number }[] = [];
-        const newVariations: any[] = [];
 
         for (const fv of parent.variations) {
           const existingVar = existingVarMap.get(fv.sku);
@@ -384,17 +384,16 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
             const fvCost = fv.costprice_exvat.toFixed(2);
             if (fvCost !== (existingVar.cost_price || '0.00') || fv.qty !== (existingVar.stock_qty ?? 0)) {
               varChanged = true;
-              varUpdates.push({ id: existingVar.id, cost_price: fvCost, stock_qty: fv.qty });
+              pendingVarUpdates.push({ id: existingVar.id, cost_price: fvCost, stock_qty: fv.qty });
             }
           } else {
-            // New variation on existing product
             varChanged = true;
             const varId = `var_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            newVariations.push({
+            pendingNewVars.push({
               id: varId,
               product_id: existing.id,
               sku: fv.sku,
-              price: null,  // user sets retail price
+              price: null,
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
@@ -411,54 +410,31 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
           continue;
         }
 
-        // Apply updates
         const updateData: Record<string, any> = {};
         if (parentCostChanged) updateData.cost_price = feedCostPrice;
         if (parentQtyChanged) updateData.stock_qty = feedTotalQty;
         if (attrChanged) updateData.attributes = feedAttributes;
 
-        if (!dryRun && Object.keys(updateData).length > 0) {
-          await supabase.from('products').update(updateData).eq('id', existing.id);
-        }
-
-        // Update changed variations
-        if (!dryRun) {
-          for (const vu of varUpdates) {
-            await supabase.from('product_variations').update({
-              cost_price: vu.cost_price,
-              stock_qty: vu.stock_qty,
-              in_stock: vu.stock_qty > 0,
-            }).eq('id', vu.id);
-          }
-        }
-        result.variationsUpdated += varUpdates.length;
-
-        // Insert new variations
-        if (!dryRun && newVariations.length > 0) {
-          await supabase.from('product_variations').insert(newVariations);
-          result.variationsUpdated += newVariations.length;
+        if (Object.keys(updateData).length > 0) {
+          pendingProductUpdates.push({ id: existing.id, data: updateData });
         }
 
         result.productsUpdated++;
         result.updatedSkus.push(sku);
 
       } else {
-        // ── NEW PRODUCT — create as draft ─────────────────────────────
         result.productsAdded++;
         result.addedSkus.push(sku);
         result.newSkus.push(`${sku} — ${parent.name}`);
 
-        // In dry-run mode, just count — don't write anything
         if (dryRun) continue;
 
         const attributes = buildAttributes(parent);
         const slug = await generateUniqueSlug(parent.name, supabase);
 
-        // Auto-create category and brand if needed
         await ensureCategoryExists(parent.cat_name, supabase);
         await ensureBrandExists(parent.brand, supabase);
 
-        // Process and upload image
         let imageUrl: string | null = null;
         if (parent.img_url) {
           imageUrl = await processAndUploadImage(parent.img_url, parent.name, supabase);
@@ -468,7 +444,6 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
           ? parent.variations.reduce((sum, v) => sum + v.qty, 0)
           : Number((items.find(i => String(i.sku) === sku) as any)?.qty || 0);
 
-        // Insert product
         const productId = `prod_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
         const { error: insertError } = await supabase
           .from('products')
@@ -477,7 +452,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
             name: parent.name,
             slug,
             sku: parent.sku,
-            price: '0.00',           // user sets retail price
+            price: '0.00',
             cost_price: parent.costprice_exvat.toFixed(2),
             weight: parent.weight_g,
             shipping_class: parent.size || null,
@@ -500,7 +475,6 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
           continue;
         }
 
-        // Insert variations
         if (parent.prod_type === 'variable' && parent.variations.length > 0) {
           const varRows = parent.variations.map(fv => {
             const varId = `var_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -508,7 +482,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               id: varId,
               product_id: productId,
               sku: fv.sku,
-              price: null, // user sets retail price
+              price: null,
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
@@ -524,6 +498,37 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
       }
     } catch (err: any) {
       result.errors.push({ sku, error: err.message });
+    }
+  }
+
+  // ── 6. Flush batched updates in parallel ──────────────────────────────
+  if (!dryRun) {
+    const BATCH = 25;
+
+    console.log(`[Feed Import] Flushing ${pendingProductUpdates.length} product updates...`);
+    for (let i = 0; i < pendingProductUpdates.length; i += BATCH) {
+      const chunk = pendingProductUpdates.slice(i, i + BATCH);
+      await Promise.all(chunk.map(({ id, data }) =>
+        supabase.from('products').update(data).eq('id', id)
+      ));
+    }
+
+    console.log(`[Feed Import] Flushing ${pendingVarUpdates.length} variation updates...`);
+    for (let i = 0; i < pendingVarUpdates.length; i += BATCH) {
+      const chunk = pendingVarUpdates.slice(i, i + BATCH);
+      await Promise.all(chunk.map(({ id, cost_price, stock_qty }) =>
+        supabase.from('product_variations').update({
+          cost_price, stock_qty, in_stock: stock_qty > 0,
+        }).eq('id', id)
+      ));
+    }
+    result.variationsUpdated += pendingVarUpdates.length;
+
+    if (pendingNewVars.length > 0) {
+      console.log(`[Feed Import] Inserting ${pendingNewVars.length} new variations...`);
+      const { error: nvErr } = await supabase.from('product_variations').insert(pendingNewVars);
+      if (nvErr) result.errors.push({ sku: 'BATCH_NEW_VARS', error: nvErr.message });
+      result.variationsUpdated += pendingNewVars.length;
     }
   }
 
