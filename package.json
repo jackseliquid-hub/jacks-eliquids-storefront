@@ -5,7 +5,6 @@
   "engines": {
     "node": ">=22.0.0"
   },
-
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -21,6 +20,7 @@
     "@uiw/react-textarea-code-editor": "^3.1.1",
     "axios": "^1.13.6",
     "cors": "^2.8.6",
+    "fast-xml-parser": "^5.5.11",
     "next": "16.1.6",
     "papaparse": "^5.5.3",
     "react": "19.2.3",
