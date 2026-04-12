@@ -17,9 +17,7 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 200;
-  /* Dynamic width — shrinks to fit, max 3 columns */
-  width: fit-content;
-  max-width: min(820px, 90vw);
+  width: min(780px, 92vw);
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -38,18 +36,11 @@
   padding: 1.25rem;
 }
 
-/* ── Grid: max 3 across, auto-shrink for fewer items ──────── */
+/* ── Grid: 3 columns max, stacks at 4+ items ─────────────── */
 .columns {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.35rem;
-}
-
-/* Force max 3 columns */
-@media (min-width: 700px) {
-  .columns {
-    grid-template-columns: repeat(auto-fill, minmax(210px, 250px));
-  }
 }
 
 .columnLink {
