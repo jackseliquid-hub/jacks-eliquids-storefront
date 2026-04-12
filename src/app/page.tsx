@@ -1,15 +1,32 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import styles from './home.module.css';
 import { useCart } from '@/context/CartContext';
 import { getAllProducts, getCategories, Product } from '@/lib/data';
 
+// Wrapper to satisfy Next.js Suspense boundary for useSearchParams
 export default function Home() {
+  return (
+    <Suspense fallback={<div className={styles.loadingScreen}><div className={styles.spinner} /><span>Loading Shop...</span></div>}>
+      <HomeInner />
+    </Suspense>
+  );
+}
+
+function HomeInner() {
   const { addToCart, cartCount, openCart } = useCart();
+  const searchParams = useSearchParams();
+
+  // Read filter from URL query params
+  const catParam   = searchParams.get('cat');
+  const tagParam   = searchParams.get('tag');
+  const brandParam = searchParams.get('brand');
+
   const [activeCategory, setActiveCategory] = useState<string>('All');
-  
+
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -33,21 +50,51 @@ export default function Home() {
     fetchData();
   }, []);
 
+  // Sync URL param → activeCategory only when the param is a category
+  useEffect(() => {
+    if (catParam) setActiveCategory(catParam);
+  }, [catParam]);
+
   const featuredProducts = useMemo(() => {
-    // Reverse array to show newly added products (at the bottom of the list/firestore) first
     const sorted = [...products].reverse();
+
+    // Tag filter — show products that have this tag
+    if (tagParam) {
+      const tagLower = tagParam.toLowerCase();
+      return sorted.filter(p =>
+        p.tags && p.tags.some(t => t.toLowerCase() === tagLower)
+      );
+    }
+
+    // Brand filter
+    if (brandParam) {
+      const brandLower = brandParam.toLowerCase();
+      return sorted.filter(p =>
+        p.brand && p.brand.toLowerCase() === brandLower
+      );
+    }
+
+    // Category filter (from pills or URL)
     if (activeCategory === 'All') return sorted.slice(0, 48);
     return sorted.filter(p => p.category === activeCategory);
-  }, [activeCategory, products]);
+  }, [activeCategory, products, tagParam, brandParam]);
+
+  // Page title based on active filter
+  const filterTitle = tagParam
+    ? tagParam
+    : brandParam
+      ? brandParam
+      : activeCategory === 'All'
+        ? 'Featured Blends'
+        : activeCategory;
 
   function handleAddToCart(e: React.MouseEvent, product: Product) {
-    e.preventDefault(); // Don't follow the Link
+    e.preventDefault();
     addToCart({
       id: product.id,
       slug: product.slug,
       name: product.name,
       image: product.image,
-      // Use sale price if available for cart
       price: product.salePrice || (product.price && product.price !== 'N/A' ? product.price : 'See Options'),
     });
   }
@@ -64,29 +111,31 @@ export default function Home() {
   return (
     <>
       <main className={styles.main}>
-        {/* Hero */}
-        <section className={styles.hero}>
-          <h1 className={styles.heroTitle}>Premium E-Liquids. Unmatched Quality.</h1>
-          <p className={styles.heroSubtitle}>
-            Carefully crafted blends designed to deliver perfect flavour profiles and dense clouds. Satisfaction in every draw.
-          </p>
-          <button className={styles.ctaButton} onClick={openCart}>Shop the Collection</button>
-        </section>
+        {/* Hero — only show when not filtering */}
+        {!tagParam && !brandParam && activeCategory === 'All' && (
+          <section className={styles.hero}>
+            <h1 className={styles.heroTitle}>Premium E-Liquids. Unmatched Quality.</h1>
+            <p className={styles.heroSubtitle}>
+              Carefully crafted blends designed to deliver perfect flavour profiles and dense clouds. Satisfaction in every draw.
+            </p>
+            <button className={styles.ctaButton} onClick={openCart}>Shop the Collection</button>
+          </section>
+        )}
 
         {/* Category Bar */}
         <div className={styles.categoryBar}>
           <div className={`container ${styles.categoryScroll}`}>
             <button
-              className={`${styles.categoryPill} ${activeCategory === 'All' ? styles.active : ''}`}
-              onClick={() => setActiveCategory('All')}
+              className={`${styles.categoryPill} ${activeCategory === 'All' && !tagParam && !brandParam ? styles.active : ''}`}
+              onClick={() => { setActiveCategory('All'); window.history.replaceState(null, '', '/'); }}
             >
               All
             </button>
             {categories.map((cat, index) => (
               <button
                 key={cat || `cat-${index}`}
-                className={`${styles.categoryPill} ${activeCategory === cat ? styles.active : ''}`}
-                onClick={() => setActiveCategory(cat)}
+                className={`${styles.categoryPill} ${activeCategory === cat && !tagParam && !brandParam ? styles.active : ''}`}
+                onClick={() => { setActiveCategory(cat); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(cat)}`); }}
               >
                 {cat}
               </button>
@@ -97,16 +146,21 @@ export default function Home() {
         {/* Products Grid */}
         <section className={`container ${styles.productsSection}`}>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>
-              {activeCategory === 'All' ? 'Featured Blends' : activeCategory}
-            </h2>
-            <Link href="#" className={styles.viewAll}>
-              {activeCategory === 'All'
-                ? `View All ${products.length} Products`
-                : `${featuredProducts.length} Products`}
-              <span> →</span>
-            </Link>
+            <h2 className={styles.sectionTitle}>{filterTitle}</h2>
+            <span className={styles.viewAll} style={{ cursor: 'default' }}>
+              {featuredProducts.length} Product{featuredProducts.length !== 1 ? 's' : ''}
+            </span>
           </div>
+
+          {featuredProducts.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '4rem', color: '#9ca3af', fontSize: '1.1rem' }}>
+              No products found for this filter.
+              <br />
+              <Link href="/" style={{ color: '#0d9488', fontWeight: 600, marginTop: '0.5rem', display: 'inline-block' }}>
+                ← Back to all products
+              </Link>
+            </div>
+          )}
 
           <div className={styles.grid}>
             {featuredProducts.map((product, index) => (

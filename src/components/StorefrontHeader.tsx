@@ -123,6 +123,38 @@ export default function StorefrontHeader() {
                       <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </Link>
+
+                  {/* Mega panel — inside trigger for contained positioning */}
+                  {megaOpen === item.id && (
+                    <>
+                      <div className={megaStyles.backdrop} onClick={() => setMegaOpen(null)} />
+                      <div
+                        className={megaStyles.panel}
+                        onMouseEnter={cancelClose}
+                        onMouseLeave={startClose}
+                      >
+                        <div className={megaStyles.inner}>
+                          <div className={megaStyles.columns}>
+                            {item.children!.map(child => (
+                              <Link
+                                key={child.id}
+                                href={child.url || '/'}
+                                className={megaStyles.columnLink}
+                                onClick={() => setMegaOpen(null)}
+                              >
+                                <div className={megaStyles.linkIcon}>
+                                  {child.label.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className={megaStyles.linkLabel}>{child.label}</div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             }
@@ -160,37 +192,6 @@ export default function StorefrontHeader() {
           </button>
         </div>
       </header>
-
-      {/* ── Mega-menu Panel (rendered OUTSIDE header for full-width) ── */}
-      {megaOpen && (() => {
-        const activeItem = menuItems.find(i => i.id === megaOpen);
-        if (!activeItem?.children?.length) return null;
-        return (
-          <>
-            <div className={megaStyles.backdrop} onClick={() => setMegaOpen(null)} />
-            <div
-              className={megaStyles.panel}
-              onMouseEnter={cancelClose}
-              onMouseLeave={startClose}
-            >
-              <div className={`container ${megaStyles.inner}`}>
-                <div className={megaStyles.columns}>
-                  {activeItem.children!.map(child => (
-                    <Link
-                      key={child.id}
-                      href={child.url || '/'}
-                      className={megaStyles.columnLink}
-                      onClick={() => setMegaOpen(null)}
-                    >
-                      <span className={megaStyles.linkLabel}>{child.label}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
-        );
-      })()}
 
       <SearchOverlay isOpen={searchOpen} onClose={closeSearch} />
       <MobileMenu items={menuItems} isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
