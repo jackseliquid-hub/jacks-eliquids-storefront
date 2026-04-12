@@ -67,9 +67,11 @@ interface ImportResult {
   variationsUpdated: number;
   addedSkus: string[];
   updatedSkus: string[];
+  updatedVarSkus: string[];    // variation SKUs updated (cost/qty)
+  newVarSkus: string[];        // new variations added to existing products
   errors: { sku: string; error: string }[];
   dryRun: boolean;
-  newSkus: string[];       // SKUs that would be created (dry-run)
+  newSkus: string[];
 }
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
@@ -296,6 +298,8 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     variationsUpdated: 0,
     addedSkus: [],
     updatedSkus: [],
+    updatedVarSkus: [],
+    newVarSkus: [],
     errors: [],
     dryRun,
     newSkus: [],
@@ -385,6 +389,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
             if (fvCost !== (existingVar.cost_price || '0.00') || fv.qty !== (existingVar.stock_qty ?? 0)) {
               varChanged = true;
               pendingVarUpdates.push({ id: existingVar.id, cost_price: fvCost, stock_qty: fv.qty });
+              result.updatedVarSkus.push(fv.sku);
             }
           } else {
             varChanged = true;
@@ -399,6 +404,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               in_stock: fv.qty > 0,
               attributes: fv.var_name ? { [parent.var_group || 'Option']: fv.var_name } : {},
             });
+            result.newVarSkus.push(`${fv.sku} — ${fv.var_name || 'new'}`);
           }
         }
 

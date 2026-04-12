@@ -133,6 +133,8 @@ async function sendImportReportEmail(result: {
   variationsUpdated: number;
   addedSkus: string[];
   updatedSkus: string[];
+  updatedVarSkus: string[];
+  newVarSkus: string[];
   errors: { sku: string; error: string }[];
 }) {
   if (!process.env.RESEND_API_KEY) {
@@ -154,6 +156,15 @@ async function sendImportReportEmail(result: {
     ? result.updatedSkus.slice(0, 50).map(s => `<li>${s}</li>`).join('')
     + (result.updatedSkus.length > 50 ? `<li>...and ${result.updatedSkus.length - 50} more</li>` : '')
     : '<li>None</li>';
+
+  const updatedVarList = result.updatedVarSkus.length > 0
+    ? result.updatedVarSkus.slice(0, 50).map(s => `<li>${s}</li>`).join('')
+    + (result.updatedVarSkus.length > 50 ? `<li>...and ${result.updatedVarSkus.length - 50} more</li>` : '')
+    : '';
+
+  const newVarList = result.newVarSkus.length > 0
+    ? result.newVarSkus.map(s => `<li>${s}</li>`).join('')
+    : '';
 
   const errorList = result.errors.length > 0
     ? result.errors.map(e => `<li>${e.sku}: ${e.error}</li>`).join('')
@@ -199,6 +210,17 @@ async function sendImportReportEmail(result: {
       <ul style="font-size: 13px; color: #374151;">${updatedList}</ul>
       ` : ''}
 
+      ${updatedVarList ? `
+      <h3>🔧 Variation SKUs Updated (cost/qty)</h3>
+      <ul style="font-size: 13px; color: #374151;">${updatedVarList}</ul>
+      ` : ''}
+
+      ${newVarList ? `
+      <h3 style="color: #0f766e;">✨ New Variations Added to Existing Products</h3>
+      <ul style="font-size: 13px; color: #374151;">${newVarList}</ul>
+      <p style="font-size: 12px; color: #9ca3af;">These variations need a retail price setting before they appear on the storefront.</p>
+      ` : ''}
+
       ${result.errors.length > 0 ? `
       <h3 style="color: #dc2626;">❌ Errors</h3>
       <ul style="font-size: 13px; color: #dc2626;">${errorList}</ul>
@@ -212,7 +234,7 @@ async function sendImportReportEmail(result: {
   await resend.emails.send({
     from: 'Jacks Server <sales@jackseliquid.co.uk>',
     to: ['jackseliquid@gmail.com'],
-    subject: `📦 Feed Import: ${result.productsAdded} added, ${result.productsUpdated} updated`,
+    subject: `📦 Feed Import: ${result.productsAdded} added, ${result.productsUpdated} updated, ${result.variationsUpdated} vars`,
     html,
   });
 }
