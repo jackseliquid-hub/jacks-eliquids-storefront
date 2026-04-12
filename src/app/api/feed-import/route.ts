@@ -44,30 +44,34 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getAdminClient();
+  const dryRun = request.nextUrl.searchParams.get('dryRun') === 'true';
 
-  // ── Create import log entry ────────────────────────────────────────────
-  const { data: logEntry } = await supabase
-    .from('import_logs')
-    .insert({ status: 'running' })
-    .select('id')
-    .single();
-
-  const logId = logEntry?.id;
+  // ── Create import log entry (skip in dry-run) ──────────────────────────
+  let logId: string | undefined;
+  if (!dryRun) {
+    const { data: logEntry } = await supabase
+      .from('import_logs')
+      .insert({ status: 'running' })
+      .select('id')
+      .single();
+    logId = logEntry?.id;
+  }
 
   try {
-    console.log('[Feed Import] Starting import...');
-    const result = await runFeedImport(feedUrl);
+    console.log(`[Feed Import] Starting ${dryRun ? 'DRY RUN' : 'import'}...`);
+    const result = await runFeedImport(feedUrl, dryRun);
 
     // ── Update import log ────────────────────────────────────────────────
+    const prefix = dryRun ? '🔍 DRY RUN — ' : '';
     const summary = [
-      `✅ Added: ${result.productsAdded}`,
-      `🔄 Updated: ${result.productsUpdated}`,
+      `${prefix}${dryRun ? 'Would add' : '✅ Added'}: ${result.productsAdded}`,
+      `${dryRun ? 'Would update' : '🔄 Updated'}: ${result.productsUpdated}`,
       `⏭️ Skipped: ${result.productsSkipped}`,
-      `🔧 Variations Updated: ${result.variationsUpdated}`,
+      `🔧 Variations: ${result.variationsUpdated}`,
       result.errors.length > 0 ? `❌ Errors: ${result.errors.length}` : '',
     ].filter(Boolean).join(' | ');
 
-    if (logId) {
+    if (logId && !dryRun) {
       await supabase.from('import_logs').update({
         completed_at: new Date().toISOString(),
         status: 'completed',
@@ -80,11 +84,13 @@ export async function GET(request: NextRequest) {
       }).eq('id', logId);
     }
 
-    // ── Send email report ────────────────────────────────────────────────
-    try {
-      await sendImportReportEmail(result);
-    } catch (emailErr: any) {
-      console.error('[Feed Import] Email report failed:', emailErr.message);
+    // ── Send email report (skip in dry-run) ──────────────────────────────
+    if (!dryRun) {
+      try {
+        await sendImportReportEmail(result);
+      } catch (emailErr: any) {
+        console.error('[Feed Import] Email report failed:', emailErr.message);
+      }
     }
 
     console.log(`[Feed Import] Complete: ${summary}`);

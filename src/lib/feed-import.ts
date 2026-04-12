@@ -68,6 +68,8 @@ interface ImportResult {
   addedSkus: string[];
   updatedSkus: string[];
   errors: { sku: string; error: string }[];
+  dryRun: boolean;
+  newSkus: string[];       // SKUs that would be created (dry-run)
 }
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
@@ -285,7 +287,7 @@ async function generateUniqueSlug(name: string, supabase: any): Promise<string> 
 
 // ─── Main Import Function ───────────────────────────────────────────────────
 
-export async function runFeedImport(feedUrl: string): Promise<ImportResult> {
+export async function runFeedImport(feedUrl: string, dryRun = false): Promise<ImportResult> {
   const supabase = getAdminClient();
   const result: ImportResult = {
     productsAdded: 0,
@@ -295,6 +297,8 @@ export async function runFeedImport(feedUrl: string): Promise<ImportResult> {
     addedSkus: [],
     updatedSkus: [],
     errors: [],
+    dryRun,
+    newSkus: [],
   };
 
   // ── 1. Fetch and parse XML ─────────────────────────────────────────────
@@ -406,22 +410,24 @@ export async function runFeedImport(feedUrl: string): Promise<ImportResult> {
         if (parentQtyChanged) updateData.stock_qty = feedTotalQty;
         if (attrChanged) updateData.attributes = feedAttributes;
 
-        if (Object.keys(updateData).length > 0) {
+        if (!dryRun && Object.keys(updateData).length > 0) {
           await supabase.from('products').update(updateData).eq('id', existing.id);
         }
 
         // Update changed variations
-        for (const vu of varUpdates) {
-          await supabase.from('product_variations').update({
-            cost_price: vu.cost_price,
-            stock_qty: vu.stock_qty,
-            in_stock: vu.stock_qty > 0,
-          }).eq('id', vu.id);
-          result.variationsUpdated++;
+        if (!dryRun) {
+          for (const vu of varUpdates) {
+            await supabase.from('product_variations').update({
+              cost_price: vu.cost_price,
+              stock_qty: vu.stock_qty,
+              in_stock: vu.stock_qty > 0,
+            }).eq('id', vu.id);
+          }
         }
+        result.variationsUpdated += varUpdates.length;
 
         // Insert new variations
-        if (newVariations.length > 0) {
+        if (!dryRun && newVariations.length > 0) {
           await supabase.from('product_variations').insert(newVariations);
           result.variationsUpdated += newVariations.length;
         }
@@ -431,6 +437,13 @@ export async function runFeedImport(feedUrl: string): Promise<ImportResult> {
 
       } else {
         // ── NEW PRODUCT — create as draft ─────────────────────────────
+        result.productsAdded++;
+        result.addedSkus.push(sku);
+        result.newSkus.push(`${sku} — ${parent.name}`);
+
+        // In dry-run mode, just count — don't write anything
+        if (dryRun) continue;
+
         const attributes = buildAttributes(parent);
         const slug = await generateUniqueSlug(parent.name, supabase);
 
@@ -501,9 +514,6 @@ export async function runFeedImport(feedUrl: string): Promise<ImportResult> {
             result.errors.push({ sku, error: `Variations: ${varError.message}` });
           }
         }
-
-        result.productsAdded++;
-        result.addedSkus.push(sku);
       }
     } catch (err: any) {
       result.errors.push({ sku, error: err.message });

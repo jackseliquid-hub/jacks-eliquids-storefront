@@ -20,6 +20,7 @@ export default function FeedImportPage() {
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [newSkusList, setNewSkusList] = useState<string[]>([]);
 
   const loadLogs = useCallback(async () => {
     const { data } = await supabase
@@ -33,26 +34,35 @@ export default function FeedImportPage() {
 
   useEffect(() => { loadLogs(); }, [loadLogs]);
 
-  async function runImport() {
-    if (!confirm('Run the EQ Wholesale feed import now? This may take up to 60 seconds.')) return;
+  async function runImport(dryRun = false) {
+    const action = dryRun ? 'dry run' : 'import';
+    if (!dryRun && !confirm('Run the EQ Wholesale feed import now? This will update your database. For a safe preview, use "Dry Run" first.')) return;
     setImporting(true);
     setResult(null);
+    setNewSkusList([]);
 
     try {
-      const res = await fetch('/api/feed-import?manual=true');
+      const res = await fetch(`/api/feed-import?manual=true${dryRun ? '&dryRun=true' : ''}`);
       const json = await res.json();
 
       if (json.success) {
-        setResult(`✅ Import complete: ${json.productsAdded} added, ${json.productsUpdated} updated, ${json.productsSkipped} skipped`);
+        if (dryRun) {
+          setResult(`🔍 DRY RUN complete: Would add ${json.productsAdded} new products, update ${json.productsUpdated}, skip ${json.productsSkipped} (unchanged)`);
+          if (json.newSkus && json.newSkus.length > 0) {
+            setNewSkusList(json.newSkus);
+          }
+        } else {
+          setResult(`✅ Import complete: ${json.productsAdded} added, ${json.productsUpdated} updated, ${json.productsSkipped} skipped`);
+        }
       } else {
-        setResult(`❌ Import failed: ${json.error}`);
+        setResult(`❌ ${action} failed: ${json.error}`);
       }
     } catch (err: any) {
       setResult(`❌ Error: ${err.message}`);
     }
 
     setImporting(false);
-    loadLogs();
+    if (!dryRun) loadLogs();
   }
 
   function formatDate(dateStr: string) {
@@ -78,34 +88,57 @@ export default function FeedImportPage() {
             EQ Wholesale product sync — runs automatically at 4am daily
           </p>
         </div>
-        <button
-          onClick={runImport}
-          disabled={importing}
-          style={{
-            background: importing ? '#9ca3af' : 'linear-gradient(135deg, #0d9488, #0f766e)',
-            color: '#fff', border: 'none', padding: '0.65rem 1.4rem',
-            borderRadius: 10, fontWeight: 600, fontSize: '0.88rem',
-            cursor: importing ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}
-        >
-          {importing ? (
-            <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span> Importing...</>
-          ) : (
-            <>▶ Run Import Now</>
-          )}
-        </button>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          <button
+            onClick={() => runImport(true)}
+            disabled={importing}
+            style={{
+              background: importing ? '#9ca3af' : '#f0fdfa',
+              color: importing ? '#fff' : '#0f766e', border: '2px solid #0f766e', padding: '0.6rem 1.2rem',
+              borderRadius: 10, fontWeight: 600, fontSize: '0.85rem',
+              cursor: importing ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            🔍 Dry Run
+          </button>
+          <button
+            onClick={() => runImport(false)}
+            disabled={importing}
+            style={{
+              background: importing ? '#9ca3af' : 'linear-gradient(135deg, #0d9488, #0f766e)',
+              color: '#fff', border: 'none', padding: '0.65rem 1.4rem',
+              borderRadius: 10, fontWeight: 600, fontSize: '0.88rem',
+              cursor: importing ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            {importing ? (
+              <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</span> Working...</>
+            ) : (
+              <>▶ Run Import Now</>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Result banner */}
       {result && (
         <div style={{
           ...card,
-          background: result.startsWith('✅') ? '#f0fdf4' : '#fef2f2',
-          border: `1px solid ${result.startsWith('✅') ? '#86efac' : '#fca5a5'}`,
+          background: result.startsWith('✅') ? '#f0fdf4' : result.startsWith('🔍') ? '#eff6ff' : '#fef2f2',
+          border: `1px solid ${result.startsWith('✅') ? '#86efac' : result.startsWith('🔍') ? '#93c5fd' : '#fca5a5'}`,
           padding: '1rem 1.2rem',
         }}>
           <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>{result}</p>
+          {newSkusList.length > 0 && (
+            <div style={{ marginTop: '0.75rem', borderTop: '1px solid #bfdbfe', paddingTop: '0.75rem' }}>
+              <p style={{ margin: '0 0 0.4rem', fontSize: '0.82rem', fontWeight: 600, color: '#1e40af' }}>New products that would be created as draft:</p>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.8rem', color: '#374151', maxHeight: 200, overflowY: 'auto' }}>
+                {newSkusList.map(s => <li key={s}>{s}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
