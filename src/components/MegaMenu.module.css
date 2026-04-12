@@ -1,8 +1,21 @@
+/* ── Trigger wrapper (around nav link) ────────────────────── */
+.triggerWrap {
+  position: relative;
+  /* Invisible padding below the link to bridge to panel */
+  padding-bottom: 1rem;
+  margin-bottom: -1rem;
+}
+
+.navLinkActive {
+  opacity: 1 !important;
+  color: var(--deep-teal, #0d9488) !important;
+}
+
 /* ── Backdrop ─────────────────────────────────────────────── */
 .backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.08);
   z-index: 98;
   animation: fadeIn 0.2s ease;
 }
@@ -12,65 +25,60 @@
   to   { opacity: 1; }
 }
 
-/* ── Panel ────────────────────────────────────────────────── */
+/* ── Panel (full-width, below header) ─────────────────────── */
 .panel {
-  position: absolute;
+  position: fixed;
   left: 0;
   right: 0;
-  top: 100%;
+  top: 0;
   z-index: 99;
-  background: rgba(255, 255, 255, 0.97);
+  /* Push below header — approximately header height */
+  margin-top: 62px;
+  background: rgba(255, 255, 255, 0.98);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid #e5e7eb;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
-  animation: slideDown 0.22s ease;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.06);
+  animation: slideDown 0.2s ease;
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
+  from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 .inner {
-  padding: 2rem 0;
-  display: flex;
-  gap: 3rem;
+  padding: 1.75rem 0 2rem;
 }
 
 /* ── Columns ──────────────────────────────────────────────── */
 .columns {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 0.25rem;
-  flex: 1;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.3rem;
 }
 
 .columnLink {
   display: flex;
   flex-direction: column;
-  padding: 0.65rem 0.9rem;
-  border-radius: 8px;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
   text-decoration: none;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s;
 }
 
 .columnLink:hover {
   background: #f0fdfa;
+  transform: translateX(2px);
 }
 
 .linkLabel {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   font-weight: 500;
-  color: #111;
+  color: #1f2937;
+  transition: color 0.15s;
 }
 
 .columnLink:hover .linkLabel {
   color: #0f766e;
-}
-
-.linkHint {
-  font-size: 0.72rem;
-  color: #9ca3af;
-  margin-top: 0.1rem;
 }

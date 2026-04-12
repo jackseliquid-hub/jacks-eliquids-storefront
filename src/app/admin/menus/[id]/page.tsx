@@ -13,7 +13,6 @@ interface FlatItem extends Omit<MenuItem, 'children'> {
   depth: number;
 }
 
-// Convert nested tree → flat list with depth
 function flatten(items: MenuItem[], depth = 0): FlatItem[] {
   const result: FlatItem[] = [];
   for (const item of items) {
@@ -24,20 +23,44 @@ function flatten(items: MenuItem[], depth = 0): FlatItem[] {
   return result;
 }
 
-// Convert flat list with depth → set parent_id based on depth changes
 function assignParents(flat: FlatItem[]): FlatItem[] {
   const stack: { id: string; depth: number }[] = [];
   return flat.map((item, i) => {
-    // Pop stack until we find the correct parent depth
-    while (stack.length > 0 && stack[stack.length - 1].depth >= item.depth) {
-      stack.pop();
-    }
+    while (stack.length > 0 && stack[stack.length - 1].depth >= item.depth) stack.pop();
     const parent_id = stack.length > 0 ? stack[stack.length - 1].id : null;
     stack.push({ id: item.id, depth: item.depth });
     return { ...item, parent_id, sort_order: i };
   });
 }
 
+function buildTreeFromFlat(items: MenuItem[]): MenuItem[] {
+  const map = new Map<string, MenuItem>();
+  const roots: MenuItem[] = [];
+  for (const item of items) map.set(item.id, { ...item, children: [] });
+  for (const item of items) {
+    const node = map.get(item.id)!;
+    if (item.parent_id && map.has(item.parent_id)) {
+      map.get(item.parent_id)!.children!.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+// ─── "Add Item" source types ────────────────────────────────────────────────
+type AddSource = 'custom' | 'category' | 'tag' | 'brand' | 'page' | 'product';
+
+const SOURCE_OPTIONS: { value: AddSource; label: string; icon: string }[] = [
+  { value: 'custom',   label: 'Custom Link', icon: '🔗' },
+  { value: 'category', label: 'Category',    icon: '🗂️' },
+  { value: 'tag',      label: 'Tag',         icon: '🏷️' },
+  { value: 'brand',    label: 'Brand',       icon: '✦' },
+  { value: 'page',     label: 'Page',        icon: '📄' },
+  { value: 'product',  label: 'Product',     icon: '📦' },
+];
+
+// ─── Component ──────────────────────────────────────────────────────────────
 export default function MenuBuilderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: menuId } = use(params);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -52,9 +75,17 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
   const [editLabel, setEditLabel] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const [editType, setEditType] = useState<'link' | 'mega' | 'heading'>('link');
-  const [editNewTab, setEditNewTab] = useState(false);
 
-  // Drag state
+  // Add item modal
+  const [showAdd, setShowAdd] = useState(false);
+  const [addSource, setAddSource] = useState<AddSource>('custom');
+  const [addLabel, setAddLabel] = useState('');
+  const [addUrl, setAddUrl] = useState('');
+  const [addType, setAddType] = useState<'link' | 'mega'>('link');
+  const [sourceOptions, setSourceOptions] = useState<{ label: string; url: string }[]>([]);
+  const [sourceLoading, setSourceLoading] = useState(false);
+
+  // Drag
   const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
@@ -64,8 +95,6 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
       supabase.from('menu_items').select('*').eq('menu_id', menuId).order('sort_order', { ascending: true }),
     ]);
     if (menuData) setMenu(menuData as Menu);
-
-    // Build tree then flatten to get depth
     const rawItems = (itemsData || []) as MenuItem[];
     const tree = buildTreeFromFlat(rawItems);
     setItems(flatten(tree));
@@ -74,20 +103,46 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ─── Save ────────────────────────────────────────────────────
+  // ─── Load source options when addSource changes ──────────
+  useEffect(() => {
+    if (!showAdd || addSource === 'custom') { setSourceOptions([]); return; }
+
+    setSourceLoading(true);
+    const supabase = createClient();
+
+    (async () => {
+      let opts: { label: string; url: string }[] = [];
+
+      if (addSource === 'category') {
+        const { data } = await supabase.from('categories').select('name').order('name');
+        opts = (data || []).map(c => ({ label: c.name, url: `/?cat=${encodeURIComponent(c.name)}` }));
+      } else if (addSource === 'tag') {
+        const { data } = await supabase.from('tags').select('name').order('name');
+        opts = (data || []).map(t => ({ label: t.name, url: `/?tag=${encodeURIComponent(t.name)}` }));
+      } else if (addSource === 'brand') {
+        const { data } = await supabase.from('brands').select('name').order('name');
+        opts = (data || []).map(b => ({ label: b.name, url: `/?brand=${encodeURIComponent(b.name)}` }));
+      } else if (addSource === 'page') {
+        const { data } = await supabase.from('pages').select('title, slug').order('title');
+        opts = (data || []).map(p => ({ label: p.title, url: `/p/${p.slug}` }));
+      } else if (addSource === 'product') {
+        const { data } = await supabase.from('products').select('name, slug').order('name').limit(100);
+        opts = (data || []).map(p => ({ label: p.name, url: `/product/${p.slug}` }));
+      }
+
+      setSourceOptions(opts);
+      setSourceLoading(false);
+    })();
+  }, [addSource, showAdd]);
+
+  // ─── Save ────────────────────────────────────────────────
   async function handleSave() {
     setSaving(true); setError(''); setSaved(false);
     const withParents = assignParents(items);
     const payload = withParents.map(item => ({
-      id: item.id,
-      menu_id: menuId,
-      parent_id: item.parent_id,
-      label: item.label,
-      url: item.url,
-      type: item.type,
-      open_in_new_tab: item.open_in_new_tab,
-      sort_order: item.sort_order,
-      image_url: item.image_url,
+      id: item.id, menu_id: menuId, parent_id: item.parent_id,
+      label: item.label, url: item.url, type: item.type,
+      open_in_new_tab: item.open_in_new_tab, sort_order: item.sort_order, image_url: item.image_url,
     }));
     const res = await saveMenuItems(menuId, payload);
     setSaving(false);
@@ -96,56 +151,65 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
     setTimeout(() => setSaved(false), 2500);
   }
 
-  // ─── Add item ────────────────────────────────────────────────
-  function addItem() {
+  // ─── Add item from modal ─────────────────────────────────
+  function confirmAdd() {
+    if (!addLabel.trim()) return;
     const newItem: FlatItem = {
-      id: genId(),
-      menu_id: menuId,
-      parent_id: null,
-      label: 'New Link',
-      url: '/',
-      type: 'link',
-      open_in_new_tab: false,
-      sort_order: items.length,
-      image_url: null,
-      depth: 0,
+      id: genId(), menu_id: menuId, parent_id: null,
+      label: addLabel.trim(), url: addUrl || '/',
+      type: addType, open_in_new_tab: false,
+      sort_order: items.length, image_url: null, depth: 0,
     };
     setItems([...items, newItem]);
-    startEdit(newItem);
+    resetAdd();
   }
 
-  // ─── Delete ──────────────────────────────────────────────────
+  function resetAdd() {
+    setShowAdd(false); setAddSource('custom'); setAddLabel(''); setAddUrl(''); setAddType('link');
+  }
+
+  function selectSourceOption(opt: { label: string; url: string }) {
+    setAddLabel(opt.label);
+    setAddUrl(opt.url);
+  }
+
+  // ─── Delete ──────────────────────────────────────────────
   function removeItem(idx: number) {
-    // Also remove children (items deeper after this one until depth <= item.depth)
     const item = items[idx];
     let endIdx = idx + 1;
     while (endIdx < items.length && items[endIdx].depth > item.depth) endIdx++;
     setItems(items.filter((_, i) => i < idx || i >= endIdx));
   }
 
-  // ─── Indent / Outdent ────────────────────────────────────────
+  // ─── Indent / Outdent ────────────────────────────────────
   function indent(idx: number) {
     if (idx === 0) return;
     const prev = items[idx - 1];
     const item = items[idx];
-    if (item.depth > prev.depth) return; // already nested deeper
+    if (item.depth > prev.depth) return;
     setItems(items.map((it, i) => i === idx ? { ...it, depth: it.depth + 1 } : it));
   }
 
   function outdent(idx: number) {
-    const item = items[idx];
-    if (item.depth === 0) return;
+    if (items[idx].depth === 0) return;
     setItems(items.map((it, i) => i === idx ? { ...it, depth: it.depth - 1 } : it));
   }
 
-  // ─── Drag & Drop ─────────────────────────────────────────────
-  function handleDragStart(idx: number) { setDragIdx(idx); }
-
-  function handleDragOver(e: React.DragEvent, idx: number) {
-    e.preventDefault();
-    if (dragIdx === null || dragIdx === idx) return;
+  // ─── Move ────────────────────────────────────────────────
+  function moveUp(idx: number) {
+    if (idx === 0) return;
+    const updated = [...items];
+    [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
+    setItems(updated);
+  }
+  function moveDown(idx: number) {
+    if (idx >= items.length - 1) return;
+    const updated = [...items];
+    [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+    setItems(updated);
   }
 
+  // ─── Drag ────────────────────────────────────────────────
   function handleDrop(idx: number) {
     if (dragIdx === null || dragIdx === idx) { setDragIdx(null); return; }
     const updated = [...items];
@@ -155,50 +219,21 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
     setDragIdx(null);
   }
 
-  // ─── Move Up / Down ──────────────────────────────────────────
-  function moveUp(idx: number) {
-    if (idx === 0) return;
-    const updated = [...items];
-    [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
-    setItems(updated);
-  }
-
-  function moveDown(idx: number) {
-    if (idx >= items.length - 1) return;
-    const updated = [...items];
-    [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
-    setItems(updated);
-  }
-
-  // ─── Inline Edit ─────────────────────────────────────────────
+  // ─── Inline Edit ─────────────────────────────────────────
   function startEdit(item: FlatItem) {
-    setEditingId(item.id);
-    setEditLabel(item.label);
-    setEditUrl(item.url || '');
-    setEditType(item.type);
-    setEditNewTab(item.open_in_new_tab);
+    setEditingId(item.id); setEditLabel(item.label); setEditUrl(item.url || ''); setEditType(item.type);
   }
-
   function applyEdit() {
-    setItems(items.map(it =>
-      it.id === editingId
-        ? { ...it, label: editLabel, url: editUrl || null, type: editType, open_in_new_tab: editNewTab }
-        : it
-    ));
+    setItems(items.map(it => it.id === editingId ? { ...it, label: editLabel, url: editUrl || null, type: editType } : it));
     setEditingId(null);
   }
 
   if (loading) return <div style={{ textAlign: 'center', padding: '4rem', color: '#9ca3af' }}>Loading…</div>;
 
   const typeBadge = (type: string) => {
-    const colors: Record<string, { bg: string; color: string }> = {
-      mega: { bg: '#dbeafe', color: '#1d4ed8' },
-      heading: { bg: '#fef3c7', color: '#92400e' },
-      link: { bg: '#f3f4f6', color: '#6b7280' },
-    };
-    const c = colors[type] || colors.link;
+    const c = type === 'mega' ? { bg: '#dbeafe', color: '#1d4ed8' } : { bg: '#f3f4f6', color: '#6b7280' };
     return (
-      <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: 9999, background: c.bg, color: c.color, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+      <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: 9999, background: c.bg, color: c.color, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>
         {type}
       </span>
     );
@@ -206,7 +241,7 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div>
-      {/* ── Header ──────────────────────────────────────────────── */}
+      {/* ── Header ──────────────────────────────────────────── */}
       <div className={adminStyles.header}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link href="/admin/menus" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '1.2rem' }}>←</Link>
@@ -218,175 +253,208 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {saved && <span style={{ color: '#0d9488', fontWeight: 600, fontSize: '0.85rem' }}>✓ Saved</span>}
           {error && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ {error}</span>}
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              background: '#0d9488', color: '#fff', border: 'none', padding: '0.55rem 1.5rem',
-              borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
-              opacity: saving ? 0.6 : 1,
-            }}
-          >
+          <button onClick={handleSave} disabled={saving} style={{
+            background: '#0d9488', color: '#fff', border: 'none', padding: '0.55rem 1.5rem',
+            borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', opacity: saving ? 0.6 : 1,
+          }}>
             {saving ? 'Saving…' : 'Save Menu'}
           </button>
         </div>
       </div>
 
-      {/* ── Items List ──────────────────────────────────────────── */}
+      {/* ── Items List ──────────────────────────────────────── */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
         {items.length === 0 && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>
-            No items yet. Click "+ Add item" below.
-          </div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>No items yet. Click "+ Add item" below.</div>
         )}
 
         {items.map((item, idx) => (
           <div
             key={item.id}
             draggable
-            onDragStart={() => handleDragStart(idx)}
-            onDragOver={e => handleDragOver(e, idx)}
+            onDragStart={() => setDragIdx(idx)}
+            onDragOver={e => e.preventDefault()}
             onDrop={() => handleDrop(idx)}
             style={{
-              display: 'flex', alignItems: 'center', gap: '0.6rem',
-              padding: '0.7rem 1rem', paddingLeft: `${1 + item.depth * 2}rem`,
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              padding: '0.65rem 1rem', paddingLeft: `${1 + item.depth * 2}rem`,
               borderBottom: '1px solid #f3f4f6',
               background: dragIdx === idx ? '#f0fdfa' : editingId === item.id ? '#fafafa' : '#fff',
-              transition: 'background 0.1s',
               cursor: 'grab',
             }}
           >
-            {/* Drag handle */}
-            <span style={{ color: '#d1d5db', cursor: 'grab', userSelect: 'none', fontSize: '0.9rem' }}>⋮⋮</span>
-
-            {/* Indent markers */}
-            {item.depth > 0 && (
-              <span style={{ color: '#e5e7eb', fontSize: '0.75rem', marginRight: '-0.2rem' }}>
-                {'└─'}
-              </span>
-            )}
+            <span style={{ color: '#d1d5db', cursor: 'grab', userSelect: 'none', fontSize: '0.85rem' }}>⋮⋮</span>
+            {item.depth > 0 && <span style={{ color: '#e5e7eb', fontSize: '0.72rem' }}>└─</span>}
 
             {editingId === item.id ? (
-              /* ── Inline Edit Row ──────────────────────────── */
               <div style={{ display: 'flex', gap: '0.5rem', flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                <input
-                  value={editLabel}
-                  onChange={e => setEditLabel(e.target.value)}
-                  placeholder="Label"
-                  autoFocus
-                  style={{
-                    padding: '0.4rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6,
-                    fontSize: '0.85rem', fontWeight: 600, width: 140,
-                  }}
-                />
-                <input
-                  value={editUrl}
-                  onChange={e => setEditUrl(e.target.value)}
-                  placeholder="/url"
-                  style={{
-                    padding: '0.4rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6,
-                    fontSize: '0.85rem', fontFamily: 'monospace', width: 180,
-                  }}
-                />
-                <select
-                  value={editType}
-                  onChange={e => setEditType(e.target.value as any)}
-                  style={{ padding: '0.4rem 0.5rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.8rem' }}
-                >
+                <input value={editLabel} onChange={e => setEditLabel(e.target.value)} placeholder="Label" autoFocus
+                  style={{ padding: '0.35rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.85rem', fontWeight: 600, width: 140 }} />
+                <input value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="/url"
+                  style={{ padding: '0.35rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.85rem', fontFamily: 'monospace', width: 180 }} />
+                <select value={editType} onChange={e => setEditType(e.target.value as any)}
+                  style={{ padding: '0.35rem 0.5rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.8rem' }}>
                   <option value="link">Link</option>
                   <option value="mega">Mega Menu</option>
-                  <option value="heading">Heading</option>
                 </select>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.8rem', color: '#6b7280' }}>
-                  <input type="checkbox" checked={editNewTab} onChange={e => setEditNewTab(e.target.checked)} />
-                  New tab
-                </label>
-                <button
-                  onClick={applyEdit}
-                  style={{ background: '#0d9488', color: '#fff', border: 'none', padding: '0.35rem 0.75rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
-                >
-                  ✓ Done
-                </button>
-                <button
-                  onClick={() => setEditingId(null)}
-                  style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem' }}
-                >
-                  Cancel
-                </button>
+                <button onClick={applyEdit} style={{ background: '#0d9488', color: '#fff', border: 'none', padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>✓</button>
+                <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem' }}>Cancel</button>
               </div>
             ) : (
-              /* ── Display Row ──────────────────────────────── */
               <>
-                <span style={{ fontWeight: 600, color: '#111', fontSize: '0.9rem', flex: 1 }}>
-                  {item.label}
-                </span>
-                <span style={{ color: '#9ca3af', fontSize: '0.78rem', fontFamily: 'monospace', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {item.url || '—'}
-                </span>
+                <span style={{ fontWeight: 600, color: '#111', fontSize: '0.88rem', flex: 1 }}>{item.label}</span>
+                <span style={{ color: '#9ca3af', fontSize: '0.75rem', fontFamily: 'monospace', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.url || '—'}</span>
                 {typeBadge(item.type)}
-                <div style={{ display: 'flex', gap: '0.2rem' }}>
-                  <button onClick={() => moveUp(idx)} title="Move up" style={smallBtn}>▲</button>
-                  <button onClick={() => moveDown(idx)} title="Move down" style={smallBtn}>▼</button>
-                  <button onClick={() => indent(idx)} title="Indent (nest)" style={smallBtn}>→</button>
-                  <button onClick={() => outdent(idx)} title="Outdent" style={smallBtn}>←</button>
-                  <button onClick={() => startEdit(item)} title="Edit" style={{ ...smallBtn, color: '#0d9488' }}>✏️</button>
-                  <button onClick={() => removeItem(idx)} title="Delete" style={{ ...smallBtn, color: '#ef4444' }}>🗑️</button>
+                <div style={{ display: 'flex', gap: '0.15rem' }}>
+                  {[
+                    { fn: () => moveUp(idx), icon: '▲', tip: 'Move up' },
+                    { fn: () => moveDown(idx), icon: '▼', tip: 'Move down' },
+                    { fn: () => indent(idx), icon: '→', tip: 'Nest' },
+                    { fn: () => outdent(idx), icon: '←', tip: 'Unnest' },
+                    { fn: () => startEdit(item), icon: '✏️', tip: 'Edit', color: '#0d9488' },
+                    { fn: () => removeItem(idx), icon: '🗑️', tip: 'Delete', color: '#ef4444' },
+                  ].map((btn, i) => (
+                    <button key={i} onClick={btn.fn} title={btn.tip} style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem',
+                      fontSize: '0.72rem', color: btn.color || '#6b7280', lineHeight: 1,
+                    }}>{btn.icon}</button>
+                  ))}
                 </div>
               </>
             )}
           </div>
         ))}
 
-        {/* ── Add item ──────────────────────────────────────────── */}
-        <div
-          onClick={addItem}
-          style={{
-            padding: '0.9rem 1rem', textAlign: 'center', cursor: 'pointer',
-            color: '#0d9488', fontWeight: 700, fontSize: '0.9rem',
-            borderTop: items.length > 0 ? '1px solid #e5e7eb' : 'none',
-            background: '#fafafa', transition: 'background 0.15s',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
-          onMouseLeave={e => (e.currentTarget.style.background = '#fafafa')}
-        >
-          + Add item
-        </div>
+        {/* ── Add Item Button / Panel ──────────────────────── */}
+        {!showAdd ? (
+          <div
+            onClick={() => setShowAdd(true)}
+            style={{
+              padding: '0.85rem 1rem', textAlign: 'center', cursor: 'pointer',
+              color: '#0d9488', fontWeight: 700, fontSize: '0.9rem',
+              borderTop: items.length > 0 ? '1px solid #e5e7eb' : 'none',
+              background: '#fafafa', transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+            onMouseLeave={e => (e.currentTarget.style.background = '#fafafa')}
+          >
+            + Add item
+          </div>
+        ) : (
+          <div style={{
+            padding: '1.25rem', borderTop: '1px solid #e5e7eb', background: '#fafafa',
+          }}>
+            {/* Source type selector */}
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              {SOURCE_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setAddSource(opt.value); setAddLabel(''); setAddUrl(''); }}
+                  style={{
+                    padding: '0.4rem 0.8rem', borderRadius: 20,
+                    border: '1.5px solid', fontSize: '0.82rem', cursor: 'pointer',
+                    borderColor: addSource === opt.value ? '#0d9488' : '#e5e7eb',
+                    background: addSource === opt.value ? '#f0fdfa' : '#fff',
+                    color: addSource === opt.value ? '#0f766e' : '#6b7280',
+                    fontWeight: addSource === opt.value ? 700 : 400,
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {opt.icon} {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Source-specific content */}
+            {addSource === 'custom' ? (
+              <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151' }}>Title</label>
+                  <input value={addLabel} onChange={e => setAddLabel(e.target.value)} placeholder="About Us"
+                    style={{ padding: '0.45rem 0.7rem', border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: '0.88rem', width: 160 }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151' }}>URL</label>
+                  <input value={addUrl} onChange={e => setAddUrl(e.target.value)} placeholder="/about"
+                    style={{ padding: '0.45rem 0.7rem', border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: '0.88rem', fontFamily: 'monospace', width: 200 }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151' }}>Type</label>
+                  <select value={addType} onChange={e => setAddType(e.target.value as any)}
+                    style={{ padding: '0.45rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 7, fontSize: '0.85rem' }}>
+                    <option value="link">Link</option>
+                    <option value="mega">Mega Menu</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {sourceLoading ? (
+                  <div style={{ color: '#9ca3af', fontSize: '0.85rem', padding: '0.5rem 0' }}>Loading…</div>
+                ) : sourceOptions.length === 0 ? (
+                  <div style={{ color: '#9ca3af', fontSize: '0.85rem', padding: '0.5rem 0' }}>No items found.</div>
+                ) : (
+                  <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: 8, background: '#fff' }}>
+                    {sourceOptions.map((opt, i) => {
+                      const isSelected = addLabel === opt.label && addUrl === opt.url;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => selectSourceOption(opt)}
+                          style={{
+                            display: 'block', width: '100%', textAlign: 'left',
+                            padding: '0.55rem 0.9rem', border: 'none', cursor: 'pointer',
+                            background: isSelected ? '#f0fdfa' : 'transparent',
+                            fontSize: '0.88rem', color: isSelected ? '#0f766e' : '#374151',
+                            fontWeight: isSelected ? 600 : 400,
+                            borderBottom: '1px solid #f9fafb',
+                          }}
+                        >
+                          {isSelected && '✓ '}{opt.label}
+                          <span style={{ color: '#9ca3af', fontSize: '0.75rem', marginLeft: '0.5rem', fontFamily: 'monospace' }}>{opt.url}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {addLabel && (
+                  <div style={{ marginTop: '0.6rem', fontSize: '0.8rem', color: '#0f766e' }}>
+                    Selected: <strong>{addLabel}</strong> → <code style={{ fontSize: '0.75rem' }}>{addUrl}</code>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
+              <button onClick={confirmAdd} disabled={!addLabel.trim()} style={{
+                background: addLabel.trim() ? '#0d9488' : '#d1d5db', color: '#fff', border: 'none',
+                padding: '0.5rem 1.25rem', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem', cursor: addLabel.trim() ? 'pointer' : 'not-allowed',
+              }}>
+                Add to menu
+              </button>
+              <button onClick={resetAdd} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.85rem' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* ── Help ────────────────────────────────────────────────── */}
+      {/* ── Help ────────────────────────────────────────────── */}
       <div style={{
         background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12,
         padding: '1rem 1.25rem', marginTop: '1.25rem', fontSize: '0.85rem', color: '#374151', lineHeight: 1.8,
       }}>
         <strong style={{ color: '#0f766e' }}>💡 Tips</strong>
         <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
-          <li><strong>Drag</strong> items to reorder. Use <strong>→ / ←</strong> to indent/outdent (nest under parent).</li>
-          <li>Set type to <strong>Mega Menu</strong> for items that should open a dropdown panel on hover.</li>
-          <li>Nest items under a Mega Menu parent — they'll appear as columns in the dropdown.</li>
+          <li><strong>Drag</strong> items to reorder. Use <strong>→ / ←</strong> to nest/unnest.</li>
+          <li>Set type to <strong>Mega Menu</strong> for items that open a dropdown panel on hover.</li>
+          <li>Nest items under a Mega Menu parent — they appear as links in the dropdown.</li>
+          <li>Use the <strong>source type selector</strong> (Category, Tag, Brand, etc.) to auto-populate label and URL.</li>
           <li>Hit <strong>Save Menu</strong> to apply changes to the live storefront.</li>
         </ul>
       </div>
     </div>
   );
-}
-
-const smallBtn: React.CSSProperties = {
-  background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem',
-  fontSize: '0.75rem', color: '#6b7280', lineHeight: 1,
-};
-
-// Build tree from flat items using parent_id
-function buildTreeFromFlat(items: MenuItem[]): MenuItem[] {
-  const map = new Map<string, MenuItem>();
-  const roots: MenuItem[] = [];
-  for (const item of items) map.set(item.id, { ...item, children: [] });
-  for (const item of items) {
-    const node = map.get(item.id)!;
-    if (item.parent_id && map.has(item.parent_id)) {
-      map.get(item.parent_id)!.children!.push(node);
-    } else {
-      roots.push(node);
-    }
-  }
-  return roots;
 }

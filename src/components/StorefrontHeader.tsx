@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import SearchOverlay from './SearchOverlay';
-import MegaMenu from './MegaMenu';
 import MobileMenu from './MobileMenu';
 import { createClient } from '@/utils/supabase/client';
 import { getMenuBySlug, MenuItem } from '@/lib/menus';
 import styles from '../app/home.module.css';
+import megaStyles from './MegaMenu.module.css';
 
 export default function StorefrontHeader() {
   const pathname = usePathname();
@@ -20,9 +20,27 @@ export default function StorefrontHeader() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [megaOpen, setMegaOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
+
+  // Delayed close — gives user time to move mouse from trigger to panel
+  const startClose = useCallback(() => {
+    closeTimer.current = setTimeout(() => setMegaOpen(null), 250);
+  }, []);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  const openMega = useCallback((id: string) => {
+    cancelClose();
+    setMegaOpen(id);
+  }, [cancelClose]);
 
   // Load menu + check role
   useEffect(() => {
@@ -33,18 +51,20 @@ export default function StorefrontHeader() {
         const { data } = await supabase.from('customers').select('role').eq('id', user.id).single();
         if (data?.role === 'head_chef' || data?.role === 'sous_chef') setIsKitchenStaff(true);
       }
-
-      // Fetch main nav menu
       const items = await getMenuBySlug('main');
       setMenuItems(items);
     }
     init();
   }, []);
 
-  // Close mobile on route change
+  // Close mobile/mega on route change
   useEffect(() => { setMobileOpen(false); setMegaOpen(null); }, [pathname]);
 
-  // Hide global storefront header if we are inside the admin dashboard
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => { if (closeTimer.current) clearTimeout(closeTimer.current); };
+  }, []);
+
   if (pathname.startsWith('/admin')) return null;
 
   return (
@@ -71,18 +91,11 @@ export default function StorefrontHeader() {
         </div>
       )}
 
-      <header className={`${styles.header} container`} style={{ position: 'relative' }}>
+      <header className={`${styles.header} container`}>
         {/* ── Logo ──────────────────────────────────────────────── */}
         <div className={styles.logo}>
           <Link href="/" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-            <Image
-              src="/logo.png"
-              alt="Jack's E-Liquid"
-              width={160}
-              height={60}
-              style={{ objectFit: 'contain' }}
-              priority
-            />
+            <Image src="/logo.png" alt="Jack's E-Liquid" width={160} height={60} style={{ objectFit: 'contain' }} priority />
           </Link>
         </div>
 
@@ -96,37 +109,26 @@ export default function StorefrontHeader() {
               return (
                 <div
                   key={item.id}
-                  style={{ position: 'relative' }}
-                  onMouseEnter={() => setMegaOpen(item.id)}
-                  onMouseLeave={() => setMegaOpen(null)}
+                  className={megaStyles.triggerWrap}
+                  onMouseEnter={() => openMega(item.id)}
+                  onMouseLeave={startClose}
                 >
                   <Link
                     href={item.url || '/'}
-                    className={styles.navLink}
+                    className={`${styles.navLink} ${megaOpen === item.id ? megaStyles.navLinkActive : ''}`}
                     style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                   >
                     {item.label}
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.5, marginTop: 1 }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.5, marginTop: 1, transition: 'transform 0.2s', transform: megaOpen === item.id ? 'rotate(180deg)' : 'none' }}>
                       <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </Link>
-                  {megaOpen === item.id && (
-                    <MegaMenu
-                      items={item.children!}
-                      onClose={() => setMegaOpen(null)}
-                    />
-                  )}
                 </div>
               );
             }
 
             return (
-              <Link
-                key={item.id}
-                href={item.url || '/'}
-                className={styles.navLink}
-                target={item.open_in_new_tab ? '_blank' : undefined}
-              >
+              <Link key={item.id} href={item.url || '/'} className={styles.navLink} target={item.open_in_new_tab ? '_blank' : undefined}>
                 {item.label}
               </Link>
             );
@@ -135,48 +137,60 @@ export default function StorefrontHeader() {
 
         {/* ── Actions ───────────────────────────────────────────── */}
         <div className={styles.headerActions}>
-          {/* Search */}
           <button className={styles.headerIconBtn} onClick={openSearch} aria-label="Search products">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </button>
-
-          {/* Account */}
           <Link href="/account" className={styles.headerIconBtn} aria-label="Customer Account">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
             </svg>
           </Link>
-
-          {/* Cart */}
           <button className={styles.cartBtn} onClick={openCart} aria-label="Open cart">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <path d="M16 10a4 4 0 0 1-8 0"/>
+              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
             </svg>
             {cartCount > 0 && <span className={styles.cartBadge} suppressHydrationWarning>{cartCount}</span>}
           </button>
-
-          {/* Hamburger (mobile only) */}
-          <button
-            className={`${styles.headerIconBtn} ${styles.hamburger}`}
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
+          <button className={`${styles.headerIconBtn} ${styles.hamburger}`} onClick={() => setMobileOpen(true)} aria-label="Open menu">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
             </svg>
           </button>
         </div>
-
-        {/* Position mega panels relative to header */}
       </header>
+
+      {/* ── Mega-menu Panel (rendered OUTSIDE header for full-width) ── */}
+      {megaOpen && (() => {
+        const activeItem = menuItems.find(i => i.id === megaOpen);
+        if (!activeItem?.children?.length) return null;
+        return (
+          <>
+            <div className={megaStyles.backdrop} onClick={() => setMegaOpen(null)} />
+            <div
+              className={megaStyles.panel}
+              onMouseEnter={cancelClose}
+              onMouseLeave={startClose}
+            >
+              <div className={`container ${megaStyles.inner}`}>
+                <div className={megaStyles.columns}>
+                  {activeItem.children!.map(child => (
+                    <Link
+                      key={child.id}
+                      href={child.url || '/'}
+                      className={megaStyles.columnLink}
+                      onClick={() => setMegaOpen(null)}
+                    >
+                      <span className={megaStyles.linkLabel}>{child.label}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       <SearchOverlay isOpen={searchOpen} onClose={closeSearch} />
       <MobileMenu items={menuItems} isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
