@@ -36,7 +36,6 @@ export default function FeedImportPage() {
 
   async function runImport(dryRun = false) {
     const action = dryRun ? 'dry run' : 'import';
-    if (!dryRun && !confirm('Run the EQ Wholesale feed import now? This will update your database. For a safe preview, use "Dry Run" first.')) return;
     setImporting(true);
     setResult(null);
     setNewSkusList([]);
