@@ -133,6 +133,8 @@ async function sendImportReportEmail(result: {
   variationsUpdated: number;
   addedSkus: string[];
   updatedSkus: string[];
+  costChangeSkus: string[];
+  qtyChangeSkus: string[];
   updatedVarSkus: string[];
   newVarSkus: string[];
   errors: { sku: string; error: string }[];
@@ -147,24 +149,23 @@ async function sendImportReportEmail(result: {
 
   const now = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' });
 
-  // Build a clean HTML email
+  // Build list helpers
+  function buildList(items: string[], max = 50): string {
+    if (items.length === 0) return '';
+    const shown = items.slice(0, max).map(s => `<li>${s}</li>`).join('');
+    const overflow = items.length > max ? `<li>...and ${items.length - max} more</li>` : '';
+    return shown + overflow;
+  }
+
   const addedList = result.addedSkus.length > 0
     ? result.addedSkus.map(s => `<li>${s}</li>`).join('')
     : '<li>None</li>';
 
-  const updatedList = result.updatedSkus.length > 0
-    ? result.updatedSkus.slice(0, 50).map(s => `<li>${s}</li>`).join('')
-    + (result.updatedSkus.length > 50 ? `<li>...and ${result.updatedSkus.length - 50} more</li>` : '')
-    : '<li>None</li>';
+  const costList = buildList(result.costChangeSkus);
+  const qtyList = buildList(result.qtyChangeSkus);
 
-  const updatedVarList = result.updatedVarSkus.length > 0
-    ? result.updatedVarSkus.slice(0, 50).map(s => `<li>${s}</li>`).join('')
-    + (result.updatedVarSkus.length > 50 ? `<li>...and ${result.updatedVarSkus.length - 50} more</li>` : '')
-    : '';
-
-  const newVarList = result.newVarSkus.length > 0
-    ? result.newVarSkus.map(s => `<li>${s}</li>`).join('')
-    : '';
+  const updatedVarList = buildList(result.updatedVarSkus);
+  const newVarList = buildList(result.newVarSkus, 100);
 
   const errorList = result.errors.length > 0
     ? result.errors.map(e => `<li>${e.sku}: ${e.error}</li>`).join('')
@@ -181,14 +182,18 @@ async function sendImportReportEmail(result: {
           <td style="padding: 10px 14px; text-align: right; font-weight: 700; color: #0f766e;">${result.productsAdded}</td>
         </tr>
         <tr>
-          <td style="padding: 10px 14px; font-weight: 600;">🔄 Products Updated</td>
-          <td style="padding: 10px 14px; text-align: right; font-weight: 700;">${result.productsUpdated}</td>
+          <td style="padding: 10px 14px; font-weight: 600;">💷 Cost Price Changes</td>
+          <td style="padding: 10px 14px; text-align: right; font-weight: 700;">${result.costChangeSkus.length}</td>
         </tr>
         <tr style="background: #f0fdfa;">
+          <td style="padding: 10px 14px; font-weight: 600;">📦 Stock Qty Changes</td>
+          <td style="padding: 10px 14px; text-align: right; font-weight: 700;">${result.qtyChangeSkus.length}</td>
+        </tr>
+        <tr>
           <td style="padding: 10px 14px; font-weight: 600;">⏭️ Skipped (No Changes)</td>
           <td style="padding: 10px 14px; text-align: right;">${result.productsSkipped}</td>
         </tr>
-        <tr>
+        <tr style="background: #f0fdfa;">
           <td style="padding: 10px 14px; font-weight: 600;">🔧 Variations Updated</td>
           <td style="padding: 10px 14px; text-align: right;">${result.variationsUpdated}</td>
         </tr>
@@ -205,9 +210,14 @@ async function sendImportReportEmail(result: {
       <p style="font-size: 12px; color: #9ca3af;">These products are saved as draft. Open the Kitchen → Products → filter by "Draft" to review and set prices.</p>
       ` : ''}
 
-      ${result.productsUpdated > 0 ? `
-      <h3>🔄 Updated Products (cost/qty changes)</h3>
-      <ul style="font-size: 13px; color: #374151;">${updatedList}</ul>
+      ${costList ? `
+      <h3>💷 Cost Price Changes</h3>
+      <ul style="font-size: 13px; color: #374151;">${costList}</ul>
+      ` : ''}
+
+      ${qtyList ? `
+      <h3>📦 Stock Qty Changes</h3>
+      <ul style="font-size: 13px; color: #374151;">${qtyList}</ul>
       ` : ''}
 
       ${updatedVarList ? `

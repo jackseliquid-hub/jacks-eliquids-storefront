@@ -67,8 +67,10 @@ interface ImportResult {
   variationsUpdated: number;
   addedSkus: string[];
   updatedSkus: string[];
-  updatedVarSkus: string[];    // variation SKUs updated (cost/qty)
-  newVarSkus: string[];        // new variations added to existing products
+  costChangeSkus: string[];    // product SKUs where cost price changed
+  qtyChangeSkus: string[];     // product SKUs where stock qty changed
+  updatedVarSkus: string[];
+  newVarSkus: string[];
   errors: { sku: string; error: string }[];
   dryRun: boolean;
   newSkus: string[];
@@ -298,6 +300,8 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     variationsUpdated: 0,
     addedSkus: [],
     updatedSkus: [],
+    costChangeSkus: [],
+    qtyChangeSkus: [],
     updatedVarSkus: [],
     newVarSkus: [],
     errors: [],
@@ -427,6 +431,8 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
 
         result.productsUpdated++;
         result.updatedSkus.push(sku);
+        if (parentCostChanged) result.costChangeSkus.push(`${sku} — £${currentCostPrice} → £${feedCostPrice}`);
+        if (parentQtyChanged) result.qtyChangeSkus.push(`${sku} — ${currentStockQty} → ${feedTotalQty}`);
 
       } else {
         result.productsAdded++;
