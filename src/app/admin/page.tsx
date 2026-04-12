@@ -565,12 +565,17 @@ export default function AdminProductsPage() {
                               </div>
                               <div>
                                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Shipping Class</label>
-                                <input
-                                  className={styles.varInput}
-                                  style={{ width: '100%', marginTop: 4 }}
+                                <select
+                                  className={styles.select}
+                                  style={{ width: '100%', marginTop: 4, padding: '0.4rem', borderRadius: 8 }}
                                   value={editProduct.shippingClass || ''}
                                   onChange={e => setEditField('shippingClass', e.target.value)}
-                                />
+                                >
+                                  <option value="">— Select —</option>
+                                  <option value="Large Letter">Large Letter</option>
+                                  <option value="Small Parcel">Small Parcel</option>
+                                  <option value="Medium Parcel">Medium Parcel</option>
+                                </select>
                               </div>
                               <div>
                                 <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Stock Qty</label>

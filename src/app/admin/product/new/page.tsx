@@ -40,7 +40,7 @@ export default function AddProductPage() {
     salePrice: '',
     costPrice: '',
     weight: 0,
-    shippingClass: 'Standard',
+    shippingClass: '',
     trackStock: false,
     image: '',
     gallery: [],
@@ -607,10 +607,10 @@ export default function AddProductPage() {
                   value={product.shippingClass || ''}
                   onChange={e => setField('shippingClass', e.target.value)}
                 >
-                  <option value="Standard">Standard</option>
-                  <option value="light">Light (&lt; 100g)</option>
-                  <option value="medium">Medium (100–500g)</option>
-                  <option value="heavy">Heavy (&gt; 500g)</option>
+                  <option value="">— Select —</option>
+                  <option value="Large Letter">Large Letter</option>
+                  <option value="Small Parcel">Small Parcel</option>
+                  <option value="Medium Parcel">Medium Parcel</option>
                 </select>
               </div>
 
