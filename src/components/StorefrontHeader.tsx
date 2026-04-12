@@ -142,9 +142,14 @@ export default function StorefrontHeader() {
                                 className={megaStyles.columnLink}
                                 onClick={() => setMegaOpen(null)}
                               >
-                                <div className={megaStyles.linkIcon}>
-                                  {child.label.charAt(0).toUpperCase()}
-                                </div>
+                                {child.image_url ? (
+                                  /* eslint-disable-next-line @next/next/no-img-element */
+                                  <img src={child.image_url} alt="" className={megaStyles.linkIconImg} />
+                                ) : (
+                                  <div className={megaStyles.linkIcon}>
+                                    {child.label.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
                                 <div>
                                   <div className={megaStyles.linkLabel}>{child.label}</div>
                                 </div>
