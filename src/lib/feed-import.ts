@@ -87,8 +87,8 @@ function parseFeedXml(xml: string): FeedItem[] {
   const parser = new XMLParser({
     ignoreAttributes: true,
     trimValues: true,
-    // Ensure numeric-looking values stay as strings where needed
     parseTagValue: true,
+    processEntities: false,     // Feed has 1000+ HTML entities — we decode them ourselves
     isArray: (name) => name === 'itm', // Always treat itm as array
   });
 
