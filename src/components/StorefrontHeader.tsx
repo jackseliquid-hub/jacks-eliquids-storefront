@@ -21,24 +21,28 @@ export default function StorefrontHeader() {
   const [megaOpen, setMegaOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [panelTop, setPanelTop] = useState(62);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
-  // Delayed close — gives user time to move mouse from trigger to panel
+  // Delayed close
   const startClose = useCallback(() => {
-    closeTimer.current = setTimeout(() => setMegaOpen(null), 250);
+    closeTimer.current = setTimeout(() => setMegaOpen(null), 300);
   }, []);
 
   const cancelClose = useCallback(() => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
+    if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
   }, []);
 
   const openMega = useCallback((id: string) => {
     cancelClose();
+    // Compute panel top from the actual header bottom
+    if (headerRef.current) {
+      const rect = headerRef.current.getBoundingClientRect();
+      setPanelTop(rect.bottom + 5); // 5px gap below header
+    }
     setMegaOpen(id);
   }, [cancelClose]);
 
@@ -57,13 +61,24 @@ export default function StorefrontHeader() {
     init();
   }, []);
 
-  // Close mobile/mega on route change
+  // Close on route change
   useEffect(() => { setMobileOpen(false); setMegaOpen(null); }, [pathname]);
 
-  // Cleanup timer on unmount
+  // Close on click outside
   useEffect(() => {
-    return () => { if (closeTimer.current) clearTimeout(closeTimer.current); };
-  }, []);
+    if (!megaOpen) return;
+    function handleClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      // Don't close if clicking inside the panel or trigger
+      if (target.closest(`.${megaStyles.panel}`) || target.closest(`.${megaStyles.triggerWrap}`)) return;
+      setMegaOpen(null);
+    }
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [megaOpen]);
+
+  // Cleanup
+  useEffect(() => { return () => { if (closeTimer.current) clearTimeout(closeTimer.current); }; }, []);
 
   if (pathname.startsWith('/admin')) return null;
 
@@ -77,29 +92,24 @@ export default function StorefrontHeader() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
         }}>
           <span>👨‍🍳 You&apos;re viewing the storefront as staff</span>
-          <Link
-            href="/admin"
-            style={{
-              color: '#fff', background: 'rgba(255,255,255,0.2)',
-              padding: '3px 12px', borderRadius: '9999px',
-              textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem',
-              border: '1px solid rgba(255,255,255,0.4)'
-            }}
-          >
-            → Back to Kitchen
-          </Link>
+          <Link href="/admin" style={{
+            color: '#fff', background: 'rgba(255,255,255,0.2)',
+            padding: '3px 12px', borderRadius: '9999px',
+            textDecoration: 'none', fontWeight: 700, fontSize: '0.8rem',
+            border: '1px solid rgba(255,255,255,0.4)'
+          }}>→ Back to Kitchen</Link>
         </div>
       )}
 
-      <header className={`${styles.header} container`}>
-        {/* ── Logo ──────────────────────────────────────────────── */}
+      <header className={`${styles.header} container`} ref={headerRef}>
+        {/* Logo */}
         <div className={styles.logo}>
           <Link href="/" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <Image src="/logo.png" alt="Jack's E-Liquid" width={160} height={60} style={{ objectFit: 'contain' }} priority />
           </Link>
         </div>
 
-        {/* ── Desktop Nav ───────────────────────────────────────── */}
+        {/* Desktop Nav */}
         <nav className={styles.nav}>
           {menuItems.map(item => {
             const hasChildren = item.children && item.children.length > 0;
@@ -123,43 +133,6 @@ export default function StorefrontHeader() {
                       <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                   </Link>
-
-                  {/* Mega panel — inside trigger for contained positioning */}
-                  {megaOpen === item.id && (
-                    <>
-                      <div className={megaStyles.backdrop} onClick={() => setMegaOpen(null)} />
-                      <div
-                        className={megaStyles.panel}
-                        onMouseEnter={cancelClose}
-                        onMouseLeave={startClose}
-                      >
-                        <div className={megaStyles.inner}>
-                          <div className={megaStyles.columns}>
-                            {item.children!.map(child => (
-                              <Link
-                                key={child.id}
-                                href={child.url || '/'}
-                                className={megaStyles.columnLink}
-                                onClick={() => setMegaOpen(null)}
-                              >
-                                {child.image_url ? (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img src={child.image_url} alt="" className={megaStyles.linkIconImg} />
-                                ) : (
-                                  <div className={megaStyles.linkIcon}>
-                                    {child.label.charAt(0).toUpperCase()}
-                                  </div>
-                                )}
-                                <div>
-                                  <div className={megaStyles.linkLabel}>{child.label}</div>
-                                </div>
-                              </Link>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               );
             }
@@ -172,7 +145,7 @@ export default function StorefrontHeader() {
           })}
         </nav>
 
-        {/* ── Actions ───────────────────────────────────────────── */}
+        {/* Actions */}
         <div className={styles.headerActions}>
           <button className={styles.headerIconBtn} onClick={openSearch} aria-label="Search products">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -197,6 +170,45 @@ export default function StorefrontHeader() {
           </button>
         </div>
       </header>
+
+      {/* ── Mega-menu Panel (rendered outside header, positioned dynamically) ── */}
+      {megaOpen && (() => {
+        const activeItem = menuItems.find(i => i.id === megaOpen);
+        if (!activeItem?.children?.length) return null;
+        return (
+          <div
+            className={megaStyles.panel}
+            style={{ top: panelTop }}
+            onMouseEnter={cancelClose}
+            onMouseLeave={startClose}
+          >
+            <div className={megaStyles.inner}>
+              <div className={megaStyles.columns}>
+                {activeItem.children!.map(child => (
+                  <Link
+                    key={child.id}
+                    href={child.url || '/'}
+                    className={megaStyles.columnLink}
+                    onClick={() => setMegaOpen(null)}
+                  >
+                    {child.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={child.image_url} alt="" className={megaStyles.linkIconImg} />
+                    ) : (
+                      <div className={megaStyles.linkIcon}>
+                        {child.label.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <div className={megaStyles.linkLabel}>{child.label}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <SearchOverlay isOpen={searchOpen} onClose={closeSearch} />
       <MobileMenu items={menuItems} isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />

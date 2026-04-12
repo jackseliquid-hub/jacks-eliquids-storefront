@@ -75,6 +75,7 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
   const [editLabel, setEditLabel] = useState('');
   const [editUrl, setEditUrl] = useState('');
   const [editType, setEditType] = useState<'link' | 'mega' | 'heading'>('link');
+  const [editImageUrl, setEditImageUrl] = useState('');
 
   // Add item modal
   const [showAdd, setShowAdd] = useState(false);
@@ -221,10 +222,10 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
 
   // ─── Inline Edit ─────────────────────────────────────────
   function startEdit(item: FlatItem) {
-    setEditingId(item.id); setEditLabel(item.label); setEditUrl(item.url || ''); setEditType(item.type);
+    setEditingId(item.id); setEditLabel(item.label); setEditUrl(item.url || ''); setEditType(item.type); setEditImageUrl(item.image_url || '');
   }
   function applyEdit() {
-    setItems(items.map(it => it.id === editingId ? { ...it, label: editLabel, url: editUrl || null, type: editType } : it));
+    setItems(items.map(it => it.id === editingId ? { ...it, label: editLabel, url: editUrl || null, type: editType, image_url: editImageUrl || null } : it));
     setEditingId(null);
   }
 
@@ -297,6 +298,8 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
                   <option value="link">Link</option>
                   <option value="mega">Mega Menu</option>
                 </select>
+                <input value={editImageUrl} onChange={e => setEditImageUrl(e.target.value)} placeholder="Icon image URL (optional)"
+                  style={{ padding: '0.35rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.82rem', width: 200, color: '#6b7280' }} />
                 <button onClick={applyEdit} style={{ background: '#0d9488', color: '#fff', border: 'none', padding: '0.3rem 0.7rem', borderRadius: 6, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>✓</button>
                 <button onClick={() => setEditingId(null)} style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem' }}>Cancel</button>
               </div>
