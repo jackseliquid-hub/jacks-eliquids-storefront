@@ -1,13 +1,29 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { getMenuBySlug, MenuItem } from '@/lib/menus';
 import styles from './StorefrontFooter.module.css';
 
 export default function StorefrontFooter() {
   const pathname = usePathname();
-  
+  const [shopLinks, setShopLinks] = useState<MenuItem[]>([]);
+  const [discoverLinks, setDiscoverLinks] = useState<MenuItem[]>([]);
+
+  useEffect(() => {
+    async function loadMenus() {
+      const [shop, discover] = await Promise.all([
+        getMenuBySlug('footer-shop'),
+        getMenuBySlug('footer-discover'),
+      ]);
+      setShopLinks(shop);
+      setDiscoverLinks(discover);
+    }
+    loadMenus();
+  }, []);
+
   // We do not want the universal storefront footer showing up inside the kitchen admin dashboard
   if (pathname.startsWith('/admin')) {
       return null;
@@ -25,18 +41,32 @@ export default function StorefrontFooter() {
         
         <div className={styles.linkGroup}>
           <h3 className={styles.groupTitle}>Shop</h3>
-          <Link href="/" className={styles.link}>All Products</Link>
-          <Link href="/" className={styles.link}>Nic Salts</Link>
-          <Link href="/" className={styles.link}>Shortfills</Link>
-          <Link href="/" className={styles.link}>Hardware</Link>
+          {shopLinks.length > 0 ? (
+            shopLinks.map(item => (
+              <Link key={item.id} href={item.url || '/'} className={styles.link}>{item.label}</Link>
+            ))
+          ) : (
+            <>
+              <Link href="/" className={styles.link}>All Products</Link>
+              <Link href="/" className={styles.link}>Nic Salts</Link>
+              <Link href="/" className={styles.link}>Shortfills</Link>
+              <Link href="/" className={styles.link}>Hardware</Link>
+            </>
+          )}
         </div>
 
         <div className={styles.linkGroup}>
           <h3 className={styles.groupTitle}>Discover</h3>
-          <Link href="/blog" className={styles.link}>The Base (Blog)</Link>
-          <Link href="/" className={styles.link}>About Us</Link>
-          <Link href="/contact" className={styles.link}>Contact</Link>
-          <Link href="/" className={styles.link}>Wholesale</Link>
+          {discoverLinks.length > 0 ? (
+            discoverLinks.map(item => (
+              <Link key={item.id} href={item.url || '/'} className={styles.link}>{item.label}</Link>
+            ))
+          ) : (
+            <>
+              <Link href="/blog" className={styles.link}>The Base (Blog)</Link>
+              <Link href="/contact" className={styles.link}>Contact</Link>
+            </>
+          )}
         </div>
 
         <div className={styles.linkGroup}>

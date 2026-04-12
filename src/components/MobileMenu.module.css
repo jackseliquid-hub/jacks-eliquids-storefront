@@ -1,0 +1,123 @@
+/* ── Backdrop ─────────────────────────────────────────────── */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Drawer ───────────────────────────────────────────────── */
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  max-width: 85vw;
+  background: #fff;
+  z-index: 201;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.1);
+}
+
+.drawerOpen {
+  transform: translateX(0);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.drawerTitle {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #111;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+.closeBtn:hover { color: #111; }
+
+/* ── Nav items ────────────────────────────────────────────── */
+.nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #111;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+
+.navItem:hover {
+  background: #f9fafb;
+}
+
+.chevron {
+  font-size: 1.1rem;
+  color: #9ca3af;
+  transition: transform 0.2s;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+/* ── Sub-menu ─────────────────────────────────────────────── */
+.subMenu {
+  padding: 0 0 0.5rem;
+  background: #fafafa;
+  animation: subSlide 0.2s ease;
+}
+
+@keyframes subSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.subItem {
+  display: block;
+  padding: 0.6rem 1.25rem 0.6rem 2.25rem;
+  font-size: 0.9rem;
+  color: #374151;
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.subItem:hover {
+  color: #0f766e;
+  background: #f0fdfa;
+}

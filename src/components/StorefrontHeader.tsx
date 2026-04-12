@@ -6,7 +6,10 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import SearchOverlay from './SearchOverlay';
+import MegaMenu from './MegaMenu';
+import MobileMenu from './MobileMenu';
 import { createClient } from '@/utils/supabase/client';
+import { getMenuBySlug, MenuItem } from '@/lib/menus';
 import styles from '../app/home.module.css';
 
 export default function StorefrontHeader() {
@@ -14,32 +17,35 @@ export default function StorefrontHeader() {
   const { cartCount, openCart } = useCart();
   const [searchOpen, setSearchOpen] = useState(false);
   const [isKitchenStaff, setIsKitchenStaff] = useState(false);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [megaOpen, setMegaOpen] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
 
-  // Check role client-side to show/hide the Kitchen link
+  // Load menu + check role
   useEffect(() => {
-    async function checkRole() {
+    async function init() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from('customers')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      if (data?.role === 'head_chef' || data?.role === 'sous_chef') {
-        setIsKitchenStaff(true);
+      if (user) {
+        const { data } = await supabase.from('customers').select('role').eq('id', user.id).single();
+        if (data?.role === 'head_chef' || data?.role === 'sous_chef') setIsKitchenStaff(true);
       }
+
+      // Fetch main nav menu
+      const items = await getMenuBySlug('main');
+      setMenuItems(items);
     }
-    checkRole();
+    init();
   }, []);
 
+  // Close mobile on route change
+  useEffect(() => { setMobileOpen(false); setMegaOpen(null); }, [pathname]);
+
   // Hide global storefront header if we are inside the admin dashboard
-  if (pathname.startsWith('/admin')) {
-    return null;
-  }
+  if (pathname.startsWith('/admin')) return null;
 
   return (
     <>
@@ -65,7 +71,8 @@ export default function StorefrontHeader() {
         </div>
       )}
 
-      <header className={`${styles.header} container`}>
+      <header className={`${styles.header} container`} style={{ position: 'relative' }}>
+        {/* ── Logo ──────────────────────────────────────────────── */}
         <div className={styles.logo}>
           <Link href="/" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
             <Image
@@ -78,15 +85,57 @@ export default function StorefrontHeader() {
             />
           </Link>
         </div>
+
+        {/* ── Desktop Nav ───────────────────────────────────────── */}
         <nav className={styles.nav}>
-          <Link href="/" className={styles.navLink}>Shop All</Link>
-          <Link href="/blog" className={styles.navLink}>Blog</Link>
-          <Link href="/" className={styles.navLink}>Categories</Link>
-          <Link href="/" className={styles.navLink}>About Us</Link>
+          {menuItems.map(item => {
+            const hasChildren = item.children && item.children.length > 0;
+            const isMega = item.type === 'mega' && hasChildren;
+
+            if (isMega) {
+              return (
+                <div
+                  key={item.id}
+                  style={{ position: 'relative' }}
+                  onMouseEnter={() => setMegaOpen(item.id)}
+                  onMouseLeave={() => setMegaOpen(null)}
+                >
+                  <Link
+                    href={item.url || '/'}
+                    className={styles.navLink}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    {item.label}
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ opacity: 0.5, marginTop: 1 }}>
+                      <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  </Link>
+                  {megaOpen === item.id && (
+                    <MegaMenu
+                      items={item.children!}
+                      onClose={() => setMegaOpen(null)}
+                    />
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={item.id}
+                href={item.url || '/'}
+                className={styles.navLink}
+                target={item.open_in_new_tab ? '_blank' : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
+        {/* ── Actions ───────────────────────────────────────────── */}
         <div className={styles.headerActions}>
-          {/* Search Trigger */}
+          {/* Search */}
           <button className={styles.headerIconBtn} onClick={openSearch} aria-label="Search products">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" />
@@ -111,10 +160,26 @@ export default function StorefrontHeader() {
             </svg>
             {cartCount > 0 && <span className={styles.cartBadge} suppressHydrationWarning>{cartCount}</span>}
           </button>
+
+          {/* Hamburger (mobile only) */}
+          <button
+            className={`${styles.headerIconBtn} ${styles.hamburger}`}
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
         </div>
+
+        {/* Position mega panels relative to header */}
       </header>
 
       <SearchOverlay isOpen={searchOpen} onClose={closeSearch} />
+      <MobileMenu items={menuItems} isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
     </>
   );
 }

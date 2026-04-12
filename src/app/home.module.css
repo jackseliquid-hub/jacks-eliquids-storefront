@@ -168,6 +168,20 @@
   opacity: 1;
 }
 
+/* ── Mobile: hide desktop nav, show hamburger ─────────────── */
+.hamburger {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .nav {
+    display: none !important;
+  }
+  .hamburger {
+    display: flex !important;
+  }
+}
+
 .main {
   min-height: calc(100vh - 60px); 
 }

@@ -20,6 +20,7 @@ const allNavItems = [
   { href: '/admin/brands',    label: 'Brands',        icon: '✦' },
   { href: '/admin/discounts', label: 'Discounts',     icon: '💰' },
   { href: '/admin/shipping',  label: 'Shipping',      icon: '🚚' },
+  { href: '/admin/menus',     label: 'Menus',         icon: '🧭' },
 
   { href: '/admin/media',     label: 'Media Library', icon: '🖼️' },
   { href: '/admin/seo',       label: 'Global SEO',    icon: '🔍' },
