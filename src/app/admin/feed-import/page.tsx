@@ -43,7 +43,22 @@ export default function FeedImportPage() {
 
     try {
       const res = await fetch(`/api/feed-import?manual=true${dryRun ? '&dryRun=true' : ''}`);
-      const json = await res.json();
+      const text = await res.text();
+
+      if (!text) {
+        setResult(`❌ Server returned an empty response (HTTP ${res.status}). The function likely timed out — the feed may be too large to process in one go.`);
+        setImporting(false);
+        return;
+      }
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        setResult(`❌ Server error (HTTP ${res.status}): ${text.substring(0, 300)}`);
+        setImporting(false);
+        return;
+      }
 
       if (json.success) {
         if (dryRun) {
@@ -58,7 +73,7 @@ export default function FeedImportPage() {
         setResult(`❌ ${action} failed: ${json.error}`);
       }
     } catch (err: any) {
-      setResult(`❌ Error: ${err.message}`);
+      setResult(`❌ Network error: ${err.message}`);
     }
 
     setImporting(false);

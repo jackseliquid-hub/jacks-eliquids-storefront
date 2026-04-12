@@ -25,94 +25,102 @@ function getAdminClient() {
 }
 
 export async function GET(request: NextRequest) {
-  // ── Auth check ─────────────────────────────────────────────────────────
-  // Accept either the CRON_SECRET header (for Vercel Cron) or a valid admin session
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // If not cron, check for admin session cookie
-    const isManualTrigger = request.nextUrl.searchParams.get('manual') === 'true';
-    if (!isManualTrigger) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
-
-  const feedUrl = process.env.EQ_FEED_URL;
-  if (!feedUrl) {
-    return NextResponse.json({ error: 'EQ_FEED_URL not configured' }, { status: 500 });
-  }
-
-  const supabase = getAdminClient();
-  const dryRun = request.nextUrl.searchParams.get('dryRun') === 'true';
-
-  // ── Create import log entry (skip in dry-run) ──────────────────────────
-  let logId: string | undefined;
-  if (!dryRun) {
-    const { data: logEntry } = await supabase
-      .from('import_logs')
-      .insert({ status: 'running' })
-      .select('id')
-      .single();
-    logId = logEntry?.id;
-  }
-
   try {
-    console.log(`[Feed Import] Starting ${dryRun ? 'DRY RUN' : 'import'}...`);
-    const result = await runFeedImport(feedUrl, dryRun);
+    // ── Auth check ─────────────────────────────────────────────────────────
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET;
 
-    // ── Update import log ────────────────────────────────────────────────
-    const prefix = dryRun ? '🔍 DRY RUN — ' : '';
-    const summary = [
-      `${prefix}${dryRun ? 'Would add' : '✅ Added'}: ${result.productsAdded}`,
-      `${dryRun ? 'Would update' : '🔄 Updated'}: ${result.productsUpdated}`,
-      `⏭️ Skipped: ${result.productsSkipped}`,
-      `🔧 Variations: ${result.variationsUpdated}`,
-      result.errors.length > 0 ? `❌ Errors: ${result.errors.length}` : '',
-    ].filter(Boolean).join(' | ');
-
-    if (logId && !dryRun) {
-      await supabase.from('import_logs').update({
-        completed_at: new Date().toISOString(),
-        status: 'completed',
-        products_added: result.productsAdded,
-        products_updated: result.productsUpdated,
-        products_skipped: result.productsSkipped,
-        variations_updated: result.variationsUpdated,
-        errors: result.errors,
-        summary,
-      }).eq('id', logId);
-    }
-
-    // ── Send email report (skip in dry-run) ──────────────────────────────
-    if (!dryRun) {
-      try {
-        await sendImportReportEmail(result);
-      } catch (emailErr: any) {
-        console.error('[Feed Import] Email report failed:', emailErr.message);
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      const isManualTrigger = request.nextUrl.searchParams.get('manual') === 'true';
+      if (!isManualTrigger) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    console.log(`[Feed Import] Complete: ${summary}`);
-    return NextResponse.json({
-      success: true,
-      ...result,
-      summary,
-    });
-
-  } catch (err: any) {
-    console.error('[Feed Import] Fatal error:', err.message);
-
-    if (logId) {
-      await supabase.from('import_logs').update({
-        completed_at: new Date().toISOString(),
-        status: 'failed',
-        errors: [{ sku: 'FATAL', error: err.message }],
-        summary: `❌ Fatal error: ${err.message}`,
-      }).eq('id', logId);
+    // ── Validate env vars ────────────────────────────────────────────────
+    const feedUrl = process.env.EQ_FEED_URL;
+    if (!feedUrl) {
+      return NextResponse.json({ success: false, error: 'EQ_FEED_URL not configured' }, { status: 500 });
+    }
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json({ success: false, error: 'Missing Supabase env vars (NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    const supabase = getAdminClient();
+    const dryRun = request.nextUrl.searchParams.get('dryRun') === 'true';
+
+    // ── Create import log entry (skip in dry-run) ──────────────────────────
+    let logId: string | undefined;
+    if (!dryRun) {
+      const { data: logEntry } = await supabase
+        .from('import_logs')
+        .insert({ status: 'running' })
+        .select('id')
+        .single();
+      logId = logEntry?.id;
+    }
+
+    try {
+      console.log(`[Feed Import] Starting ${dryRun ? 'DRY RUN' : 'import'}...`);
+      const result = await runFeedImport(feedUrl, dryRun);
+
+      // ── Update import log ────────────────────────────────────────────────
+      const prefix = dryRun ? '🔍 DRY RUN — ' : '';
+      const summary = [
+        `${prefix}${dryRun ? 'Would add' : '✅ Added'}: ${result.productsAdded}`,
+        `${dryRun ? 'Would update' : '🔄 Updated'}: ${result.productsUpdated}`,
+        `⏭️ Skipped: ${result.productsSkipped}`,
+        `🔧 Variations: ${result.variationsUpdated}`,
+        result.errors.length > 0 ? `❌ Errors: ${result.errors.length}` : '',
+      ].filter(Boolean).join(' | ');
+
+      if (logId && !dryRun) {
+        await supabase.from('import_logs').update({
+          completed_at: new Date().toISOString(),
+          status: 'completed',
+          products_added: result.productsAdded,
+          products_updated: result.productsUpdated,
+          products_skipped: result.productsSkipped,
+          variations_updated: result.variationsUpdated,
+          errors: result.errors,
+          summary,
+        }).eq('id', logId);
+      }
+
+      // ── Send email report (skip in dry-run) ──────────────────────────────
+      if (!dryRun) {
+        try {
+          await sendImportReportEmail(result);
+        } catch (emailErr: any) {
+          console.error('[Feed Import] Email report failed:', emailErr.message);
+        }
+      }
+
+      console.log(`[Feed Import] Complete: ${summary}`);
+      return NextResponse.json({
+        success: true,
+        ...result,
+        summary,
+      });
+
+    } catch (err: any) {
+      console.error('[Feed Import] Fatal error:', err.message, err.stack);
+
+      if (logId) {
+        await supabase.from('import_logs').update({
+          completed_at: new Date().toISOString(),
+          status: 'failed',
+          errors: [{ sku: 'FATAL', error: err.message }],
+          summary: `❌ Fatal error: ${err.message}`,
+        }).eq('id', logId);
+      }
+
+      return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    }
+  } catch (outerErr: any) {
+    // Top-level catch — ensures we ALWAYS return JSON
+    console.error('[Feed Import] Outer error:', outerErr.message, outerErr.stack);
+    return NextResponse.json({ success: false, error: `Server error: ${outerErr.message}` }, { status: 500 });
   }
 }
 

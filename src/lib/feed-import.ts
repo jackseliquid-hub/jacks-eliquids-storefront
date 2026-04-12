@@ -315,9 +315,13 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   console.log(`[Feed Import] ${parents.size} unique parent products`);
 
   // ── 3. Load all existing product SKUs ──────────────────────────────────
-  const { data: existingProducts } = await supabase
+  // Supabase defaults to 1000 rows — fetch all with explicit range
+  const { data: existingProducts, count: productCount } = await supabase
     .from('products')
-    .select('id, sku, cost_price, stock_qty, attributes');
+    .select('id, sku, cost_price, stock_qty, attributes', { count: 'exact' })
+    .range(0, 9999);
+
+  console.log(`[Feed Import] Loaded ${existingProducts?.length ?? 0} existing products (count: ${productCount})`);
 
   const existingMap = new Map<string, {
     id: string;
@@ -333,7 +337,10 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   // ── 4. Load all existing variation SKUs ────────────────────────────────
   const { data: existingVariations } = await supabase
     .from('product_variations')
-    .select('id, sku, product_id, cost_price, stock_qty');
+    .select('id, sku, product_id, cost_price, stock_qty')
+    .range(0, 49999);
+
+  console.log(`[Feed Import] Loaded ${existingVariations?.length ?? 0} existing variations`);
 
   const existingVarMap = new Map<string, {
     id: string;
