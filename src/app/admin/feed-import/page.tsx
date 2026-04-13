@@ -23,6 +23,7 @@ export default function FeedImportPage() {
   const [newSkusList, setNewSkusList] = useState<string[]>([]);
   const [fixResult, setFixResult] = useState<string | null>(null);
   const [fixing, setFixing] = useState(false);
+  const [confirmPurge, setConfirmPurge] = useState(false);
 
   const loadLogs = useCallback(async () => {
     const { data } = await supabase
@@ -139,47 +140,75 @@ export default function FeedImportPage() {
       </div>
 
       {/* ── TEMPORARY: Purge variations for fresh import ── */}
-      <div style={{ ...card, background: '#fef2f2', border: '1px solid #fca5a5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <strong style={{ fontSize: '0.9rem' }}>🗑️ Purge Variations (One-Time Reset)</strong>
-          <p style={{ fontSize: '0.8rem', color: '#991b1b', margin: '4px 0 0' }}>
-            Deletes ALL variations from non-JEL products and clears their attributes.
-            After purging, run the import to re-create them from the new split feed. JEL products are safe.
-          </p>
-          {fixResult && (
-            <p style={{ fontSize: '0.85rem', marginTop: 8, fontWeight: 600, color: fixResult.startsWith('✅') ? '#16a34a' : '#dc2626', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {fixResult}
+      <div style={{ ...card, background: '#fef2f2', border: '1px solid #fca5a5' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <strong style={{ fontSize: '0.9rem' }}>🗑️ Purge Variations (One-Time Reset)</strong>
+            <p style={{ fontSize: '0.8rem', color: '#991b1b', margin: '4px 0 0' }}>
+              Deletes ALL variations from non-JEL products and clears their attributes.
+              After purging, run the import to re-create them from the new split feed. JEL products are safe.
             </p>
+          </div>
+          {!confirmPurge ? (
+            <button
+              disabled={fixing}
+              onClick={() => setConfirmPurge(true)}
+              style={{
+                background: fixing ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff', border: 'none', padding: '0.6rem 1.2rem',
+                borderRadius: 10, fontWeight: 600, fontSize: '0.85rem',
+                cursor: fixing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              🗑️ Purge Now
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                disabled={fixing}
+                onClick={async () => {
+                  setFixing(true);
+                  setFixResult('⏳ Purging variations... this may take a minute.');
+                  setConfirmPurge(false);
+                  try {
+                    const res = await fetch('/api/fix-variations');
+                    const json = await res.json();
+                    if (json.success) {
+                      setFixResult(`✅ ${json.message}`);
+                    } else {
+                      setFixResult(`❌ Error: ${json.error}`);
+                    }
+                  } catch (err: any) {
+                    setFixResult(`❌ ${err.message}`);
+                  }
+                  setFixing(false);
+                }}
+                style={{
+                  background: fixing ? '#9ca3af' : '#dc2626',
+                  color: '#fff', border: 'none', padding: '0.6rem 1rem',
+                  borderRadius: 10, fontWeight: 700, fontSize: '0.85rem',
+                  cursor: fixing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+                }}
+              >
+                {fixing ? '⏳ Purging...' : '⚠️ Yes, Purge!'}
+              </button>
+              <button
+                onClick={() => setConfirmPurge(false)}
+                style={{
+                  background: '#e5e7eb', color: '#374151', border: 'none', padding: '0.6rem 1rem',
+                  borderRadius: 10, fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           )}
         </div>
-        <button
-          disabled={fixing}
-          onClick={async () => {
-            if (!confirm('This will DELETE all variations from non-JEL products. You will need to run the import afterwards to re-create them. Continue?')) return;
-            setFixing(true);
-            setFixResult(null);
-            try {
-              const res = await fetch('/api/fix-variations');
-              const json = await res.json();
-              if (json.success) {
-                setFixResult(`✅ ${json.message}`);
-              } else {
-                setFixResult(`❌ Error: ${json.error}`);
-              }
-            } catch (err: any) {
-              setFixResult(`❌ ${err.message}`);
-            }
-            setFixing(false);
-          }}
-          style={{
-            background: fixing ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
-            color: '#fff', border: 'none', padding: '0.6rem 1.2rem',
-            borderRadius: 10, fontWeight: 600, fontSize: '0.85rem',
-            cursor: fixing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
-          }}
-        >
-          {fixing ? '⏳ Purging...' : '🗑️ Purge Now'}
-        </button>
+        {fixResult && (
+          <p style={{ fontSize: '0.85rem', marginTop: 10, fontWeight: 600, color: fixResult.startsWith('✅') ? '#16a34a' : fixResult.startsWith('⏳') ? '#d97706' : '#dc2626', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+            {fixResult}
+          </p>
+        )}
       </div>
 
       {/* Result banner */}
