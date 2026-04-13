@@ -3,11 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 
 /**
  * TEMPORARY: One-time fix to split combined variation attributes.
- * e.g. { "Flavour/Strength": "Strawberry Ice 10mg" }
- *   → { "Flavour": "Strawberry Ice", "Strength": "10mg" }
- *
  * DELETE THIS FILE after running once.
  */
+
+export const maxDuration = 60;
+export const runtime = 'nodejs';
 
 export async function GET() {
   try {
@@ -19,7 +19,7 @@ export async function GET() {
 
     const supabase = createClient(url, serviceKey);
 
-    // 1. Fetch ALL products with their attributes
+    // 1. Fetch ALL products
     const { data: products, error: pErr } = await supabase
       .from('products')
       .select('id, name, sku, attributes')
@@ -27,22 +27,21 @@ export async function GET() {
 
     if (pErr) throw new Error(pErr.message);
 
-    let fixedProducts = 0;
-    let fixedVariations = 0;
+    // 2. Collect all updates first (no DB calls in this loop)
+    const productUpdates: { id: string; attrs: Record<string, string[]> }[] = [];
+    const productIdsToFix: string[] = [];
     const fixedSkus: string[] = [];
 
     for (const prod of (products || [])) {
       const attrs = prod.attributes as Record<string, string[]> | null;
       if (!attrs) continue;
 
-      // Find any attribute key containing "/" (e.g. "Flavour/Strength")
       const compositeKey = Object.keys(attrs).find(k => k.includes('/'));
       if (!compositeKey) continue;
 
       const parts = compositeKey.split('/').map((s: string) => s.trim());
       if (parts.length !== 2) continue;
 
-      // Split the combined values into separate attribute arrays
       const values = attrs[compositeKey] || [];
       const attrA = new Set<string>();
       const attrB = new Set<string>();
@@ -53,68 +52,89 @@ export async function GET() {
           attrA.add(match[1].trim());
           attrB.add(match[2]);
         } else {
-          // Can't split — keep in first attribute
           attrA.add(val);
         }
       }
 
-      // Build new attributes (remove the combined key)
       const newAttrs: Record<string, string[]> = {};
-      // Copy any other attributes that aren't the composite one
       for (const [k, v] of Object.entries(attrs)) {
         if (k !== compositeKey) newAttrs[k] = v as string[];
       }
       if (attrA.size > 0) newAttrs[parts[0]] = [...attrA];
       if (attrB.size > 0) newAttrs[parts[1]] = [...attrB];
 
-      // Update the product
-      await supabase.from('products').update({ attributes: newAttrs }).eq('id', prod.id);
-      fixedProducts++;
+      productUpdates.push({ id: prod.id, attrs: newAttrs });
+      productIdsToFix.push(prod.id);
       fixedSkus.push(prod.sku || prod.id);
+    }
 
-      // 2. Now fix all variations of this product
-      const { data: variations } = await supabase
+    // 3. Batch update products (25 at a time in parallel)
+    const BATCH = 25;
+    for (let i = 0; i < productUpdates.length; i += BATCH) {
+      const chunk = productUpdates.slice(i, i + BATCH);
+      await Promise.all(chunk.map(({ id, attrs }) =>
+        supabase.from('products').update({ attributes: attrs }).eq('id', id)
+      ));
+    }
+
+    // 4. Fetch ALL variations for the affected products
+    let allVariations: any[] = [];
+    // Fetch in chunks of 50 product IDs
+    for (let i = 0; i < productIdsToFix.length; i += 50) {
+      const idChunk = productIdsToFix.slice(i, i + 50);
+      const { data: vars } = await supabase
         .from('product_variations')
-        .select('id, attributes')
-        .eq('product_id', prod.id);
+        .select('id, product_id, attributes')
+        .in('product_id', idChunk)
+        .range(0, 9999);
+      if (vars) allVariations = allVariations.concat(vars);
+    }
 
-      for (const v of (variations || [])) {
-        const vAttrs = v.attributes as Record<string, string> | null;
-        if (!vAttrs) continue;
+    // 5. Collect variation updates
+    const varUpdates: { id: string; attrs: Record<string, string> }[] = [];
 
-        const vCompositeKey = Object.keys(vAttrs).find(k => k.includes('/'));
-        if (!vCompositeKey) continue;
+    for (const v of allVariations) {
+      const vAttrs = v.attributes as Record<string, string> | null;
+      if (!vAttrs) continue;
 
-        const vParts = vCompositeKey.split('/').map((s: string) => s.trim());
-        if (vParts.length !== 2) continue;
+      const vCompositeKey = Object.keys(vAttrs).find(k => k.includes('/'));
+      if (!vCompositeKey) continue;
 
-        const combinedVal = vAttrs[vCompositeKey];
-        const match = combinedVal?.match(/^(.+?)\s+(\d+mg)$/i);
+      const vParts = vCompositeKey.split('/').map((s: string) => s.trim());
+      if (vParts.length !== 2) continue;
 
-        let newVAttrs: Record<string, string> = {};
-        // Copy non-composite attributes
-        for (const [k, val] of Object.entries(vAttrs)) {
-          if (k !== vCompositeKey) newVAttrs[k] = val as string;
-        }
+      const combinedVal = vAttrs[vCompositeKey];
+      const match = combinedVal?.match(/^(.+?)\s+(\d+mg)$/i);
 
-        if (match) {
-          newVAttrs[vParts[0]] = match[1].trim();
-          newVAttrs[vParts[1]] = match[2];
-        } else {
-          newVAttrs[vParts[0]] = combinedVal;
-        }
-
-        await supabase.from('product_variations').update({ attributes: newVAttrs }).eq('id', v.id);
-        fixedVariations++;
+      const newVAttrs: Record<string, string> = {};
+      for (const [k, val] of Object.entries(vAttrs)) {
+        if (k !== vCompositeKey) newVAttrs[k] = val as string;
       }
+
+      if (match) {
+        newVAttrs[vParts[0]] = match[1].trim();
+        newVAttrs[vParts[1]] = match[2];
+      } else {
+        newVAttrs[vParts[0]] = combinedVal;
+      }
+
+      varUpdates.push({ id: v.id, attrs: newVAttrs });
+    }
+
+    // 6. Batch update variations (25 at a time in parallel)
+    for (let i = 0; i < varUpdates.length; i += BATCH) {
+      const chunk = varUpdates.slice(i, i + BATCH);
+      await Promise.all(chunk.map(({ id, attrs }) =>
+        supabase.from('product_variations').update({ attributes: attrs }).eq('id', id)
+      ));
     }
 
     return NextResponse.json({
       success: true,
-      fixedProducts,
-      fixedVariations,
+      fixedProducts: productUpdates.length,
+      fixedVariations: varUpdates.length,
       fixedSkus,
-      message: `Fixed ${fixedProducts} products and ${fixedVariations} variations. You can now delete this API route.`,
+      message: `Fixed ${productUpdates.length} products and ${varUpdates.length} variations.`,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
