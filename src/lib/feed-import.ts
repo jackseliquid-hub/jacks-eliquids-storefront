@@ -224,16 +224,24 @@ function sanitiseDescription(html: string): string {
 
 // ─── Split combined variation names ─────────────────────────────────────────
 // Feed gives: var_group="Flavour/Strength", var_name="Strawberry Ice 10mg"
+//         or: var_group="Flavour/Strength", var_name="06mg - Attraction"
 // We split into: { Flavour: "Strawberry Ice", Strength: "10mg" }
 
 function splitVarName(varName: string, varGroup: string): Record<string, string> {
   const parts = varGroup.split('/').map(s => s.trim());
   if (parts.length !== 2 || !varName) return { [varGroup || 'Option']: varName };
 
-  // Strength is always the last token matching pattern like 10mg, 20mg, 03mg, 0mg
-  const match = varName.match(/^(.+?)\s+(\d+mg)$/i);
-  if (match) {
-    return { [parts[0]]: match[1].trim(), [parts[1]]: match[2] };
+  // Format 1: "06mg - Attraction" (strength first, dash separator)
+  const matchFront = varName.match(/^(\d+mg)\s*[-–]\s*(.+)$/i);
+  if (matchFront) {
+    // parts[0] = "Flavour", parts[1] = "Strength"
+    return { [parts[0]]: matchFront[2].trim(), [parts[1]]: matchFront[1] };
+  }
+
+  // Format 2: "Strawberry Ice 10mg" (strength last, space separator)
+  const matchEnd = varName.match(/^(.+?)\s+(\d+mg)$/i);
+  if (matchEnd) {
+    return { [parts[0]]: matchEnd[1].trim(), [parts[1]]: matchEnd[2] };
   }
 
   // Fallback: can't split, keep combined
