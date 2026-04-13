@@ -91,19 +91,9 @@ export default function ProductPage({
     });
   }, [product, selectedAttributes]);
 
-  if (loading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <div className={styles.spinner} />
-      </div>
-    );
-  }
-
-  if (!product) return notFound();
-
+  // Sort attribute keys: Strength first, then Flavour, then rest alphabetically
   const attributeKeys = useMemo(() => {
-    const keys = Object.keys(product.attributes || {});
-    // Sort: Strength first, then Flavour, then rest alphabetically
+    const keys = Object.keys(product?.attributes || {});
     return keys.sort((a, b) => {
       const order = ['strength', 'flavour', 'flavor', 'colour', 'color', 'resistance'];
       const aIdx = order.findIndex(o => a.toLowerCase().includes(o));
@@ -115,9 +105,6 @@ export default function ProductPage({
     });
   }, [product]);
 
-  const isSelectionComplete = attributeKeys.length === 0 || !!matchingVariation;
-  const isOutOfStock = matchingVariation ? !matchingVariation.inStock : false;
-
   // Compute which options are out of stock for each attribute based on other selections
   const optionStockMap = useMemo(() => {
     if (!product || !product.variations) return {};
@@ -126,27 +113,37 @@ export default function ProductPage({
       map[attrName] = {};
       const otherSelectedKeys = attributeKeys.filter(k => k !== attrName && selectedAttributes[k]);
       for (const value of (product.attributes[attrName] || [])) {
-        // Find all variations matching this value + all other selected attributes
         const matching = product.variations.filter(v => {
           const vAttrs = v.attributes || {};
           const vKey = Object.keys(vAttrs).find(k => k.toLowerCase() === attrName.toLowerCase());
           if (!vKey) return false;
           const normalize = (val: string) => String(val).toLowerCase().replace(/\s+/g, '').replace(/(mg|ml)$/, '');
           if (normalize(vAttrs[vKey]) !== normalize(value)) return false;
-          // Check other selected attributes
           return otherSelectedKeys.every(ok => {
             const ovKey = Object.keys(vAttrs).find(k => k.toLowerCase() === ok.toLowerCase());
             if (!ovKey) return false;
             return normalize(vAttrs[ovKey]) === normalize(selectedAttributes[ok]);
           });
         });
-        // If ALL matching variations are OOS, mark this option as OOS
         const hasStock = matching.some(v => v.inStock);
         map[attrName][value] = hasStock;
       }
     }
     return map;
   }, [product, attributeKeys, selectedAttributes]);
+
+  if (loading) {
+    return (
+      <div className={styles.loadingScreen}>
+        <div className={styles.spinner} />
+      </div>
+    );
+  }
+
+  if (!product) return notFound();
+
+  const isSelectionComplete = attributeKeys.length === 0 || !!matchingVariation;
+  const isOutOfStock = matchingVariation ? !matchingVariation.inStock : false;
 
   const displayPrice = matchingVariation?.price || product.price;
   const displaySalePrice = product.salePrice || null;
