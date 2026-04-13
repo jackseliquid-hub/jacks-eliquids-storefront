@@ -456,6 +456,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   const pendingProductUpdates: { id: string; data: Record<string, any> }[] = [];
   const pendingVarUpdates: { id: string; cost_price: string; stock_qty: number }[] = [];
   const pendingNewVars: any[] = [];
+  const restockedVarIds: string[] = []; // variations going from 0 → >0
 
   for (const [sku, parent] of parents) {
     try {
@@ -482,6 +483,10 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
             const fvCost = fv.costprice_exvat.toFixed(2);
             if (fvCost !== (existingVar.cost_price || '0.00') || fv.qty !== (existingVar.stock_qty ?? 0)) {
               varChanged = true;
+              // Track restock: was 0, now > 0
+              if ((existingVar.stock_qty ?? 0) === 0 && fv.qty > 0) {
+                restockedVarIds.push(existingVar.id);
+              }
               pendingVarUpdates.push({ id: existingVar.id, cost_price: fvCost, stock_qty: fv.qty });
               result.updatedVarSkus.push(fv.sku);
             }
@@ -631,6 +636,90 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
       const { error: nvErr } = await supabase.from('product_variations').insert(pendingNewVars);
       if (nvErr) result.errors.push({ sku: 'BATCH_NEW_VARS', error: nvErr.message });
       result.variationsUpdated += pendingNewVars.length;
+    }
+  }
+
+  // ─── Send back-in-stock notifications ─────────────────────────────────────
+  if (restockedVarIds.length > 0) {
+    console.log(`[Feed Import] ${restockedVarIds.length} variations restocked, checking notifications...`);
+    try {
+      const { data: notifications } = await supabase
+        .from('stock_notifications')
+        .select('id, email, name, variation_id, product_id')
+        .in('variation_id', restockedVarIds)
+        .eq('notified', false);
+
+      if (notifications && notifications.length > 0) {
+        console.log(`[Feed Import] Sending ${notifications.length} back-in-stock emails...`);
+
+        // Get product + variation details for the email
+        const productIds = [...new Set(notifications.map(n => n.product_id))];
+        const { data: products } = await supabase
+          .from('products')
+          .select('id, name, slug, image')
+          .in('id', productIds);
+        const productMap = new Map((products || []).map(p => [p.id, p]));
+
+        const varIds = [...new Set(notifications.map(n => n.variation_id))];
+        const { data: vars } = await supabase
+          .from('product_variations')
+          .select('id, attributes')
+          .in('id', varIds);
+        const varMap = new Map((vars || []).map(v => [v.id, v]));
+
+        if (process.env.RESEND_API_KEY) {
+          const { Resend } = await import('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquids.co.uk';
+
+          for (const notif of notifications) {
+            const prod = productMap.get(notif.product_id);
+            const vari = varMap.get(notif.variation_id);
+            if (!prod) continue;
+
+            const variantLabel = vari?.attributes
+              ? Object.values(vari.attributes).join(' / ')
+              : '';
+            const productUrl = `${siteUrl}/product/${prod.slug}`;
+
+            try {
+              await resend.emails.send({
+                from: 'Jack\'s E-Liquid <noreply@jackseliquids.co.uk>',
+                to: notif.email,
+                subject: `🔔 Back in Stock: ${prod.name}${variantLabel ? ` - ${variantLabel}` : ''}`,
+                html: `
+                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 2rem;">
+                    <h2 style="color: #1a1a1a;">Great news${notif.name ? `, ${notif.name}` : ''}! 🎉</h2>
+                    <p style="color: #555; font-size: 1rem; line-height: 1.6;">
+                      <strong>${prod.name}${variantLabel ? ` - ${variantLabel}` : ''}</strong> is back in stock!
+                    </p>
+                    ${prod.image ? `<img src="${prod.image}" alt="${prod.name}" style="max-width: 200px; border-radius: 12px; margin: 1rem 0;" />` : ''}
+                    <a href="${productUrl}" style="display: inline-block; background: #008080; color: #fff; padding: 0.75rem 1.5rem; border-radius: 9999px; text-decoration: none; font-weight: 600; margin-top: 1rem;">
+                      Shop Now →
+                    </a>
+                    <p style="color: #999; font-size: 0.8rem; margin-top: 2rem;">
+                      You received this email because you signed up for a back-in-stock notification.
+                    </p>
+                  </div>
+                `,
+              });
+            } catch (emailErr) {
+              console.error(`[Feed Import] Failed to email ${notif.email}:`, emailErr);
+            }
+          }
+        }
+
+        // Mark all as notified
+        const notifIds = notifications.map(n => n.id);
+        await supabase
+          .from('stock_notifications')
+          .update({ notified: true })
+          .in('id', notifIds);
+
+        console.log(`[Feed Import] Sent ${notifications.length} back-in-stock notifications.`);
+      }
+    } catch (notifErr) {
+      console.error('[Feed Import] Notification error (non-fatal):', notifErr);
     }
   }
 

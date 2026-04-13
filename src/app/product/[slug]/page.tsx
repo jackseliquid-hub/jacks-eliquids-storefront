@@ -7,6 +7,7 @@ import { useCart } from '@/context/CartContext';
 import styles from './product.module.css';
 import { getProductBySlug, Product } from '@/lib/data';
 import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discounts';
+import { createClient } from '@/utils/supabase/client';
 
 export default function ProductPage({
   params,
@@ -27,16 +28,40 @@ export default function ProductPage({
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [shareToast, setShareToast] = useState(false);
 
+  // Notify Me state
+  const [notifyEmail, setNotifyEmail] = useState('');
+  const [notifyName, setNotifyName] = useState('');
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [notifyResult, setNotifyResult] = useState<'success' | 'error' | null>(null);
+  const [showNotifyForm, setShowNotifyForm] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+
   useEffect(() => {
     async function fetchData() {
       try {
         const [prod, rules] = await Promise.all([
           getProductBySlug(slug),
-          getDiscountRules() // fetch active discount rules explicitly
+          getDiscountRules()
         ]);
         setProduct(prod || null);
         if (prod?.image) setMainImage(prod.image);
         setGlobalRules(rules || []);
+
+        // Check if user is logged in
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUserEmail(user.email || null);
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('first_name, last_name')
+            .eq('id', user.id)
+            .single();
+          if (customer) {
+            setUserName(`${customer.first_name || ''} ${customer.last_name || ''}`.trim() || null);
+          }
+        }
       } catch (err) {
         console.error("ProductPage: Fetch error", err);
       } finally {
@@ -76,8 +101,52 @@ export default function ProductPage({
 
   if (!product) return notFound();
 
-  const attributeKeys = Object.keys(product.attributes || {});
+  const attributeKeys = useMemo(() => {
+    const keys = Object.keys(product.attributes || {});
+    // Sort: Strength first, then Flavour, then rest alphabetically
+    return keys.sort((a, b) => {
+      const order = ['strength', 'flavour', 'flavor', 'colour', 'color', 'resistance'];
+      const aIdx = order.findIndex(o => a.toLowerCase().includes(o));
+      const bIdx = order.findIndex(o => b.toLowerCase().includes(o));
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+  }, [product]);
+
   const isSelectionComplete = attributeKeys.length === 0 || !!matchingVariation;
+  const isOutOfStock = matchingVariation ? !matchingVariation.inStock : false;
+
+  // Compute which options are out of stock for each attribute based on other selections
+  const optionStockMap = useMemo(() => {
+    if (!product || !product.variations) return {};
+    const map: Record<string, Record<string, boolean>> = {};
+    for (const attrName of attributeKeys) {
+      map[attrName] = {};
+      const otherSelectedKeys = attributeKeys.filter(k => k !== attrName && selectedAttributes[k]);
+      for (const value of (product.attributes[attrName] || [])) {
+        // Find all variations matching this value + all other selected attributes
+        const matching = product.variations.filter(v => {
+          const vAttrs = v.attributes || {};
+          const vKey = Object.keys(vAttrs).find(k => k.toLowerCase() === attrName.toLowerCase());
+          if (!vKey) return false;
+          const normalize = (val: string) => String(val).toLowerCase().replace(/\s+/g, '').replace(/(mg|ml)$/, '');
+          if (normalize(vAttrs[vKey]) !== normalize(value)) return false;
+          // Check other selected attributes
+          return otherSelectedKeys.every(ok => {
+            const ovKey = Object.keys(vAttrs).find(k => k.toLowerCase() === ok.toLowerCase());
+            if (!ovKey) return false;
+            return normalize(vAttrs[ovKey]) === normalize(selectedAttributes[ok]);
+          });
+        });
+        // If ALL matching variations are OOS, mark this option as OOS
+        const hasStock = matching.some(v => v.inStock);
+        map[attrName][value] = hasStock;
+      }
+    }
+    return map;
+  }, [product, attributeKeys, selectedAttributes]);
 
   const displayPrice = matchingVariation?.price || product.price;
   const displaySalePrice = product.salePrice || null;
@@ -92,6 +161,62 @@ export default function ProductPage({
       ...prev,
       [name]: value
     }));
+    // Reset notify state when selection changes
+    setNotifyResult(null);
+    setShowNotifyForm(false);
+  }
+
+  async function handleNotifyMe() {
+    if (!matchingVariation || !product) return;
+
+    // If logged in, submit directly
+    if (userEmail) {
+      setNotifyLoading(true);
+      try {
+        const res = await fetch('/api/notify-stock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            variationId: matchingVariation.id,
+            productId: product.id,
+            email: userEmail,
+            name: userName,
+          }),
+        });
+        const json = await res.json();
+        setNotifyResult(json.success ? 'success' : 'error');
+      } catch {
+        setNotifyResult('error');
+      }
+      setNotifyLoading(false);
+      return;
+    }
+
+    // Guest: show form
+    setShowNotifyForm(true);
+  }
+
+  async function handleNotifySubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!matchingVariation || !product || !notifyEmail) return;
+    setNotifyLoading(true);
+    try {
+      const res = await fetch('/api/notify-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variationId: matchingVariation.id,
+          productId: product.id,
+          email: notifyEmail,
+          name: notifyName || null,
+        }),
+      });
+      const json = await res.json();
+      setNotifyResult(json.success ? 'success' : 'error');
+    } catch {
+      setNotifyResult('error');
+    }
+    setNotifyLoading(false);
   }
 
   function handleAddToCart() {
@@ -250,11 +375,14 @@ export default function ProductPage({
                     onChange={(e) => handleAttributeSelect(attrName, e.target.value)}
                   >
                     <option value="" disabled>Choose {attrName}</option>
-                    {(product.attributes[attrName] || []).map(value => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
+                    {(product.attributes[attrName] || []).map(value => {
+                      const inStock = optionStockMap[attrName]?.[value] !== false;
+                      return (
+                        <option key={value} value={value} className={!inStock ? styles.oosOption : ''}>
+                          {value}{!inStock ? ' (Out of Stock)' : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               ))}
@@ -340,36 +468,87 @@ export default function ProductPage({
           )}
 
           <div className={styles.purchaseSection}>
-            <div className={styles.qtyContainer}>
-              <span className={styles.variationLabel}>Quantity</span>
-              <div className={styles.qtyControls}>
-                <button 
-                  type="button" 
-                  className={styles.qtyBtn} 
-                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
-                >
-                  −
-                </button>
-                <span className={styles.qtyValue}>{quantity}</span>
-                <button 
-                  type="button" 
-                  className={styles.qtyBtn} 
-                  onClick={() => setQuantity(q => q + 1)}
-                  aria-label="Increase quantity"
-                >
-                  +
-                </button>
+            {isSelectionComplete && isOutOfStock ? (
+              /* ─── Out of Stock: Notify Me Flow ─── */
+              <div className={styles.notifySection}>
+                <div className={styles.oosBadge}>Out of Stock</div>
+                {notifyResult === 'success' ? (
+                  <div className={styles.notifySuccess}>
+                    ✅ We&apos;ll email you when this is back in stock!
+                  </div>
+                ) : showNotifyForm && !userEmail ? (
+                  <form onSubmit={handleNotifySubmit} className={styles.notifyForm}>
+                    <input
+                      type="text"
+                      placeholder="Your name"
+                      value={notifyName}
+                      onChange={(e) => setNotifyName(e.target.value)}
+                      className={styles.notifyInput}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Your email"
+                      value={notifyEmail}
+                      onChange={(e) => setNotifyEmail(e.target.value)}
+                      className={styles.notifyInput}
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={notifyLoading || !notifyEmail}
+                      className={styles.notifySubmitBtn}
+                    >
+                      {notifyLoading ? 'Submitting...' : '📩 Notify Me'}
+                    </button>
+                    {notifyResult === 'error' && (
+                      <p className={styles.notifyError}>Something went wrong. Please try again.</p>
+                    )}
+                  </form>
+                ) : (
+                  <button
+                    className={styles.notifyBtn}
+                    onClick={handleNotifyMe}
+                    disabled={notifyLoading}
+                  >
+                    {notifyLoading ? '⏳ Saving...' : '🔔 Notify Me When Available'}
+                  </button>
+                )}
               </div>
-            </div>
+            ) : (
+              /* ─── In Stock: Normal Add to Bag ─── */
+              <>
+                <div className={styles.qtyContainer}>
+                  <span className={styles.variationLabel}>Quantity</span>
+                  <div className={styles.qtyControls}>
+                    <button 
+                      type="button" 
+                      className={styles.qtyBtn} 
+                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                      aria-label="Decrease quantity"
+                    >
+                      −
+                    </button>
+                    <span className={styles.qtyValue}>{quantity}</span>
+                    <button 
+                      type="button" 
+                      className={styles.qtyBtn} 
+                      onClick={() => setQuantity(q => q + 1)}
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
 
-            <button 
-              className={styles.cartButton} 
-              onClick={handleAddToCart}
-              disabled={!isSelectionComplete}
-            >
-              {isSelectionComplete ? 'Add to Bag' : 'Select Options'}
-            </button>
+                <button 
+                  className={styles.cartButton} 
+                  onClick={handleAddToCart}
+                  disabled={!isSelectionComplete}
+                >
+                  {isSelectionComplete ? 'Add to Bag' : 'Select Options'}
+                </button>
+              </>
+            )}
           </div>
 
           {/* Share Buttons */}
@@ -448,9 +627,6 @@ export default function ProductPage({
           </div>
 
           <div className={styles.metaInfo}>
-            {matchingVariation && !matchingVariation.inStock && (
-              <span style={{ color: '#ff3b30' }}>Currently Out of Stock</span>
-            )}
           </div>
         </div>
       </div>
