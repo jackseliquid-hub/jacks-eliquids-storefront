@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * TEMPORARY: Cleanup pass — fixes variations that still have "/" in their
- * attribute keys, AND rebuilds the parent product attributes from the
- * fixed variation data. Handles the partially-fixed state from the
- * first timed-out run.
+ * TEMPORARY: Final cleanup — catches variations where the "/" was already
+ * removed from the key but the VALUE still contains a combined
+ * "Flavour + Strength" pattern like "Heisenberg 10mg".
  *
+ * Also handles any remaining "/" keys.
  * DELETE THIS FILE after running once.
  */
 
@@ -36,7 +36,7 @@ export async function GET() {
       if (data.length < 1000) break;
     }
 
-    // 2. Find variations that still have "/" in an attribute key
+    // 2. Find variations needing fix
     const varUpdates: { id: string; productId: string; attrs: Record<string, string> }[] = [];
     const affectedProductIds = new Set<string>();
 
@@ -44,29 +44,46 @@ export async function GET() {
       const vAttrs = v.attributes as Record<string, string> | null;
       if (!vAttrs) continue;
 
-      const compositeKey = Object.keys(vAttrs).find(k => k.includes('/'));
-      if (!compositeKey) continue;
+      const keys = Object.keys(vAttrs);
 
-      const parts = compositeKey.split('/').map((s: string) => s.trim());
-      if (parts.length !== 2) continue;
+      // Case A: Still has "/" in key (leftover from previous)
+      const compositeKey = keys.find(k => k.includes('/'));
+      if (compositeKey) {
+        const parts = compositeKey.split('/').map((s: string) => s.trim());
+        const combinedVal = vAttrs[compositeKey];
+        const match = combinedVal?.match(/^(.+?)\s+(\d+mg)$/i);
 
-      const combinedVal = vAttrs[compositeKey];
-      const match = combinedVal?.match(/^(.+?)\s+(\d+mg)$/i);
+        const newVAttrs: Record<string, string> = {};
+        for (const [k, val] of Object.entries(vAttrs)) {
+          if (k !== compositeKey) newVAttrs[k] = val as string;
+        }
+        if (match && parts.length === 2) {
+          newVAttrs[parts[0]] = match[1].trim();
+          newVAttrs[parts[1]] = match[2];
+        } else if (parts.length === 2) {
+          newVAttrs[parts[0]] = combinedVal;
+        }
 
-      const newVAttrs: Record<string, string> = {};
-      for (const [k, val] of Object.entries(vAttrs)) {
-        if (k !== compositeKey) newVAttrs[k] = val as string;
+        varUpdates.push({ id: v.id, productId: v.product_id, attrs: newVAttrs });
+        affectedProductIds.add(v.product_id);
+        continue;
       }
 
-      if (match) {
-        newVAttrs[parts[0]] = match[1].trim();
-        newVAttrs[parts[1]] = match[2];
-      } else {
-        newVAttrs[parts[0]] = combinedVal;
+      // Case B: Key is clean but VALUE still has combined pattern "Something 10mg"
+      // AND there's no separate "Strength" key yet
+      if (keys.length === 1 && !keys.includes('Strength')) {
+        const key = keys[0];
+        const val = vAttrs[key];
+        const match = val?.match(/^(.+?)\s+(\d+mg)$/i);
+        if (match) {
+          const newVAttrs: Record<string, string> = {
+            [key]: match[1].trim(),
+            'Strength': match[2],
+          };
+          varUpdates.push({ id: v.id, productId: v.product_id, attrs: newVAttrs });
+          affectedProductIds.add(v.product_id);
+        }
       }
-
-      varUpdates.push({ id: v.id, productId: v.product_id, attrs: newVAttrs });
-      affectedProductIds.add(v.product_id);
     }
 
     // 3. Batch update variations
@@ -77,17 +94,14 @@ export async function GET() {
       ));
     }
 
-    // 4. Now rebuild product-level attributes from the FIXED variation data
-    // This catches partially-fixed products where product attrs were updated
-    // but variations weren't (so product might be missing "Strength")
+    // 4. Rebuild product-level attributes from the corrected variation data
     const productFixes: { id: string; attrs: Record<string, string[]> }[] = [];
     const fixedSkus: string[] = [];
 
     for (const productId of affectedProductIds) {
-      // Get current product attributes
       const { data: prodData } = await supabase
         .from('products')
-        .select('id, sku, attributes')
+        .select('id, sku')
         .eq('id', productId)
         .single();
 
