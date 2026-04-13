@@ -270,7 +270,7 @@ export default function ProductPage({
           <span className={styles.breadcrumbSep}>›</span>
           {product.category && (
             <>
-              <Link href={`/?category=${encodeURIComponent(product.category)}`} className={styles.breadcrumbLink}>
+              <Link href={`/?cat=${encodeURIComponent(product.category)}`} className={styles.breadcrumbLink}>
                 {product.category}
               </Link>
               <span className={styles.breadcrumbSep}>›</span>
@@ -319,24 +319,7 @@ export default function ProductPage({
         {/* Right: Details */}
         <div className={styles.detailsPanel}>
           <div className={styles.productHeader}>
-            {/* Clickable Category */}
-            {product.category && (
-              <Link href={`/?category=${encodeURIComponent(product.category)}`} className={styles.categoryLink}>
-                {product.category}
-              </Link>
-            )}
             <h1 className={styles.productName}>{product.name}</h1>
-
-            {/* Brand Badge */}
-            {product.brand && (
-              <Link href={`/?brand=${encodeURIComponent(product.brand)}`} className={styles.brandBadge}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
-                  <line x1="7" y1="7" x2="7.01" y2="7"/>
-                </svg>
-                {product.brand}
-              </Link>
-            )}
 
             {hasSale ? (
               <div className={styles.priceBlock}>
@@ -546,6 +529,36 @@ export default function ProductPage({
                 </button>
               </>
           </div>
+
+          {/* Product Meta: Brand, Category, Tags */}
+          {(product.brand || product.category || (product.tags && product.tags.length > 0)) && (
+            <div className={styles.productMeta}>
+              <div className={styles.metaPills}>
+                {product.brand && (
+                  <Link href={`/?brand=${encodeURIComponent(product.brand)}`} className={styles.metaPill}>
+                    {product.brand}
+                  </Link>
+                )}
+                {product.category && (
+                  <Link href={`/?cat=${encodeURIComponent(product.category)}`} className={styles.metaPill}>
+                    {product.category}
+                  </Link>
+                )}
+              </div>
+              {product.tags && product.tags.length > 0 && (
+                <div className={styles.metaTags}>
+                  <span className={styles.metaTagLabel}>Tags</span>
+                  <div className={styles.metaTagList}>
+                    {product.tags.map(tag => (
+                      <Link key={tag} href={`/?tag=${encodeURIComponent(tag)}`} className={styles.metaTag}>
+                        {tag}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Share Buttons */}
           <div className={styles.shareSection}>
