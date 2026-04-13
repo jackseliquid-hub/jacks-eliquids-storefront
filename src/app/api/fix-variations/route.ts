@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 /**
- * TEMPORARY: One-time fix to split combined variation attributes.
+ * TEMPORARY: Cleanup pass — fixes variations that still have "/" in their
+ * attribute keys, AND rebuilds the parent product attributes from the
+ * fixed variation data. Handles the partially-fixed state from the
+ * first timed-out run.
+ *
  * DELETE THIS FILE after running once.
  */
 
@@ -18,110 +22,54 @@ export async function GET() {
     }
 
     const supabase = createClient(url, serviceKey);
+    const BATCH = 25;
 
-    // 1. Fetch ALL products
-    const { data: products, error: pErr } = await supabase
-      .from('products')
-      .select('id, name, sku, attributes')
-      .range(0, 9999);
+    // 1. Fetch ALL variations
+    let allVars: any[] = [];
+    for (let page = 0; ; page++) {
+      const { data } = await supabase
+        .from('product_variations')
+        .select('id, product_id, attributes')
+        .range(page * 1000, (page + 1) * 1000 - 1);
+      if (!data || data.length === 0) break;
+      allVars = allVars.concat(data);
+      if (data.length < 1000) break;
+    }
 
-    if (pErr) throw new Error(pErr.message);
+    // 2. Find variations that still have "/" in an attribute key
+    const varUpdates: { id: string; productId: string; attrs: Record<string, string> }[] = [];
+    const affectedProductIds = new Set<string>();
 
-    // 2. Collect all updates first (no DB calls in this loop)
-    const productUpdates: { id: string; attrs: Record<string, string[]> }[] = [];
-    const productIdsToFix: string[] = [];
-    const fixedSkus: string[] = [];
+    for (const v of allVars) {
+      const vAttrs = v.attributes as Record<string, string> | null;
+      if (!vAttrs) continue;
 
-    for (const prod of (products || [])) {
-      const attrs = prod.attributes as Record<string, string[]> | null;
-      if (!attrs) continue;
-
-      const compositeKey = Object.keys(attrs).find(k => k.includes('/'));
+      const compositeKey = Object.keys(vAttrs).find(k => k.includes('/'));
       if (!compositeKey) continue;
 
       const parts = compositeKey.split('/').map((s: string) => s.trim());
       if (parts.length !== 2) continue;
 
-      const values = attrs[compositeKey] || [];
-      const attrA = new Set<string>();
-      const attrB = new Set<string>();
-
-      for (const val of values) {
-        const match = val.match(/^(.+?)\s+(\d+mg)$/i);
-        if (match) {
-          attrA.add(match[1].trim());
-          attrB.add(match[2]);
-        } else {
-          attrA.add(val);
-        }
-      }
-
-      const newAttrs: Record<string, string[]> = {};
-      for (const [k, v] of Object.entries(attrs)) {
-        if (k !== compositeKey) newAttrs[k] = v as string[];
-      }
-      if (attrA.size > 0) newAttrs[parts[0]] = [...attrA];
-      if (attrB.size > 0) newAttrs[parts[1]] = [...attrB];
-
-      productUpdates.push({ id: prod.id, attrs: newAttrs });
-      productIdsToFix.push(prod.id);
-      fixedSkus.push(prod.sku || prod.id);
-    }
-
-    // 3. Batch update products (25 at a time in parallel)
-    const BATCH = 25;
-    for (let i = 0; i < productUpdates.length; i += BATCH) {
-      const chunk = productUpdates.slice(i, i + BATCH);
-      await Promise.all(chunk.map(({ id, attrs }) =>
-        supabase.from('products').update({ attributes: attrs }).eq('id', id)
-      ));
-    }
-
-    // 4. Fetch ALL variations for the affected products
-    let allVariations: any[] = [];
-    // Fetch in chunks of 50 product IDs
-    for (let i = 0; i < productIdsToFix.length; i += 50) {
-      const idChunk = productIdsToFix.slice(i, i + 50);
-      const { data: vars } = await supabase
-        .from('product_variations')
-        .select('id, product_id, attributes')
-        .in('product_id', idChunk)
-        .range(0, 9999);
-      if (vars) allVariations = allVariations.concat(vars);
-    }
-
-    // 5. Collect variation updates
-    const varUpdates: { id: string; attrs: Record<string, string> }[] = [];
-
-    for (const v of allVariations) {
-      const vAttrs = v.attributes as Record<string, string> | null;
-      if (!vAttrs) continue;
-
-      const vCompositeKey = Object.keys(vAttrs).find(k => k.includes('/'));
-      if (!vCompositeKey) continue;
-
-      const vParts = vCompositeKey.split('/').map((s: string) => s.trim());
-      if (vParts.length !== 2) continue;
-
-      const combinedVal = vAttrs[vCompositeKey];
+      const combinedVal = vAttrs[compositeKey];
       const match = combinedVal?.match(/^(.+?)\s+(\d+mg)$/i);
 
       const newVAttrs: Record<string, string> = {};
       for (const [k, val] of Object.entries(vAttrs)) {
-        if (k !== vCompositeKey) newVAttrs[k] = val as string;
+        if (k !== compositeKey) newVAttrs[k] = val as string;
       }
 
       if (match) {
-        newVAttrs[vParts[0]] = match[1].trim();
-        newVAttrs[vParts[1]] = match[2];
+        newVAttrs[parts[0]] = match[1].trim();
+        newVAttrs[parts[1]] = match[2];
       } else {
-        newVAttrs[vParts[0]] = combinedVal;
+        newVAttrs[parts[0]] = combinedVal;
       }
 
-      varUpdates.push({ id: v.id, attrs: newVAttrs });
+      varUpdates.push({ id: v.id, productId: v.product_id, attrs: newVAttrs });
+      affectedProductIds.add(v.product_id);
     }
 
-    // 6. Batch update variations (25 at a time in parallel)
+    // 3. Batch update variations
     for (let i = 0; i < varUpdates.length; i += BATCH) {
       const chunk = varUpdates.slice(i, i + BATCH);
       await Promise.all(chunk.map(({ id, attrs }) =>
@@ -129,12 +77,64 @@ export async function GET() {
       ));
     }
 
+    // 4. Now rebuild product-level attributes from the FIXED variation data
+    // This catches partially-fixed products where product attrs were updated
+    // but variations weren't (so product might be missing "Strength")
+    const productFixes: { id: string; attrs: Record<string, string[]> }[] = [];
+    const fixedSkus: string[] = [];
+
+    for (const productId of affectedProductIds) {
+      // Get current product attributes
+      const { data: prodData } = await supabase
+        .from('products')
+        .select('id, sku, attributes')
+        .eq('id', productId)
+        .single();
+
+      if (!prodData) continue;
+
+      // Get ALL variations for this product (now fixed)
+      const { data: prodVars } = await supabase
+        .from('product_variations')
+        .select('attributes')
+        .eq('product_id', productId);
+
+      if (!prodVars || prodVars.length === 0) continue;
+
+      // Rebuild product attributes from variations
+      const attrSets: Record<string, Set<string>> = {};
+      for (const pv of prodVars) {
+        const pvAttrs = pv.attributes as Record<string, string> | null;
+        if (!pvAttrs) continue;
+        for (const [key, val] of Object.entries(pvAttrs)) {
+          if (!attrSets[key]) attrSets[key] = new Set();
+          attrSets[key].add(val);
+        }
+      }
+
+      const newProductAttrs: Record<string, string[]> = {};
+      for (const [key, valueSet] of Object.entries(attrSets)) {
+        newProductAttrs[key] = [...valueSet];
+      }
+
+      productFixes.push({ id: productId, attrs: newProductAttrs });
+      fixedSkus.push(prodData.sku || productId);
+    }
+
+    // 5. Batch update products
+    for (let i = 0; i < productFixes.length; i += BATCH) {
+      const chunk = productFixes.slice(i, i + BATCH);
+      await Promise.all(chunk.map(({ id, attrs }) =>
+        supabase.from('products').update({ attributes: attrs }).eq('id', id)
+      ));
+    }
+
     return NextResponse.json({
       success: true,
-      fixedProducts: productUpdates.length,
       fixedVariations: varUpdates.length,
+      fixedProducts: productFixes.length,
       fixedSkus,
-      message: `Fixed ${productUpdates.length} products and ${varUpdates.length} variations.`,
+      message: `Cleanup complete: fixed ${varUpdates.length} variations across ${productFixes.length} products.`,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

@@ -141,13 +141,13 @@ export default function FeedImportPage() {
       {/* ── TEMPORARY: Fix combined variations button ── */}
       <div style={{ ...card, background: '#fffbeb', border: '1px solid #fcd34d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <strong style={{ fontSize: '0.9rem' }}>🔧 Fix Combined Variations</strong>
+          <strong style={{ fontSize: '0.9rem' }}>🔧 Fix Combined Variations (Cleanup)</strong>
           <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '4px 0 0' }}>
-            One-time fix: splits &quot;Flavour/Strength&quot; into separate Flavour + Strength attributes.
-            Remove this button after running.
+            Finds any variations still using combined attributes and fixes them.
+            Also rebuilds product attributes. Safe to run multiple times.
           </p>
           {fixResult && (
-            <p style={{ fontSize: '0.85rem', marginTop: 8, fontWeight: 600, color: fixResult.startsWith('✅') ? '#16a34a' : '#dc2626' }}>
+            <p style={{ fontSize: '0.85rem', marginTop: 8, fontWeight: 600, color: fixResult.startsWith('✅') ? '#16a34a' : '#dc2626', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
               {fixResult}
             </p>
           )}
@@ -161,7 +161,8 @@ export default function FeedImportPage() {
               const res = await fetch('/api/fix-variations');
               const json = await res.json();
               if (json.success) {
-                setFixResult(`✅ Fixed ${json.fixedProducts} products and ${json.fixedVariations} variations. You can now remove this button.`);
+                const skuList = json.fixedSkus?.length > 0 ? `\nSKUs: ${json.fixedSkus.join(', ')}` : '';
+                setFixResult(`✅ Fixed ${json.fixedProducts} products and ${json.fixedVariations} variations.${skuList}`);
               } else {
                 setFixResult(`❌ Error: ${json.error}`);
               }
