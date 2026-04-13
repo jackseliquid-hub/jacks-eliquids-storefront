@@ -222,21 +222,55 @@ function sanitiseDescription(html: string): string {
     .trim();
 }
 
+// ─── Split combined variation names ─────────────────────────────────────────
+// Feed gives: var_group="Flavour/Strength", var_name="Strawberry Ice 10mg"
+// We split into: { Flavour: "Strawberry Ice", Strength: "10mg" }
+
+function splitVarName(varName: string, varGroup: string): Record<string, string> {
+  const parts = varGroup.split('/').map(s => s.trim());
+  if (parts.length !== 2 || !varName) return { [varGroup || 'Option']: varName };
+
+  // Strength is always the last token matching pattern like 10mg, 20mg, 03mg, 0mg
+  const match = varName.match(/^(.+?)\s+(\d+mg)$/i);
+  if (match) {
+    return { [parts[0]]: match[1].trim(), [parts[1]]: match[2] };
+  }
+
+  // Fallback: can't split, keep combined
+  return { [varGroup]: varName };
+}
+
 // ─── Build attributes from variations ───────────────────────────────────────
 
 function buildAttributes(parent: ParentProduct): Record<string, string[]> {
   if (parent.prod_type === 'simple' || parent.variations.length === 0) return {};
 
-  const attrName = parent.var_group || 'Option';
-  const values = parent.variations
-    .map(v => v.var_name)
-    .filter(Boolean);
+  const varGroup = parent.var_group || 'Option';
+  const parts = varGroup.split('/').map(s => s.trim());
+  const isComposite = parts.length === 2;
 
-  // Deduplicate
-  const unique = [...new Set(values)];
-  if (unique.length === 0) return {};
+  if (!isComposite) {
+    // Simple attribute group — keep as-is
+    const values = parent.variations.map(v => v.var_name).filter(Boolean);
+    const unique = [...new Set(values)];
+    return unique.length > 0 ? { [varGroup]: unique } : {};
+  }
 
-  return { [attrName]: unique };
+  // Composite group (e.g. "Flavour/Strength") — split into separate attributes
+  const attrA: Set<string> = new Set();
+  const attrB: Set<string> = new Set();
+
+  for (const v of parent.variations) {
+    if (!v.var_name) continue;
+    const split = splitVarName(v.var_name, varGroup);
+    if (split[parts[0]]) attrA.add(split[parts[0]]);
+    if (split[parts[1]]) attrB.add(split[parts[1]]);
+  }
+
+  const result: Record<string, string[]> = {};
+  if (attrA.size > 0) result[parts[0]] = [...attrA];
+  if (attrB.size > 0) result[parts[1]] = [...attrB];
+  return result;
 }
 
 // ─── Auto-create categories and brands ──────────────────────────────────────
@@ -406,7 +440,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
-              attributes: fv.var_name ? { [parent.var_group || 'Option']: fv.var_name } : {},
+              attributes: fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {},
             });
             result.newVarSkus.push(`${fv.sku} — ${fv.var_name || 'new'}`);
           }
@@ -498,7 +532,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
-              attributes: fv.var_name ? { [parent.var_group || 'Option']: fv.var_name } : {},
+              attributes: fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {},
             };
           });
 

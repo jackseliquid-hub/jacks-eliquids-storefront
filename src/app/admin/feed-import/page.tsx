@@ -21,6 +21,8 @@ export default function FeedImportPage() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [newSkusList, setNewSkusList] = useState<string[]>([]);
+  const [fixResult, setFixResult] = useState<string | null>(null);
+  const [fixing, setFixing] = useState(false);
 
   const loadLogs = useCallback(async () => {
     const { data } = await supabase
@@ -134,6 +136,49 @@ export default function FeedImportPage() {
             )}
           </button>
         </div>
+      </div>
+
+      {/* ── TEMPORARY: Fix combined variations button ── */}
+      <div style={{ ...card, background: '#fffbeb', border: '1px solid #fcd34d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <strong style={{ fontSize: '0.9rem' }}>🔧 Fix Combined Variations</strong>
+          <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '4px 0 0' }}>
+            One-time fix: splits &quot;Flavour/Strength&quot; into separate Flavour + Strength attributes.
+            Remove this button after running.
+          </p>
+          {fixResult && (
+            <p style={{ fontSize: '0.85rem', marginTop: 8, fontWeight: 600, color: fixResult.startsWith('✅') ? '#16a34a' : '#dc2626' }}>
+              {fixResult}
+            </p>
+          )}
+        </div>
+        <button
+          disabled={fixing}
+          onClick={async () => {
+            setFixing(true);
+            setFixResult(null);
+            try {
+              const res = await fetch('/api/fix-variations');
+              const json = await res.json();
+              if (json.success) {
+                setFixResult(`✅ Fixed ${json.fixedProducts} products and ${json.fixedVariations} variations. You can now remove this button.`);
+              } else {
+                setFixResult(`❌ Error: ${json.error}`);
+              }
+            } catch (err: any) {
+              setFixResult(`❌ ${err.message}`);
+            }
+            setFixing(false);
+          }}
+          style={{
+            background: fixing ? '#9ca3af' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#fff', border: 'none', padding: '0.6rem 1.2rem',
+            borderRadius: 10, fontWeight: 600, fontSize: '0.85rem',
+            cursor: fixing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
+          }}
+        >
+          {fixing ? '⏳ Fixing...' : '🔧 Fix Now'}
+        </button>
       </div>
 
       {/* Result banner */}
