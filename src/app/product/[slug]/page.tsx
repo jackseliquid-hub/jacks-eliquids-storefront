@@ -386,6 +386,54 @@ export default function ProductPage({
             </div>
           )}
 
+          {/* OOS + Notify Me — directly after dropdowns for visibility */}
+          {isSelectionComplete && isOutOfStock && (
+            <div className={styles.notifySection}>
+              <div className={styles.oosBadge}>Out of Stock</div>
+              {notifyResult === 'success' ? (
+                <div className={styles.notifySuccess}>
+                  ✅ We&apos;ll email you when this is back in stock!
+                </div>
+              ) : showNotifyForm && !userEmail ? (
+                <form onSubmit={handleNotifySubmit} className={styles.notifyForm}>
+                  <input
+                    type="text"
+                    placeholder="Your name"
+                    value={notifyName}
+                    onChange={(e) => setNotifyName(e.target.value)}
+                    className={styles.notifyInput}
+                  />
+                  <input
+                    type="email"
+                    placeholder="Your email"
+                    value={notifyEmail}
+                    onChange={(e) => setNotifyEmail(e.target.value)}
+                    className={styles.notifyInput}
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={notifyLoading || !notifyEmail}
+                    className={styles.notifySubmitBtn}
+                  >
+                    {notifyLoading ? 'Submitting...' : '📩 Notify Me'}
+                  </button>
+                  {notifyResult === 'error' && (
+                    <p className={styles.notifyError}>Something went wrong. Please try again.</p>
+                  )}
+                </form>
+              ) : (
+                <button
+                  className={styles.notifyBtn}
+                  onClick={handleNotifyMe}
+                  disabled={notifyLoading}
+                >
+                  {notifyLoading ? '⏳ Saving...' : '🔔 Notify Me When Available'}
+                </button>
+              )}
+            </div>
+          )}
+
           {description && <p className={styles.description}>{description}</p>}
           
           {/* ─── Bulk Savings Table ─────────────────────────────────────── */}
@@ -465,54 +513,6 @@ export default function ProductPage({
           )}
 
           <div className={styles.purchaseSection}>
-            {isSelectionComplete && isOutOfStock ? (
-              /* ─── Out of Stock: Notify Me Flow ─── */
-              <div className={styles.notifySection}>
-                <div className={styles.oosBadge}>Out of Stock</div>
-                {notifyResult === 'success' ? (
-                  <div className={styles.notifySuccess}>
-                    ✅ We&apos;ll email you when this is back in stock!
-                  </div>
-                ) : showNotifyForm && !userEmail ? (
-                  <form onSubmit={handleNotifySubmit} className={styles.notifyForm}>
-                    <input
-                      type="text"
-                      placeholder="Your name"
-                      value={notifyName}
-                      onChange={(e) => setNotifyName(e.target.value)}
-                      className={styles.notifyInput}
-                    />
-                    <input
-                      type="email"
-                      placeholder="Your email"
-                      value={notifyEmail}
-                      onChange={(e) => setNotifyEmail(e.target.value)}
-                      className={styles.notifyInput}
-                      required
-                    />
-                    <button
-                      type="submit"
-                      disabled={notifyLoading || !notifyEmail}
-                      className={styles.notifySubmitBtn}
-                    >
-                      {notifyLoading ? 'Submitting...' : '📩 Notify Me'}
-                    </button>
-                    {notifyResult === 'error' && (
-                      <p className={styles.notifyError}>Something went wrong. Please try again.</p>
-                    )}
-                  </form>
-                ) : (
-                  <button
-                    className={styles.notifyBtn}
-                    onClick={handleNotifyMe}
-                    disabled={notifyLoading}
-                  >
-                    {notifyLoading ? '⏳ Saving...' : '🔔 Notify Me When Available'}
-                  </button>
-                )}
-              </div>
-            ) : (
-              /* ─── In Stock: Normal Add to Bag ─── */
               <>
                 <div className={styles.qtyContainer}>
                   <span className={styles.variationLabel}>Quantity</span>
@@ -540,12 +540,11 @@ export default function ProductPage({
                 <button 
                   className={styles.cartButton} 
                   onClick={handleAddToCart}
-                  disabled={!isSelectionComplete}
+                  disabled={!isSelectionComplete || isOutOfStock}
                 >
-                  {isSelectionComplete ? 'Add to Bag' : 'Select Options'}
+                  {isSelectionComplete ? (isOutOfStock ? 'Out of Stock' : 'Add to Bag') : 'Select Options'}
                 </button>
               </>
-            )}
           </div>
 
           {/* Share Buttons */}
