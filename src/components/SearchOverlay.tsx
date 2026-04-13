@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { getAllProducts, Product } from '@/lib/data';
 import styles from './SearchOverlay.module.css';
 
@@ -14,8 +15,10 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   const [query, setQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [results, setResults] = useState<Product[]>([]);
+  const [totalMatches, setTotalMatches] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   // Load all products once when overlay opens for the first time
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     setQuery(value);
     if (value.trim().length < 2) {
       setResults([]);
+      setTotalMatches(0);
       return;
     }
     const low = value.toLowerCase();
@@ -65,9 +69,22 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
       p.brand?.toLowerCase().includes(low) ||
       p.sku?.toLowerCase().includes(low) ||
       p.tags?.some(t => t.toLowerCase().includes(low))
-    ).slice(0, 8);
-    setResults(matched);
+    );
+    // Sort: name matches first, then others
+    matched.sort((a, b) => {
+      const aName = a.name.toLowerCase().includes(low) ? 0 : 1;
+      const bName = b.name.toLowerCase().includes(low) ? 0 : 1;
+      return aName - bName;
+    });
+    setTotalMatches(matched.length);
+    setResults(matched.slice(0, 12));
   }, [products]);
+
+  function goToSearchPage() {
+    if (query.trim().length < 2) return;
+    onClose();
+    router.push(`/?q=${encodeURIComponent(query.trim())}`);
+  }
 
   if (!isOpen) return null;
 
@@ -87,6 +104,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
             placeholder="Search products, categories, brands..."
             value={query}
             onChange={e => handleSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') goToSearchPage(); }}
             autoComplete="off"
           />
           <kbd className={styles.escBadge} onClick={onClose}>ESC</kbd>
@@ -156,6 +174,11 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                   </li>
                 ))}
               </ul>
+              {totalMatches > results.length && (
+                <button className={styles.viewAllBtn} onClick={goToSearchPage}>
+                  View all {totalMatches} results →
+                </button>
+              )}
             </>
           )}
         </div>

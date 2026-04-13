@@ -21,9 +21,10 @@ function HomeInner() {
   const searchParams = useSearchParams();
 
   // Read filter from URL query params
-  const catParam   = searchParams.get('cat');
-  const tagParam   = searchParams.get('tag');
-  const brandParam = searchParams.get('brand');
+  const catParam     = searchParams.get('cat');
+  const tagParam     = searchParams.get('tag');
+  const brandParam   = searchParams.get('brand');
+  const searchQuery  = searchParams.get('q');
 
   const [activeCategory, setActiveCategory] = useState<string>('All');
 
@@ -58,6 +59,25 @@ function HomeInner() {
   const featuredProducts = useMemo(() => {
     const sorted = [...products].reverse();
 
+    // Search query filter
+    if (searchQuery) {
+      const low = searchQuery.toLowerCase();
+      const matched = sorted.filter(p =>
+        p.name.toLowerCase().includes(low) ||
+        p.category?.toLowerCase().includes(low) ||
+        p.brand?.toLowerCase().includes(low) ||
+        p.sku?.toLowerCase().includes(low) ||
+        p.tags?.some(t => t.toLowerCase().includes(low))
+      );
+      // Sort: name matches first
+      matched.sort((a, b) => {
+        const aName = a.name.toLowerCase().includes(low) ? 0 : 1;
+        const bName = b.name.toLowerCase().includes(low) ? 0 : 1;
+        return aName - bName;
+      });
+      return matched;
+    }
+
     // Tag filter — show products that have this tag
     if (tagParam) {
       const tagLower = tagParam.toLowerCase();
@@ -77,16 +97,18 @@ function HomeInner() {
     // Category filter (from pills or URL)
     if (activeCategory === 'All') return sorted.slice(0, 48);
     return sorted.filter(p => p.category === activeCategory);
-  }, [activeCategory, products, tagParam, brandParam]);
+  }, [activeCategory, products, tagParam, brandParam, searchQuery]);
 
   // Page title based on active filter
-  const filterTitle = tagParam
-    ? tagParam
-    : brandParam
-      ? brandParam
-      : activeCategory === 'All'
-        ? 'Featured Blends'
-        : activeCategory;
+  const filterTitle = searchQuery
+    ? `Search: "${searchQuery}"`
+    : tagParam
+      ? tagParam
+      : brandParam
+        ? brandParam
+        : activeCategory === 'All'
+          ? 'Featured Blends'
+          : activeCategory;
 
   function handleAddToCart(e: React.MouseEvent, product: Product) {
     e.preventDefault();
