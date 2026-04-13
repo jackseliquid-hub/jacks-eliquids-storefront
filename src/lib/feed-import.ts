@@ -32,6 +32,14 @@ interface FeedItem {
   cat_name: string;
   prod_type: 'simple' | 'variable' | 'variation';
   brand: string;
+  // New split feed fields
+  attr1_group?: string;
+  attr1_value?: string;
+  attr2_group?: string;
+  attr2_value?: string;
+  attr3_group?: string;
+  attr3_value?: string;
+  [key: string]: unknown; // for dynamic attr_Flavour, attr_Colour etc.
 }
 
 interface ParentProduct {
@@ -53,8 +61,9 @@ interface ParentProduct {
 
 interface FeedVariation {
   sku: string;
-  var_name: string;         // e.g. "Black", "03mg - Heisenberg"
-  var_group: string;
+  var_name: string;         // Legacy: e.g. "Black", "03mg - Heisenberg"
+  var_group: string;        // Legacy: e.g. "Colour", "Flavour/Strength"
+  attributes: Record<string, string>;  // New: { Flavour: "Heisenberg", Strength: "03mg" }
   qty: number;
   costprice_exvat: number;
   weight_g: number;
@@ -101,7 +110,25 @@ function parseFeedXml(xml: string): FeedItem[] {
   return items;
 }
 
-// ─── Group items into parents and variations ────────────────────────────────
+// ─── Extract split attributes from new feed format ──────────────────────────
+// New feed provides: <attr1_group>Flavour</attr1_group> <attr1_value>Heisenberg</attr1_value>
+//                    <attr2_group>Strength</attr2_group> <attr2_value>03mg</attr2_value>
+// We extract these into: { Flavour: "Heisenberg", Strength: "03mg" }
+
+function extractSplitAttributes(item: FeedItem): Record<string, string> {
+  const attrs: Record<string, string> = {};
+
+  // Try numbered attr groups: attr1_group/attr1_value, attr2_group/attr2_value, etc.
+  for (let i = 1; i <= 5; i++) {
+    const group = item[`attr${i}_group`];
+    const value = item[`attr${i}_value`];
+    if (group && value && String(value).trim()) {
+      attrs[String(group)] = String(value);
+    }
+  }
+
+  return attrs;
+}
 
 function groupProducts(items: FeedItem[]): Map<string, ParentProduct> {
   const parents = new Map<string, ParentProduct>();
@@ -134,10 +161,14 @@ function groupProducts(items: FeedItem[]): Map<string, ParentProduct> {
       const parentSku = String(item.parent_sku);
       const parent = parents.get(parentSku);
       if (parent) {
+        // Extract attributes from the new split feed format
+        const attributes = extractSplitAttributes(item);
+
         parent.variations.push({
           sku: String(item.sku || ''),
           var_name: String(item.var || ''),
           var_group: String(item.var_group || ''),
+          attributes,
           qty: Number(item.qty) || 0,
           costprice_exvat: Number(item.costprice_exvat) || 0,
           weight_g: Number(item.weight_g) || 0,
@@ -253,28 +284,45 @@ function splitVarName(varName: string, varGroup: string): Record<string, string>
 function buildAttributes(parent: ParentProduct): Record<string, string[]> {
   if (parent.prod_type === 'simple' || parent.variations.length === 0) return {};
 
+  // New feed: variations already have pre-split attributes from extractSplitAttributes
+  const firstVarAttrs = parent.variations[0]?.attributes || {};
+  const hasSplitAttrs = Object.keys(firstVarAttrs).length > 0;
+
+  if (hasSplitAttrs) {
+    // Build product-level attributes from the variation-level split attributes
+    const attrSets: Record<string, Set<string>> = {};
+    for (const v of parent.variations) {
+      for (const [key, val] of Object.entries(v.attributes)) {
+        if (!attrSets[key]) attrSets[key] = new Set();
+        attrSets[key].add(val);
+      }
+    }
+    const result: Record<string, string[]> = {};
+    for (const [key, valueSet] of Object.entries(attrSets)) {
+      result[key] = [...valueSet];
+    }
+    return result;
+  }
+
+  // Legacy fallback: use old var_group + splitVarName
   const varGroup = parent.var_group || 'Option';
   const parts = varGroup.split('/').map(s => s.trim());
   const isComposite = parts.length === 2;
 
   if (!isComposite) {
-    // Simple attribute group — keep as-is
     const values = parent.variations.map(v => v.var_name).filter(Boolean);
     const unique = [...new Set(values)];
     return unique.length > 0 ? { [varGroup]: unique } : {};
   }
 
-  // Composite group (e.g. "Flavour/Strength") — split into separate attributes
   const attrA: Set<string> = new Set();
   const attrB: Set<string> = new Set();
-
   for (const v of parent.variations) {
     if (!v.var_name) continue;
     const split = splitVarName(v.var_name, varGroup);
     if (split[parts[0]]) attrA.add(split[parts[0]]);
     if (split[parts[1]]) attrB.add(split[parts[1]]);
   }
-
   const result: Record<string, string[]> = {};
   if (attrA.size > 0) result[parts[0]] = [...attrA];
   if (attrB.size > 0) result[parts[1]] = [...attrB];
@@ -448,7 +496,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
-              attributes: fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {},
+              attributes: Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {}),
             });
             result.newVarSkus.push(`${fv.sku} — ${fv.var_name || 'new'}`);
           }
@@ -540,7 +588,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
-              attributes: fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {},
+              attributes: Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {}),
             };
           });
 

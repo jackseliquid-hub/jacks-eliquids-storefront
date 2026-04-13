@@ -138,13 +138,13 @@ export default function FeedImportPage() {
         </div>
       </div>
 
-      {/* ── TEMPORARY: Fix combined variations button ── */}
-      <div style={{ ...card, background: '#fffbeb', border: '1px solid #fcd34d', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* ── TEMPORARY: Purge variations for fresh import ── */}
+      <div style={{ ...card, background: '#fef2f2', border: '1px solid #fca5a5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <strong style={{ fontSize: '0.9rem' }}>🔧 Fix Combined Variations (Cleanup)</strong>
-          <p style={{ fontSize: '0.8rem', color: '#92400e', margin: '4px 0 0' }}>
-            Finds any variations still using combined attributes and fixes them.
-            Also rebuilds product attributes. Safe to run multiple times.
+          <strong style={{ fontSize: '0.9rem' }}>🗑️ Purge Variations (One-Time Reset)</strong>
+          <p style={{ fontSize: '0.8rem', color: '#991b1b', margin: '4px 0 0' }}>
+            Deletes ALL variations from non-JEL products and clears their attributes.
+            After purging, run the import to re-create them from the new split feed. JEL products are safe.
           </p>
           {fixResult && (
             <p style={{ fontSize: '0.85rem', marginTop: 8, fontWeight: 600, color: fixResult.startsWith('✅') ? '#16a34a' : '#dc2626', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
@@ -155,14 +155,14 @@ export default function FeedImportPage() {
         <button
           disabled={fixing}
           onClick={async () => {
+            if (!confirm('This will DELETE all variations from non-JEL products. You will need to run the import afterwards to re-create them. Continue?')) return;
             setFixing(true);
             setFixResult(null);
             try {
               const res = await fetch('/api/fix-variations');
               const json = await res.json();
               if (json.success) {
-                const skuList = json.fixedSkus?.length > 0 ? `\nSKUs: ${json.fixedSkus.join(', ')}` : '';
-                setFixResult(`✅ Fixed ${json.fixedProducts} products and ${json.fixedVariations} variations.${skuList}`);
+                setFixResult(`✅ ${json.message}`);
               } else {
                 setFixResult(`❌ Error: ${json.error}`);
               }
@@ -172,13 +172,13 @@ export default function FeedImportPage() {
             setFixing(false);
           }}
           style={{
-            background: fixing ? '#9ca3af' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            background: fixing ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
             color: '#fff', border: 'none', padding: '0.6rem 1.2rem',
             borderRadius: 10, fontWeight: 600, fontSize: '0.85rem',
             cursor: fixing ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap',
           }}
         >
-          {fixing ? '⏳ Fixing...' : '🔧 Fix Now'}
+          {fixing ? '⏳ Purging...' : '🗑️ Purge Now'}
         </button>
       </div>
 
