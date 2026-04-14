@@ -430,13 +430,29 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   console.log(`[Feed Import] ${parents.size} unique parent products`);
 
   // ── 3. Load all existing product SKUs ──────────────────────────────────
-  // Supabase defaults to 1000 rows — fetch all with explicit range
-  const { data: existingProducts, count: productCount } = await supabase
-    .from('products')
-    .select('id, sku, name, cost_price, stock_qty, attributes', { count: 'exact' })
-    .range(0, 9999);
+  // Supabase caps at 1000 rows — paginate to ensure we load all
+  let allExistingProducts: { id: string; sku: string; name: string | null; cost_price: string | null; stock_qty: number | null; attributes: Record<string, string[]> | null }[] = [];
+  let prodPage = 0;
+  const prodPageSize = 1000;
+  while (true) {
+    const from = prodPage * prodPageSize;
+    const to = from + prodPageSize - 1;
+    const { data: prodBatch, error: prodLoadError } = await supabase
+      .from('products')
+      .select('id, sku, name, cost_price, stock_qty, attributes')
+      .range(from, to);
 
-  console.log(`[Feed Import] Loaded ${existingProducts?.length ?? 0} existing products (count: ${productCount})`);
+    if (prodLoadError) {
+      console.error(`[Feed Import] ERROR loading products page ${prodPage}: ${prodLoadError.message}`);
+      break;
+    }
+    if (!prodBatch || prodBatch.length === 0) break;
+    allExistingProducts = allExistingProducts.concat(prodBatch);
+    if (prodBatch.length < prodPageSize) break;
+    prodPage++;
+  }
+
+  console.log(`[Feed Import] Loaded ${allExistingProducts.length} existing products across ${prodPage + 1} pages`);
 
   const existingMap = new Map<string, {
     id: string;
@@ -446,20 +462,34 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     attributes: Record<string, string[]> | null;
   }>();
 
-  for (const p of (existingProducts || [])) {
+  for (const p of allExistingProducts) {
     if (p.sku) existingMap.set(p.sku, p);
   }
 
   // ── 4. Load all existing variation SKUs ────────────────────────────────
-  const { data: existingVariations, error: varLoadError } = await supabase
-    .from('product_variations')
-    .select('id, sku, product_id, cost_price, stock_qty')
-    .range(0, 49999);
+  // IMPORTANT: Supabase caps queries at 1000 rows by default, so we must paginate
+  let allExistingVars: { id: string; sku: string; product_id: string; cost_price: string | null; stock_qty: number | null }[] = [];
+  let varPage = 0;
+  const varPageSize = 1000;
+  while (true) {
+    const from = varPage * varPageSize;
+    const to = from + varPageSize - 1;
+    const { data: varBatch, error: varLoadError } = await supabase
+      .from('product_variations')
+      .select('id, sku, product_id, cost_price, stock_qty')
+      .range(from, to);
 
-  if (varLoadError) {
-    console.error(`[Feed Import] ERROR loading existing variations: ${varLoadError.message}`);
+    if (varLoadError) {
+      console.error(`[Feed Import] ERROR loading variations page ${varPage}: ${varLoadError.message}`);
+      break;
+    }
+    if (!varBatch || varBatch.length === 0) break;
+    allExistingVars = allExistingVars.concat(varBatch);
+    if (varBatch.length < varPageSize) break;
+    varPage++;
   }
-  console.log(`[Feed Import] Loaded ${existingVariations?.length ?? 0} existing variations`);
+
+  console.log(`[Feed Import] Loaded ${allExistingVars.length} existing variations across ${varPage + 1} pages`);
 
   const existingVarMap = new Map<string, {
     id: string;
@@ -471,7 +501,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   // Track which SKUs we've already seen to prevent duplicates
   const seenVarSkus = new Set<string>();
 
-  for (const v of (existingVariations || [])) {
+  for (const v of allExistingVars) {
     if (v.sku) {
       existingVarMap.set(v.sku, v);
       seenVarSkus.add(v.sku);

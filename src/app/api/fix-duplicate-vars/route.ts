@@ -21,16 +21,30 @@ export async function POST() {
       .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
   }
 
-  // Load ALL variations
-  const { data: allVars, error } = await supabase
-    .from('product_variations')
-    .select('id, sku, product_id, cost_price, stock_qty, price, in_stock, attributes')
-    .order('id', { ascending: true })
-    .range(0, 49999);
+  // Load ALL variations using pagination (Supabase caps at 1000 per query)
+  let allVars: any[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  while (true) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from('product_variations')
+      .select('id, sku, product_id, cost_price, stock_qty, price, in_stock, attributes')
+      .order('id', { ascending: true })
+      .range(from, to);
 
-  if (error || !allVars) {
-    return NextResponse.json({ success: false, error: error?.message || 'No data' });
+    if (error) {
+      console.error(`Page ${page} error: ${error.message}`);
+      break;
+    }
+    if (!data || data.length === 0) break;
+    allVars = allVars.concat(data);
+    if (data.length < pageSize) break;
+    page++;
   }
+
+  console.log(`[Fix Dupes] Loaded ${allVars.length} total variations across ${page + 1} pages`);
 
   // Group by SKU — keep the FIRST occurrence (original), mark the rest as duplicates
   const skuFirstSeen = new Map<string, string>(); // sku → first ID
@@ -64,13 +78,24 @@ export async function POST() {
   }
 
   // Now decode HTML entities in remaining variations
-  const { data: remaining } = await supabase
-    .from('product_variations')
-    .select('id, attributes')
-    .range(0, 49999);
+  let remaining: any[] = [];
+  page = 0;
+  while (true) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data } = await supabase
+      .from('product_variations')
+      .select('id, attributes')
+      .range(from, to);
+
+    if (!data || data.length === 0) break;
+    remaining = remaining.concat(data);
+    if (data.length < pageSize) break;
+    page++;
+  }
 
   let entitiesFixed = 0;
-  for (const v of (remaining || [])) {
+  for (const v of remaining) {
     if (!v.attributes || typeof v.attributes !== 'object') continue;
 
     let changed = false;
@@ -91,8 +116,10 @@ export async function POST() {
   return NextResponse.json({
     success: true,
     totalVariations: allVars.length,
+    uniqueSkus: skuFirstSeen.size,
     duplicatesFound: duplicateIds.length,
     duplicatesDeleted: deleted,
+    remainingAfterCleanup: remaining.length,
     entitiesFixed,
     message: `Removed ${deleted} duplicate variations. Fixed entities in ${entitiesFixed} variations.`,
   });
