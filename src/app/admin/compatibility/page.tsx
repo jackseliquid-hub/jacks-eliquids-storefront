@@ -136,7 +136,7 @@ export default function CompatibilityPage() {
 
       <div style={{ padding: '2rem 2.5rem' }}>
         {/* ── Add/Edit Form ──────────────────────────────────────── */}
-        <div className={styles.card} style={{ marginBottom: '2rem', padding: '1.5rem' }}>
+        <div className={styles.card} style={{ marginBottom: '2rem', padding: '1.5rem', overflow: 'visible' }}>
           <h2 style={{ margin: '0 0 1.25rem', fontSize: '1.1rem', fontWeight: 700, color: '#1d1d1f' }}>
             {editId ? '✏️ Edit Link' : '➕ Add New Link'}
           </h2>
@@ -159,7 +159,7 @@ export default function CompatibilityPage() {
               />
               {showSourceDrop && sourceResults.length > 0 && (
                 <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
                   background: '#fff', border: '1px solid #e5e5e5', borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto',
                 }}>
@@ -198,7 +198,7 @@ export default function CompatibilityPage() {
               />
               {showTargetDrop && targetResults.length > 0 && (
                 <div style={{
-                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
                   background: '#fff', border: '1px solid #e5e5e5', borderRadius: '8px',
                   boxShadow: '0 4px 12px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto',
                 }}>
