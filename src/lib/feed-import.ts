@@ -87,6 +87,20 @@ interface ImportResult {
   newSkus: string[];
 }
 
+// ─── HTML Entity Decoder ────────────────────────────────────────────────────
+
+function decodeEntities(str: string): string {
+  if (!str) return str;
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}
+
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
 
 function getAdminClient() {
@@ -498,6 +512,11 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
           } else {
             varChanged = true;
             const varId = `var_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const rawAttrs = Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {});
+            const decodedAttrs: Record<string, string> = {};
+            for (const [k, v] of Object.entries(rawAttrs)) {
+              decodedAttrs[decodeEntities(k)] = decodeEntities(v);
+            }
             pendingNewVars.push({
               id: varId,
               product_id: existing.id,
@@ -506,7 +525,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               cost_price: fv.costprice_exvat.toFixed(2),
               stock_qty: fv.qty,
               in_stock: fv.qty > 0,
-              attributes: Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {}),
+              attributes: decodedAttrs,
             });
             result.newVarSkus.push(fv.sku);
             result.varParentMap[fv.sku] = { parentName: existing.name || parent.name, parentSku: sku, parentId: existing.id };
@@ -562,7 +581,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
           .from('products')
           .insert({
             id: productId,
-            name: parent.name,
+            name: decodeEntities(parent.name),
             slug,
             sku: parent.sku,
             price: '0.00',
@@ -572,9 +591,9 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
             track_stock: true,
             stock_qty: totalQty,
             image: imageUrl || '',
-            description: sanitiseDescription(parent.desc_long),
-            category: parent.cat_name,
-            brand: parent.brand || null,
+            description: sanitiseDescription(decodeEntities(parent.desc_long)),
+            category: decodeEntities(parent.cat_name),
+            brand: parent.brand ? decodeEntities(parent.brand) : null,
             supplier_id: 'eqwholesale',
             attributes,
             status: 'draft',
@@ -591,16 +610,22 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
         if (parent.prod_type === 'variable' && parent.variations.length > 0) {
           const varRows = parent.variations.map(fv => {
             const varId = `var_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-            return {
-              id: varId,
-              product_id: productId,
-              sku: fv.sku,
-              price: null,
-              cost_price: fv.costprice_exvat.toFixed(2),
-              stock_qty: fv.qty,
-              in_stock: fv.qty > 0,
-              attributes: Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {}),
-            };
+              // Decode HTML entities in attribute values
+              const rawAttrs = Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {});
+              const decodedAttrs: Record<string, string> = {};
+              for (const [k, v] of Object.entries(rawAttrs)) {
+                decodedAttrs[decodeEntities(k)] = decodeEntities(v);
+              }
+              return {
+                id: varId,
+                product_id: productId,
+                sku: fv.sku,
+                price: null,
+                cost_price: fv.costprice_exvat.toFixed(2),
+                stock_qty: fv.qty,
+                in_stock: fv.qty > 0,
+                attributes: decodedAttrs,
+              };
           });
 
           const { error: varError } = await supabase.from('product_variations').insert(varRows);
