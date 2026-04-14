@@ -451,11 +451,14 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   }
 
   // ── 4. Load all existing variation SKUs ────────────────────────────────
-  const { data: existingVariations } = await supabase
+  const { data: existingVariations, error: varLoadError } = await supabase
     .from('product_variations')
     .select('id, sku, product_id, cost_price, stock_qty')
     .range(0, 49999);
 
+  if (varLoadError) {
+    console.error(`[Feed Import] ERROR loading existing variations: ${varLoadError.message}`);
+  }
   console.log(`[Feed Import] Loaded ${existingVariations?.length ?? 0} existing variations`);
 
   const existingVarMap = new Map<string, {
@@ -465,8 +468,14 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     stock_qty: number | null;
   }>();
 
+  // Track which SKUs we've already seen to prevent duplicates
+  const seenVarSkus = new Set<string>();
+
   for (const v of (existingVariations || [])) {
-    if (v.sku) existingVarMap.set(v.sku, v);
+    if (v.sku) {
+      existingVarMap.set(v.sku, v);
+      seenVarSkus.add(v.sku);
+    }
   }
 
   // ── 5. Process each parent product ─────────────────────────────────────
@@ -509,8 +518,10 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               result.updatedVarSkus.push(fv.sku);
               result.varParentMap[fv.sku] = { parentName: existing.name || parent.name, parentSku: sku, parentId: existing.id };
             }
-          } else {
+          } else if (!seenVarSkus.has(fv.sku)) {
+            // Only add if we haven't already seen this SKU (prevents duplicates)
             varChanged = true;
+            seenVarSkus.add(fv.sku);
             const varId = `var_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
             const rawAttrs = Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {});
             const decodedAttrs: Record<string, string> = {};
