@@ -80,6 +80,8 @@ interface ImportResult {
   qtyChangeSkus: string[];     // product SKUs where stock qty changed
   updatedVarSkus: string[];
   newVarSkus: string[];
+  /** Maps variation SKU → { parentName, parentSku, parentId } */
+  varParentMap: Record<string, { parentName: string; parentSku: string; parentId: string }>;
   errors: { sku: string; error: string }[];
   dryRun: boolean;
   newSkus: string[];
@@ -394,6 +396,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     qtyChangeSkus: [],
     updatedVarSkus: [],
     newVarSkus: [],
+    varParentMap: {},
     errors: [],
     dryRun,
     newSkus: [],
@@ -416,13 +419,14 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
   // Supabase defaults to 1000 rows — fetch all with explicit range
   const { data: existingProducts, count: productCount } = await supabase
     .from('products')
-    .select('id, sku, cost_price, stock_qty, attributes', { count: 'exact' })
+    .select('id, sku, name, cost_price, stock_qty, attributes', { count: 'exact' })
     .range(0, 9999);
 
   console.log(`[Feed Import] Loaded ${existingProducts?.length ?? 0} existing products (count: ${productCount})`);
 
   const existingMap = new Map<string, {
     id: string;
+    name: string | null;
     cost_price: string | null;
     stock_qty: number | null;
     attributes: Record<string, string[]> | null;
@@ -489,6 +493,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               }
               pendingVarUpdates.push({ id: existingVar.id, cost_price: fvCost, stock_qty: fv.qty });
               result.updatedVarSkus.push(fv.sku);
+              result.varParentMap[fv.sku] = { parentName: existing.name || parent.name, parentSku: sku, parentId: existing.id };
             }
           } else {
             varChanged = true;
@@ -503,7 +508,8 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
               in_stock: fv.qty > 0,
               attributes: Object.keys(fv.attributes).length > 0 ? fv.attributes : (fv.var_name ? splitVarName(fv.var_name, parent.var_group || 'Option') : {}),
             });
-            result.newVarSkus.push(`${fv.sku} — ${fv.var_name || 'new'}`);
+            result.newVarSkus.push(fv.sku);
+            result.varParentMap[fv.sku] = { parentName: existing.name || parent.name, parentSku: sku, parentId: existing.id };
           }
         }
 

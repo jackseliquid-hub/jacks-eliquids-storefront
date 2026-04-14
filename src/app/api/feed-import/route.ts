@@ -137,6 +137,7 @@ async function sendImportReportEmail(result: {
   qtyChangeSkus: string[];
   updatedVarSkus: string[];
   newVarSkus: string[];
+  varParentMap: Record<string, { parentName: string; parentSku: string; parentId: string }>;
   errors: { sku: string; error: string }[];
 }) {
   if (!process.env.RESEND_API_KEY) {
@@ -164,8 +165,34 @@ async function sendImportReportEmail(result: {
   const costList = buildList(result.costChangeSkus);
   const qtyList = buildList(result.qtyChangeSkus);
 
-  const updatedVarList = buildList(result.updatedVarSkus);
-  const newVarList = buildList(result.newVarSkus, 100);
+  const adminUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquids.co.uk';
+
+  // Build variation lists grouped by parent product with clickable links
+  function buildVarList(varSkus: string[], max = 80): string {
+    if (varSkus.length === 0) return '';
+    // Group by parent
+    const grouped: Record<string, { parentName: string; parentSku: string; parentId: string; varSkus: string[] }> = {};
+    for (const vs of varSkus.slice(0, max)) {
+      const parent = result.varParentMap[vs];
+      if (parent) {
+        const key = parent.parentId;
+        if (!grouped[key]) grouped[key] = { ...parent, varSkus: [] };
+        grouped[key].varSkus.push(vs);
+      }
+    }
+    let html = '';
+    for (const g of Object.values(grouped)) {
+      const link = `${adminUrl}/admin/product/${g.parentId}`;
+      html += `<li style="margin-bottom: 8px;"><a href="${link}" style="color: #0f766e; font-weight: 600;">${g.parentName}</a> <span style="color: #9ca3af;">(${g.parentSku})</span><br/><span style="color: #6b7280; font-size: 12px; padding-left: 12px;">↳ ${g.varSkus.join(', ')}</span></li>`;
+    }
+    if (varSkus.length > max) {
+      html += `<li>...and ${varSkus.length - max} more</li>`;
+    }
+    return html;
+  }
+
+  const updatedVarList = buildVarList(result.updatedVarSkus);
+  const newVarList = buildVarList(result.newVarSkus);
 
   const errorList = result.errors.length > 0
     ? result.errors.map(e => `<li>${e.sku}: ${e.error}</li>`).join('')

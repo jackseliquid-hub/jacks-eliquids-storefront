@@ -69,7 +69,8 @@ export default function AdminProductsPage() {
         const n = p.name || '';
         const s = p.sku || '';
         const i = p.id || '';
-        return n.toLowerCase().includes(q) || s.toLowerCase().includes(q) || i.toLowerCase().includes(q);
+        const varSkuMatch = p.variations?.some(v => v.sku?.toLowerCase().includes(q));
+        return n.toLowerCase().includes(q) || s.toLowerCase().includes(q) || i.toLowerCase().includes(q) || varSkuMatch;
       });
     }
     // Missing data filters
