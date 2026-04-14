@@ -399,6 +399,34 @@
 
 /* ─── Product Meta: Brand / Category / Tags ─────────────────────── */
 
+/* ─── Compatibility Links ────────────────────────────────────────── */
+
+.compatLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.compatLink {
+  display: block;
+  background: var(--icy-teal);
+  border: 2px dashed var(--deep-teal);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--deep-teal);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.compatLink:hover {
+  background: #c8ece8;
+  opacity: 0.9;
+}
+
 .productMeta {
   padding-top: 1.25rem;
   border-top: 1px solid #f0f0f0;

@@ -541,3 +541,81 @@ export async function deletePage(id: string): Promise<void> {
   const { error } = await supabase.from('pages').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ─── Compatibility Links ────────────────────────────────────────────────────
+
+export interface CompatibilityLink {
+  id: string;
+  sourceProductId: string;
+  sourceProductName: string;
+  targetProductId: string;
+  targetProductName: string;
+  targetProductSlug: string;
+  linkText: string;
+  createdAt: string;
+}
+
+export async function getCompatibilityLinks(): Promise<CompatibilityLink[]> {
+  const { data, error } = await supabase
+    .from('product_compatibility_links')
+    .select(`
+      id,
+      link_text,
+      created_at,
+      source:products!source_product_id(id, name, slug),
+      target:products!target_product_id(id, name, slug)
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    sourceProductId: row.source?.id || '',
+    sourceProductName: row.source?.name || 'Deleted product',
+    targetProductId: row.target?.id || '',
+    targetProductName: row.target?.name || 'Deleted product',
+    targetProductSlug: row.target?.slug || '',
+    linkText: row.link_text,
+    createdAt: row.created_at,
+  }));
+}
+
+export async function getCompatibilityLinksForProduct(productId: string): Promise<{ targetSlug: string; linkText: string }[]> {
+  const { data, error } = await supabase
+    .from('product_compatibility_links')
+    .select(`
+      link_text,
+      target:products!target_product_id(slug)
+    `)
+    .eq('source_product_id', productId);
+
+  if (error) throw error;
+
+  return (data || []).map((row: any) => ({
+    targetSlug: row.target?.slug || '',
+    linkText: row.link_text,
+  })).filter(l => l.targetSlug);
+}
+
+export async function addCompatibilityLink(sourceProductId: string, targetProductId: string, linkText: string): Promise<void> {
+  const { error } = await supabase.from('product_compatibility_links').insert({
+    source_product_id: sourceProductId,
+    target_product_id: targetProductId,
+    link_text: linkText,
+  });
+  if (error) throw error;
+}
+
+export async function updateCompatibilityLink(id: string, linkText: string): Promise<void> {
+  const { error } = await supabase
+    .from('product_compatibility_links')
+    .update({ link_text: linkText })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteCompatibilityLink(id: string): Promise<void> {
+  const { error } = await supabase.from('product_compatibility_links').delete().eq('id', id);
+  if (error) throw error;
+}

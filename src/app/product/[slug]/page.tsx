@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import styles from './product.module.css';
-import { getProductBySlug, Product } from '@/lib/data';
+import { getProductBySlug, getCompatibilityLinksForProduct, Product } from '@/lib/data';
 import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discounts';
 import { createClient } from '@/utils/supabase/client';
 
@@ -36,6 +36,7 @@ export default function ProductPage({
   const [showNotifyForm, setShowNotifyForm] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [compatLinks, setCompatLinks] = useState<{ targetSlug: string; linkText: string }[]>([]);
 
   useEffect(() => {
     async function fetchData() {
@@ -47,6 +48,13 @@ export default function ProductPage({
         setProduct(prod || null);
         if (prod?.image) setMainImage(prod.image);
         setGlobalRules(rules || []);
+
+        // Fetch compatibility links
+        if (prod) {
+          getCompatibilityLinksForProduct(prod.id)
+            .then(links => setCompatLinks(links))
+            .catch(() => {});
+        }
 
         // Check if user is logged in
         const supabase = createClient();
@@ -529,6 +537,17 @@ export default function ProductPage({
                 </button>
               </>
           </div>
+
+          {/* Compatibility Links Banner */}
+          {compatLinks.length > 0 && (
+            <div className={styles.compatLinks}>
+              {compatLinks.map((cl, i) => (
+                <Link key={i} href={`/product/${cl.targetSlug}`} className={styles.compatLink}>
+                  🚀 {cl.linkText}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Product Meta: Brand, Category, Tags */}
           {(product.brand || product.category || (product.tags && product.tags.length > 0)) && (
