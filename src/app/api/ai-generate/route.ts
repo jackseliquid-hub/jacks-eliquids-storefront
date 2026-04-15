@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Enable Google Search grounding for product descriptions
     // This lets Gemini look up real product specs before writing
-    const useSearch = type === 'product_short' || type === 'product_long';
+    const useSearch = type === 'product_short' || type === 'product_long' || type === 'blog';
 
     const requestBody: Record<string, unknown> = {
       system_instruction: {
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       ],
       generationConfig: {
         temperature: 0.8,
-        maxOutputTokens: type === 'product_short' ? 1024 : 4096,
+        maxOutputTokens: type === 'product_short' ? 1024 : type === 'blog' ? 8192 : 4096,
       },
     };
 
