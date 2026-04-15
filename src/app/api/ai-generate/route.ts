@@ -23,27 +23,37 @@ export async function POST(request: NextRequest) {
 
     const userPrompt = promptConfig.userTemplate(context);
 
-    // Call Gemini API
+    // Enable Google Search grounding for product descriptions
+    // This lets Gemini look up real product specs before writing
+    const useSearch = type === 'product_short' || type === 'product_long';
+
+    const requestBody: Record<string, unknown> = {
+      system_instruction: {
+        parts: [{ text: promptConfig.system }],
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: userPrompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.8,
+        maxOutputTokens: type === 'blog' ? 2048 : 1024,
+      },
+    };
+
+    // Add Google Search grounding tool for product descriptions
+    if (useSearch) {
+      requestBody.tools = [{ google_search: {} }];
+    }
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{ text: promptConfig.system }],
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userPrompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: type === 'blog' ? 2048 : 1024,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       }
     );
 
@@ -57,7 +67,14 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // With grounding, content may be across multiple parts
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const content = parts
+      .filter((p: any) => p.text)
+      .map((p: any) => p.text)
+      .join('')
+      .trim();
 
     if (!content) {
       return NextResponse.json(
@@ -66,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ content: content.trim() });
+    return NextResponse.json({ content });
   } catch (err: any) {
     console.error('[AI Generate] Error:', err);
     return NextResponse.json(
