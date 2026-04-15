@@ -8,6 +8,7 @@ import { Blog, updateBlog } from '@/lib/data';
 import styles from '../../admin.module.css';
 import MediaModal from '@/components/MediaModal';
 import SeoEditorCard from '@/components/SeoEditorCard';
+import AiGenerateButton from '@/components/AiGenerateButton';
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
@@ -176,7 +177,15 @@ export default function AddBlogPage() {
               </div>
 
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                <label className={styles.label}>Blog Content</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                  <label className={styles.label} style={{ marginBottom: 0 }}>Blog Content</label>
+                  <AiGenerateButton
+                    type="blog"
+                    context={{ title: blog.title || '', category: blog.category || '', existingContent: blog.content || '' }}
+                    onGenerated={(content) => setField('content', content)}
+                    hasContent={!!blog.content}
+                  />
+                </div>
                 <div data-color-mode="light">
                   <MDEditor
                     value={blog.content}

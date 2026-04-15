@@ -27,6 +27,7 @@ export default function ProductPage({
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [shareToast, setShareToast] = useState(false);
+  const [longDescOpen, setLongDescOpen] = useState(false);
 
   // Notify Me state
   const [notifyEmail, setNotifyEmail] = useState('');
@@ -157,6 +158,7 @@ export default function ProductPage({
   const displaySalePrice = product.salePrice || null;
   const hasSale = !!(displaySalePrice && displaySalePrice !== displayPrice);
   const description = product.description ? product.description.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : '';
+  const longDescription = product.longDescription?.trim() || '';
 
   const productUrl = typeof window !== 'undefined' ? window.location.href : '';
   const shareText = `Check out ${product.name} from Jack's E-Liquid!`;
@@ -653,6 +655,45 @@ export default function ProductPage({
             </div>
             {shareToast && <span className={styles.shareToast}>Link copied!</span>}
           </div>
+
+          {/* Long Description Accordion */}
+          {longDescription && (
+            <div className={styles.longDescAccordion}>
+              <button
+                className={styles.longDescToggle}
+                onClick={() => setLongDescOpen(prev => !prev)}
+                aria-expanded={longDescOpen}
+              >
+                <span>Find out more about {product.name}</span>
+                <svg
+                  width="20" height="20" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  style={{ transform: longDescOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.3s ease' }}
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+              <div
+                className={styles.longDescContent}
+                style={{
+                  maxHeight: longDescOpen ? '2000px' : '0',
+                  opacity: longDescOpen ? 1 : 0,
+                  overflow: 'hidden',
+                  transition: 'max-height 0.4s ease, opacity 0.3s ease',
+                }}
+              >
+                <div className={styles.longDescText}>
+                  {longDescription.split('\n').map((line, i) => {
+                    if (line.startsWith('## ')) return <h3 key={i} style={{ margin: '1rem 0 0.5rem', fontSize: '1.05rem', fontWeight: 700 }}>{line.replace('## ', '')}</h3>;
+                    if (line.startsWith('### ')) return <h4 key={i} style={{ margin: '0.75rem 0 0.4rem', fontSize: '0.95rem', fontWeight: 600 }}>{line.replace('### ', '')}</h4>;
+                    if (line.startsWith('- ')) return <li key={i} style={{ marginLeft: '1.25rem', marginBottom: '0.25rem' }}>{line.replace('- ', '').replace(/\*\*(.*?)\*\*/g, '$1')}</li>;
+                    if (line.trim() === '') return <br key={i} />;
+                    return <p key={i} style={{ margin: '0.4rem 0', lineHeight: 1.7 }}>{line.replace(/\*\*(.*?)\*\*/g, '$1')}</p>;
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className={styles.metaInfo}>
           </div>

@@ -632,7 +632,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
             track_stock: true,
             stock_qty: totalQty,
             image: imageUrl || '',
-            description: sanitiseDescription(decodeEntities(parent.desc_long)),
+            long_description: sanitiseDescription(decodeEntities(parent.desc_long)),
             category: decodeEntities(parent.cat_name),
             brand: parent.brand ? decodeEntities(parent.brand) : null,
             supplier_id: 'eqwholesale',

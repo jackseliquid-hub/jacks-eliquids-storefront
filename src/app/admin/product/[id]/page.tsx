@@ -19,6 +19,7 @@ import {
 import styles from '../../admin.module.css';
 import MediaModal from '@/components/MediaModal';
 import SeoEditorCard from '@/components/SeoEditorCard';
+import AiGenerateButton from '@/components/AiGenerateButton';
 
 // Load MDEditor only on client to avoid SSR issues
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
@@ -327,6 +328,21 @@ export default function ProductEditorPage({
     ? product.description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
     : '';
 
+  const plainLongDescription = product.longDescription
+    ? product.longDescription.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+    : '';
+
+  const shortWordCount = plainDescription ? plainDescription.split(/\s+/).filter(Boolean).length : 0;
+
+  // AI context for generating descriptions
+  const aiContext = {
+    name: product.name || '',
+    category: product.category || '',
+    brand: product.brand || '',
+    price: product.price || '',
+    variations: product.variations?.map(v => Object.values(v.attributes).join(' ')).slice(0, 20).join(', ') || '',
+  };
+
   const calcData = (() => {
     const baseRaw = parseFloat((product.price || '').replace(/[£,]/g, ''));
     const saleRaw = parseFloat((product.salePrice || '').replace(/[£,]/g, ''));
@@ -523,14 +539,52 @@ export default function ProductEditorPage({
                 </div>
               </div>
 
-              {/* Description — Markdown Editor */}
+              {/* Short Description — with word counter + AI */}
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                <label className={styles.label}>Description</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                  <label className={styles.label} style={{ marginBottom: 0 }}>Short Description</label>
+                  <AiGenerateButton
+                    type="product_short"
+                    context={{ ...aiContext, existingContent: plainDescription }}
+                    onGenerated={(content) => setField('description', content)}
+                    hasContent={!!plainDescription}
+                  />
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    color: shortWordCount > 100 ? '#dc2626' : '#86868b',
+                    marginLeft: 'auto',
+                  }}>
+                    {shortWordCount}/100 words
+                    {shortWordCount > 100 && ' ⚠️'}
+                  </span>
+                </div>
                 <div data-color-mode="light">
                   <MDEditor
                     value={plainDescription}
                     onChange={(val: string | undefined) => setField('description', val || '')}
-                    height={220}
+                    height={160}
+                    preview="edit"
+                  />
+                </div>
+              </div>
+
+              {/* Long Description — with AI */}
+              <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                  <label className={styles.label} style={{ marginBottom: 0 }}>Long Description</label>
+                  <AiGenerateButton
+                    type="product_long"
+                    context={{ ...aiContext, existingContent: plainLongDescription }}
+                    onGenerated={(content) => setField('longDescription', content)}
+                    hasContent={!!plainLongDescription}
+                  />
+                </div>
+                <div data-color-mode="light">
+                  <MDEditor
+                    value={plainLongDescription}
+                    onChange={(val: string | undefined) => setField('longDescription', val || '')}
+                    height={280}
                     preview="edit"
                   />
                 </div>

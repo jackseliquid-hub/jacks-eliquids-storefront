@@ -573,6 +573,48 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ─── Long Description Accordion ─────────────────────────────────────── */
+
+.longDescAccordion {
+  margin-top: 1.5rem;
+  border: 1px solid #e0e7e9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.longDescToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.9rem 1.25rem;
+  border: none;
+  background: linear-gradient(135deg, #f0fdf9, #f0f9ff);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--deep-teal);
+  transition: background 0.2s ease;
+}
+
+.longDescToggle:hover {
+  background: linear-gradient(135deg, #e6faf4, #e0f2fe);
+}
+
+.longDescContent {
+  /* animated via inline styles */
+}
+
+.longDescText {
+  padding: 1rem 1.25rem 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: #333;
+  border-top: 1px solid #e5eded;
+}
+
 /* ─── Loading Screen ─────────────────────────────────────────── */
 
 .loadingScreen {

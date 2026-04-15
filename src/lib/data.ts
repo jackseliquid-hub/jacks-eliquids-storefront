@@ -41,6 +41,7 @@ export interface Product {
   image: string;
   gallery?: string[];
   description: string;
+  longDescription: string;
   category: string;
   tags?: string[];
   brand?: string;
@@ -113,6 +114,7 @@ function mapProduct(row: Record<string, unknown>, variations: Variation[] = []):
     image:         (row.image as string) || '',
     gallery:       (row.gallery as string[]) || [],
     description:   (row.description as string) || '',
+    longDescription: (row.long_description as string) || '',
     category:      (row.category as string) || '',
     tags:          (row.tags as string[]) || [],
     brand:         (row.brand as string) || undefined,
@@ -231,6 +233,7 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
   if (data.image          !== undefined) dbData.image           = data.image;
   if (data.gallery        !== undefined) dbData.gallery         = data.gallery;
   if (data.description    !== undefined) dbData.description     = data.description;
+  if (data.longDescription !== undefined) dbData.long_description = data.longDescription;
   if (data.category       !== undefined) dbData.category        = data.category;
   if (data.tags           !== undefined) dbData.tags            = data.tags;
   if (data.brand          !== undefined) dbData.brand           = data.brand;

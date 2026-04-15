@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { updatePage, Page } from '@/lib/data';
 import styles from '../../admin.module.css';
 import SeoEditorCard from '@/components/SeoEditorCard';
+import AiGenerateButton from '@/components/AiGenerateButton';
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
@@ -130,7 +131,15 @@ export default function AddPage() {
               </div>
 
               <div className={styles.formGroup} style={{ gridColumn: '1 / -1' }}>
-                <label className={styles.label}>Page Copy</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                  <label className={styles.label} style={{ marginBottom: 0 }}>Page Copy</label>
+                  <AiGenerateButton
+                    type="page"
+                    context={{ title: page.title || '', existingContent: page.content || '' }}
+                    onGenerated={(content) => setField('content', content)}
+                    hasContent={!!page.content}
+                  />
+                </div>
                 <div data-color-mode="light">
                   <MDEditor
                     value={page.content || ''}
