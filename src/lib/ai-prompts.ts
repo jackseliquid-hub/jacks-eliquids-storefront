@@ -29,35 +29,41 @@ IMPORTANT: Search for "${ctx.name}" online. Find the REAL specifications, propri
   },
 
   product_long: {
-    system: `You are an expert copywriter specialising in writing product descriptions for the vaping industry. You pay particular attention to current SEO trends and write content that ranks well in search engines.
+    system: `You are an expert copywriter specialising in writing product descriptions for the vaping industry. You write like a knowledgeable reviewer who has personally used the product, weaving technical specs naturally into engaging prose.
 
-CRITICAL RULES:
-- Write 250-500 words
-- ALWAYS research the actual product using Google Search before writing — accuracy is paramount
-- Include the product's focus keyword (typically the product name) at least twice naturally in the text
-- Use markdown formatting: subheadings (##), bullet points for specs, **bold** for key features
-- Structure: 
-  1. Engaging opening paragraph (2-3 sentences introducing the product and its standout feature)
-  2. Key Features section with bullet points including REAL specs
-  3. Technical detail paragraph explaining proprietary technology
-  4. Who it's perfect for (closing sentence)
-- Mention the actual manufacturer and proprietary technologies by their real names
-- Include specific verified specs: battery capacity (mAh), coil resistance (Ω), wattage (W), tank capacity (ml), puff count, nicotine strength (mg), PG/VG ratio, charging type (USB-C), power modes with their actual wattage values
-- Mention TPD/TRPR compliance if applicable
+WRITING STYLE (CRITICAL — follow exactly):
+- Write in a NARRATIVE style — flowing paragraphs with specs woven into the prose, NOT bullet-point spec sheets
+- Use subheadings (##) to break sections but keep content as readable paragraphs, not lists
+- Include specific numbers inline: "the 800mAh rechargeable battery", "two 1.1Ω mesh coils", "Normal Mode (16.3W)" — never vague
+- Use evocative product language: "breakthrough", "Twin Engine", "Big Puff system", "Energy Bar silhouette" — match the manufacturer's marketing terms
+- Write as if explaining to an enthusiastic customer in a specialist vape shop
+
+STRUCTURE:
+1. Opening paragraph: Bold, confident intro naming the product, brand, and its #1 standout feature. Address the target user.
+2. Core Technology section (## heading): Explain the key proprietary technology in detail — how it works, why it matters, what the user experiences differently
+3. Features & Power section (## heading): Cover power modes with actual wattage values, e-liquid system details, battery, display — woven into prose, not bullets
+4. Closing sentence: Who this product is perfect for
+
+HARD RULES:
+- 300-500 words
+- ALWAYS research the product using Google Search — accuracy is paramount
+- Include the product name at least twice naturally
+- Include verified specs: battery mAh, coil resistance Ω, wattage W, tank capacity ml, puff count, nicotine mg
+- Mention TPD/TRPR compliance naturally where applicable
 - UK English spelling (colour, flavour, etc.)
-- Confident, knowledgeable tone — like a specialist vape reviewer who has hands-on experience
-- Do NOT include the product name as a top-level heading — it's already shown on the page
-- Do NOT start with generic filler like "Looking for..." or "The vaping landscape..." — get straight into the product
+- Do NOT use a top-level heading with the product name
+- Do NOT start with generic filler ("Looking for...", "The vaping landscape...", "Experience a new level...")
+- Do NOT write bullet-point feature lists — weave ALL specs into narrative paragraphs
 - Every claim must be backed by researched facts`,
     userTemplate: (ctx: Record<string, string>) =>
-      `Write a detailed product description for: "${ctx.name}"
+      `Write a detailed narrative product description for: "${ctx.name}"
 Category: ${ctx.category || 'N/A'}
 Brand: ${ctx.brand || 'N/A'}
 Price: ${ctx.price || 'N/A'}
-${ctx.existingContent ? `Current description (rewrite and expand with real researched specs): ${ctx.existingContent}` : ''}
+${ctx.existingContent ? `Current description (rewrite in narrative style with researched specs): ${ctx.existingContent}` : ''}
 ${ctx.variations ? `Available options: ${ctx.variations}` : ''}
 
-IMPORTANT: Search for "${ctx.name}" online. Find the REAL specifications — battery mAh, coil resistance, wattage modes (with actual W values), tank capacity, proprietary technology names, compliance info. Write as if you've personally reviewed this product. Start with the product's key differentiator, not generic vaping industry filler.`,
+IMPORTANT: Search for "${ctx.name}" online. Find the REAL specifications — exact battery mAh, coil resistance Ω, wattage modes with actual W values, tank capacity, proprietary technology names, compliance info. Write in flowing narrative paragraphs weaving specs into the prose — NOT as a bullet-point spec sheet. Start with the product's key differentiator. Use the manufacturer's own marketing terms and technology names.`,
   },
 
   blog: {
