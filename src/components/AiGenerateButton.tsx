@@ -20,7 +20,6 @@ export default function AiGenerateButton({
   const [error, setError] = useState<string | null>(null);
 
   async function handleGenerate() {
-    if (hasContent && !confirm('This will replace the current content. Continue?')) return;
 
     setLoading(true);
     setError(null);
