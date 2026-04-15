@@ -217,13 +217,22 @@ function HomeInner() {
                           </span>
                         )}
                       </div>
-                      <button
-                        className={styles.addToCartBtn}
-                        aria-label="Add to cart"
-                        onClick={e => handleAddToCart(e, product)}
-                      >
-                        Add to Cart
-                      </button>
+                      {product.variations && product.variations.length > 0 ? (
+                        <button
+                          className={styles.addToCartBtn}
+                          aria-label="Select options"
+                        >
+                          Select Options
+                        </button>
+                      ) : (
+                        <button
+                          className={styles.addToCartBtn}
+                          aria-label="Add to cart"
+                          onClick={e => handleAddToCart(e, product)}
+                        >
+                          Add to Cart
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
