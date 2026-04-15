@@ -137,16 +137,29 @@ export async function getAllProducts(): Promise<Product[]> {
     if (error) throw error;
     if (!products || products.length === 0) return [];
 
-    // Fetch all variations in one query
+    // Fetch all variations — paginate due to Supabase 1000-row cap
     const productIds = products.map(p => p.id);
-    const { data: variations } = await supabase
-      .from('product_variations')
-      .select('*')
-      .in('product_id', productIds);
+    let allVariations: any[] = [];
+    let varPage = 0;
+    const varPageSize = 1000;
+    while (true) {
+      const from = varPage * varPageSize;
+      const to = from + varPageSize - 1;
+      const { data: varBatch } = await supabase
+        .from('product_variations')
+        .select('*')
+        .in('product_id', productIds)
+        .range(from, to);
+
+      if (!varBatch || varBatch.length === 0) break;
+      allVariations = allVariations.concat(varBatch);
+      if (varBatch.length < varPageSize) break;
+      varPage++;
+    }
 
     // Group variations by product_id
     const variationsByProduct: Record<string, Variation[]> = {};
-    for (const v of (variations || [])) {
+    for (const v of allVariations) {
       if (!variationsByProduct[v.product_id]) variationsByProduct[v.product_id] = [];
       variationsByProduct[v.product_id].push(mapVariation(v));
     }
