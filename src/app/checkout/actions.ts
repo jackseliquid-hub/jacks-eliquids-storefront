@@ -15,6 +15,9 @@ interface CheckoutPayload {
   shipToDifferent: boolean;
   billingAddress: any;
   shippingAddress: any | null;
+  discountCode: string | null;
+  couponDiscount: number;
+  customerNotes: string | null;
 }
 
 export async function processOrder(payload: CheckoutPayload) {
@@ -63,7 +66,35 @@ export async function processOrder(payload: CheckoutPayload) {
   });
 
   const shippingQuote = payload.selectedShipping;
-  const finalTotal = subtotal + shippingQuote.shippingCost;
+  const couponDiscount = payload.couponDiscount || 0;
+
+  // Server-side re-validate discount code if provided
+  if (payload.discountCode) {
+    const { data: discountRow } = await adminSupabase
+      .from('discount_codes')
+      .select('*')
+      .ilike('code', payload.discountCode)
+      .single();
+
+    if (!discountRow || !discountRow.enabled) {
+      return { error: 'Discount code is no longer valid.' };
+    }
+    const now = new Date();
+    if (discountRow.expires_at && new Date(discountRow.expires_at) < now) {
+      return { error: 'Discount code has expired.' };
+    }
+    if (discountRow.max_uses !== null && discountRow.used_count >= discountRow.max_uses) {
+      return { error: 'Discount code has reached its usage limit.' };
+    }
+
+    // Increment used_count
+    await adminSupabase
+      .from('discount_codes')
+      .update({ used_count: (discountRow.used_count || 0) + 1 })
+      .eq('id', discountRow.id);
+  }
+
+  const finalTotal = subtotal + shippingQuote.shippingCost - couponDiscount;
 
   const { data: { user } } = await supabase.auth.getUser();
   let customerId = null;
@@ -86,6 +117,12 @@ export async function processOrder(payload: CheckoutPayload) {
     ? payload.shippingAddress 
     : payload.billingAddress;
 
+  // Build order notes
+  const notesParts: string[] = [];
+  notesParts.push(`Payment Method: ${payload.paymentMethod}`);
+  if (payload.discountCode) notesParts.push(`Coupon: ${payload.discountCode} (-£${couponDiscount.toFixed(2)})`);
+  if (payload.customerNotes) notesParts.push(`Customer Notes: ${payload.customerNotes}`);
+
   // Use admin client so guests (unauthenticated) can also place orders — RLS would block them
   const { data: orderParams, error: orderError } = await adminSupabase
     .from('orders')
@@ -94,11 +131,11 @@ export async function processOrder(payload: CheckoutPayload) {
       status: 'pending',
       subtotal: subtotal,
       shipping_cost: shippingQuote.shippingCost,
-      discount_total: discountTotal,
+      discount_total: discountTotal + couponDiscount,
       total: finalTotal,
       billing_address: payload.billingAddress,
       shipping_address: finalShippingAddress,
-      notes: `Requested Payment Method: ${payload.paymentMethod}`
+      notes: notesParts.join(' | ')
     })
     .select('id, order_number')
     .single();

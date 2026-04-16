@@ -311,3 +311,143 @@
   text-align: center;
   font-weight: 500;
 }
+
+/* Fix squashed select */
+.inputGroup select {
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: #111;
+  appearance: auto;
+  transition: all 0.2s;
+  width: 100%;
+}
+
+.inputGroup select:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
+}
+
+/* Discount code section */
+.discountSection {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.discountToggle {
+  background: none;
+  border: none;
+  color: #0d9488;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.discountToggle:hover {
+  color: #0f766e;
+}
+
+.discountInputRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.discountInputRow input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+}
+
+.discountInputRow input:focus {
+  outline: none;
+  border-color: #0d9488;
+}
+
+.discountApplyBtn {
+  padding: 0.6rem 1rem;
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.discountApplyBtn:hover {
+  background: #0f766e;
+}
+
+.discountApplyBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.discountApplied {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  margin-top: 0.75rem;
+}
+
+.discountApplied span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #059669;
+}
+
+.discountRemoveBtn {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.discountError {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+/* Customer notes */
+.notesSection {
+  margin-top: 1.5rem;
+}
+
+.notesSection textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 0.2s;
+}
+
+.notesSection textarea:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.1);
+}
+

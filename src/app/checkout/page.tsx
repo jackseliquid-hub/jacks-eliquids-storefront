@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -242,7 +242,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [guestMode, setGuestMode] = useState(false); // true once guest chosen
+  const [guestMode, setGuestMode] = useState(false);
 
   const [profile, setProfile] = useState<any>(null);
   const [shipDifferent, setShipDifferent] = useState(false);
@@ -252,6 +252,33 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'viva' | 'bacs'>('viva');
   const [shippingOptions, setShippingOptions] = useState<ShippingQuote[]>([]);
   const [selectedShipping, setSelectedShipping] = useState<ShippingQuote | null>(null);
+
+  // Country dropdown — populated from shipping zones
+  const [availableCountries, setAvailableCountries] = useState<string[]>(['United Kingdom (UK)']);
+  const [selectedCountry, setSelectedCountry] = useState('United Kingdom (UK)');
+
+  // Discount code
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountApplying, setDiscountApplying] = useState(false);
+  const [discountError, setDiscountError] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    description: string;
+    discountAmount: number;
+  } | null>(null);
+
+  // Customer notes
+  const [customerNotes, setCustomerNotes] = useState('');
+
+  // Load shipping methods for a country
+  const loadShippingForCountry = useCallback(async (country: string) => {
+    const methods = await getEnabledShippingMethodsForCountry(country);
+    const quotes = calculateAllQuotes(methods, cartItems);
+    setShippingOptions(quotes);
+    if (quotes.length > 0) setSelectedShipping(quotes[0]);
+    else setSelectedShipping(null);
+  }, [cartItems]);
 
   useEffect(() => {
     async function loadData() {
@@ -266,16 +293,79 @@ export default function CheckoutPage() {
       if (!isMounted) return;
       if (cartItems.length === 0) { router.push('/'); return; }
 
-      const methods = await getEnabledShippingMethodsForCountry('United Kingdom (UK)');
-      const quotes = calculateAllQuotes(methods, cartItems);
-      setShippingOptions(quotes);
-      if (quotes.length > 0) setSelectedShipping(quotes[0]);
+      // Fetch all shipping zones to build country dropdown
+      const { data: zones } = await supabase
+        .from('shipping_zones')
+        .select('countries')
+        .order('sort_order', { ascending: true });
+
+      if (zones && zones.length > 0) {
+        const allCountries: string[] = [];
+        zones.forEach((z: any) => {
+          if (z.countries && Array.isArray(z.countries)) {
+            z.countries.forEach((c: string) => {
+              if (!allCountries.includes(c)) allCountries.push(c);
+            });
+          }
+        });
+        if (allCountries.length > 0) {
+          setAvailableCountries(allCountries);
+          // Set default: prefer UK, else first
+          if (!allCountries.includes('United Kingdom (UK)')) {
+            setSelectedCountry(allCountries[0]);
+          }
+        }
+      }
+
+      await loadShippingForCountry('United Kingdom (UK)');
       setLoading(false);
     }
     loadData();
-  }, [cartItems, isMounted, router]);
+  }, [cartItems, isMounted, router, loadShippingForCountry]);
 
-  if (loading || shippingOptions.length === 0) {
+  // Re-fetch shipping when country changes
+  async function handleCountryChange(country: string) {
+    setSelectedCountry(country);
+    await loadShippingForCountry(country);
+  }
+
+  // Apply discount code
+  async function handleApplyDiscount() {
+    if (!discountInput.trim()) return;
+    setDiscountApplying(true);
+    setDiscountError('');
+
+    try {
+      const subtotalNum = parseFloat(cartSubtotal.replace(/[^0-9.]/g, ''));
+      const res = await fetch('/api/validate-discount', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: discountInput.trim(), subtotal: subtotalNum }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setDiscountError(data.error || 'Invalid code');
+      } else {
+        setAppliedDiscount({
+          code: data.code,
+          description: data.description,
+          discountAmount: data.discountAmount,
+        });
+        setDiscountError('');
+      }
+    } catch {
+      setDiscountError('Failed to validate code');
+    }
+    setDiscountApplying(false);
+  }
+
+  function removeDiscount() {
+    setAppliedDiscount(null);
+    setDiscountInput('');
+    setDiscountError('');
+  }
+
+  if (loading || (shippingOptions.length === 0 && availableCountries.length > 0)) {
     return <div style={{ textAlign: 'center', padding: '5rem' }}>Loading Checkout...</div>;
   }
 
@@ -294,7 +384,8 @@ export default function CheckoutPage() {
 
   const subtotalNum = parseFloat(cartSubtotal.replace(/[^0-9.]/g, ''));
   const shippingCost = selectedShipping?.shippingCost ?? 0;
-  const finalTotal = subtotalNum + shippingCost;
+  const couponDiscount = appliedDiscount?.discountAmount ?? 0;
+  const finalTotal = subtotalNum + shippingCost - couponDiscount;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -331,7 +422,10 @@ export default function CheckoutPage() {
         postcode:   formData.get('s_postcode') as string,
         phone:      formData.get('s_phone') as string,
         email:      formData.get('s_email') as string,
-      } : null
+      } : null,
+      discountCode: appliedDiscount?.code || null,
+      couponDiscount,
+      customerNotes: customerNotes.trim() || null,
     };
 
     try {
@@ -371,6 +465,11 @@ export default function CheckoutPage() {
           <form className={styles.formSection} onSubmit={handleSubmit}>
             <h2 className={styles.sectionTitle}>Billing Details</h2>
 
+            {/* EMAIL FIRST — for abandoned cart capture */}
+            <div className={`${styles.inputGroup} ${styles.fullWidth}`} style={{ marginBottom: '1.25rem' }}>
+              <InputGroup label="Email address" name="b_email" type="email" defaultValue={billingObj.email || profile?.email || ''} required />
+            </div>
+
             <div className={styles.formGrid}>
               <InputGroup label="First name" name="b_first_name" defaultValue={billingObj.first_name || profile?.first_name || ''} required />
               <InputGroup label="Last name"  name="b_last_name"  defaultValue={billingObj.last_name  || profile?.last_name  || ''} required />
@@ -378,8 +477,15 @@ export default function CheckoutPage() {
 
             <div className={`${styles.inputGroup} ${styles.fullWidth}`} style={{ marginBottom: '1rem' }}>
               <label>Country / Region *</label>
-              <select name="b_country" defaultValue={billingObj.country || 'United Kingdom (UK)'} required>
-                <option value="United Kingdom (UK)">United Kingdom (UK)</option>
+              <select
+                name="b_country"
+                value={selectedCountry}
+                onChange={e => handleCountryChange(e.target.value)}
+                required
+              >
+                {availableCountries.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
               </select>
             </div>
 
@@ -391,9 +497,6 @@ export default function CheckoutPage() {
               <InputGroup label="County (optional)" name="b_county"  defaultValue={billingObj.county   || ''} />
               <InputGroup label="Postcode"          name="b_postcode" defaultValue={billingObj.postcode || ''} required />
               <InputGroup label="Phone"             name="b_phone"   defaultValue={billingObj.phone || profile?.phone || ''} required />
-              <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
-                <InputGroup label="Email address" name="b_email" type="email" defaultValue={billingObj.email || profile?.email || ''} required />
-              </div>
             </div>
 
             {/* Shipping Toggle */}
@@ -419,7 +522,9 @@ export default function CheckoutPage() {
                 <div className={`${styles.inputGroup} ${styles.fullWidth}`} style={{ marginBottom: '1rem' }}>
                   <label>Country / Region *</label>
                   <select name="s_country" defaultValue={shippingObj.country || 'United Kingdom (UK)'} required>
-                    <option value="United Kingdom (UK)">United Kingdom (UK)</option>
+                    {availableCountries.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
                 <div className={styles.formGrid}>
@@ -436,6 +541,18 @@ export default function CheckoutPage() {
                 </div>
               </div>
             )}
+
+            {/* ── Order Notes ─────────────────────────────────────── */}
+            <div className={styles.notesSection}>
+              <div className={styles.inputGroup}>
+                <label>Order Notes (optional)</label>
+                <textarea
+                  placeholder="Special delivery instructions, gift messages, etc."
+                  value={customerNotes}
+                  onChange={e => setCustomerNotes(e.target.value)}
+                />
+              </div>
+            </div>
 
             {/* ── Shipping Method Selector ─────────────────────────── */}
             <h2 className={styles.sectionTitle}>Shipping</h2>
@@ -459,7 +576,7 @@ export default function CheckoutPage() {
                 </label>
               ))}
               {shippingOptions.length === 0 && (
-                <p style={{ color: '#9ca3af', fontSize: '0.9rem' }}>No shipping methods available.</p>
+                <p style={{ color: '#9ca3af', fontSize: '0.9rem', padding: '0.75rem' }}>No shipping methods available for this country.</p>
               )}
             </div>
             <p style={{ fontSize: '0.78rem', color: '#9ca3af', margin: '0.25rem 0 0' }}>
@@ -514,9 +631,58 @@ export default function CheckoutPage() {
               );
             })}
           </div>
+
+          {/* ── Discount Code ─────────────────────────────────── */}
+          <div className={styles.discountSection}>
+            {!appliedDiscount ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.discountToggle}
+                  onClick={() => setDiscountOpen(!discountOpen)}
+                >
+                  🏷️ {discountOpen ? 'Hide' : 'Got a discount code?'}
+                </button>
+                {discountOpen && (
+                  <>
+                    <div className={styles.discountInputRow}>
+                      <input
+                        type="text"
+                        placeholder="Enter code"
+                        value={discountInput}
+                        onChange={e => setDiscountInput(e.target.value.toUpperCase())}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleApplyDiscount(); } }}
+                      />
+                      <button
+                        type="button"
+                        className={styles.discountApplyBtn}
+                        onClick={handleApplyDiscount}
+                        disabled={discountApplying || !discountInput.trim()}
+                      >
+                        {discountApplying ? '...' : 'Apply'}
+                      </button>
+                    </div>
+                    {discountError && <p className={styles.discountError}>{discountError}</p>}
+                  </>
+                )}
+              </>
+            ) : (
+              <div className={styles.discountApplied}>
+                <span>🏷️ {appliedDiscount.code} — {appliedDiscount.description}</span>
+                <button type="button" className={styles.discountRemoveBtn} onClick={removeDiscount}>Remove</button>
+              </div>
+            )}
+          </div>
+
           <div className={styles.totalsBlock}>
             <div className={styles.totalRow}><span>Subtotal</span><span>{cartSubtotal}</span></div>
             <div className={styles.totalRow}><span>Shipping</span><span>{selectedShipping?.formattedCost ?? '—'}</span></div>
+            {appliedDiscount && (
+              <div className={styles.totalRow} style={{ color: '#059669' }}>
+                <span>Discount ({appliedDiscount.code})</span>
+                <span>−£{appliedDiscount.discountAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className={`${styles.totalRow} ${styles.grandTotal}`}><span>Total</span><span>£{finalTotal.toFixed(2)}</span></div>
           </div>
         </aside>

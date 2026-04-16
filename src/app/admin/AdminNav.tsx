@@ -19,6 +19,7 @@ const allNavItems = [
   { href: '/admin/tags',      label: 'Tags',          icon: '🏷️' },
   { href: '/admin/brands',    label: 'Brands',        icon: '✦' },
   { href: '/admin/discounts', label: 'Discounts',     icon: '💰' },
+  { href: '/admin/discount-codes', label: 'Coupon Codes', icon: '🏷️' },
   { href: '/admin/compatibility', label: 'Compat Links', icon: '🔗' },
   { href: '/admin/shipping',  label: 'Shipping',      icon: '🚚' },
   { href: '/admin/feed-import',label: 'Feed Import',  icon: '📦' },
