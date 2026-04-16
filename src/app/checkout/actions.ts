@@ -162,13 +162,16 @@ export async function processOrder(payload: CheckoutPayload) {
     return { error: 'Failed to record cart items to database.' };
   }
 
-  // Fetch product data (images + pricing for savings calculation)
+  // Fetch product data using ADMIN client (bypasses RLS — guaranteed to get all fields)
   const productIds = Array.from(new Set(validOrderItems.map(i => i.product_id)));
-  const { data: productDataRows } = await supabase
+  const { data: productDataRows, error: prodFetchErr } = await adminSupabase
     .from('products')
     .select('id, image, price, sale_price')
     .in('id', productIds);
   
+  console.log('[Savings Debug] Product fetch error:', prodFetchErr);
+  console.log('[Savings Debug] Product data:', JSON.stringify(productDataRows));
+
   const productDataMap: Record<string, { image?: string; price?: string; sale_price?: string }> = {};
   (productDataRows || []).forEach((p: any) => {
     productDataMap[p.id] = { image: p.image, price: p.price, sale_price: p.sale_price };
@@ -178,23 +181,25 @@ export async function processOrder(payload: CheckoutPayload) {
   const variantIds = validOrderItems.filter(i => i.variation_id).map(i => i.variation_id);
   let variantPriceMap: Record<string, string> = {};
   if (variantIds.length > 0) {
-    const { data: variantRows } = await supabase
+    const { data: variantRows } = await adminSupabase
       .from('product_variations')
       .select('id, price')
       .in('id', variantIds);
     (variantRows || []).forEach((v: any) => {
       if (v.price) variantPriceMap[v.id] = v.price;
     });
+    console.log('[Savings Debug] Variant prices:', JSON.stringify(variantPriceMap));
   }
 
   // Calculate savings: get the FULL RRP from DB, compare with what customer actually paid
-  // RRP = the highest price we can find (product.price, product.sale_price, variant.price)
-  // Paid = discounted_price (after bulk rules) from the order item
   let productSavings = 0;
 
   validOrderItems.forEach(item => {
     const prod = productDataMap[item.product_id];
-    if (!prod) return;
+    if (!prod) {
+      console.log('[Savings Debug] No product data for:', item.product_id);
+      return;
+    }
 
     // Collect all known prices for this item and take the MAX as the full RRP
     const prices: number[] = [];
@@ -210,16 +215,20 @@ export async function processOrder(payload: CheckoutPayload) {
     const fullRrp = Math.max(...validPrices);
     const paidPerUnit = Number(item.discounted_price) || Number(item.unit_price) || 0;
 
+    console.log(`[Savings Debug] ${item.product_name}: RRP=${fullRrp}, paid=${paidPerUnit}, qty=${item.quantity}, saving=${(fullRrp - paidPerUnit) * item.quantity}`);
+
     if (fullRrp > paidPerUnit) {
       productSavings += (fullRrp - paidPerUnit) * item.quantity;
     }
   });
 
+  console.log('[Savings Debug] Total product savings:', productSavings, 'Coupon:', couponDiscount);
+
   const totalSavings = productSavings + couponDiscount;
 
   const savingsBreakdown = {
-    saleSavings: 0,  // legacy — not split anymore
-    bulkSavings: 0,  // legacy — not split anymore
+    saleSavings: 0,
+    bulkSavings: 0,
     productSavings: Math.round(productSavings * 100) / 100,
     couponSavings: Math.round(couponDiscount * 100) / 100,
     totalSavings: Math.round(totalSavings * 100) / 100,
