@@ -46,22 +46,20 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
         }),
       });
       const data = await res.json();
-      if (data.text) {
-        // Parse the JSON response from Gemini
-        const cleaned = data.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      // API returns { content: "..." } not { text: "..." }
+      const rawText = data.content || data.text || '';
+      if (rawText) {
+        // Parse the JSON response from Gemini (strip any markdown code fences)
+        const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(cleaned);
-        if (parsed.metaTitle) update('metaTitle', parsed.metaTitle);
-        if (parsed.metaDescription) update('metaDescription', parsed.metaDescription);
-        // Also set as OG if empty
-        if (parsed.metaTitle && !ogTitle) {
-          onChange({ 
-            ...seo, 
-            metaTitle: parsed.metaTitle, 
-            metaDescription: parsed.metaDescription || seo?.metaDescription,
-            ogTitle: parsed.metaTitle,
-            ogDescription: parsed.metaDescription || seo?.ogDescription,
-          });
-        }
+        // Single onChange call to avoid race conditions
+        onChange({
+          ...seo,
+          metaTitle: parsed.metaTitle || seo?.metaTitle || '',
+          metaDescription: parsed.metaDescription || seo?.metaDescription || '',
+          ogTitle: parsed.metaTitle || seo?.ogTitle || '',
+          ogDescription: parsed.metaDescription || seo?.ogDescription || '',
+        });
       }
     } catch (err) {
       console.error('AI SEO generation failed:', err);
