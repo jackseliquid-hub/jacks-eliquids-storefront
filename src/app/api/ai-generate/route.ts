@@ -69,9 +69,10 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
 
     // With grounding, content may be across multiple parts
+    // Filter out 'thought' parts from Gemini 2.5 (thinking model)
     const parts = data.candidates?.[0]?.content?.parts || [];
     const content = parts
-      .filter((p: any) => p.text)
+      .filter((p: any) => p.text && !p.thought)
       .map((p: any) => p.text)
       .join('')
       .trim();

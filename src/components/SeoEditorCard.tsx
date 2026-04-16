@@ -27,9 +27,12 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
     onChange({ ...seo, [field]: value });
   };
 
+  const [aiError, setAiError] = useState('');
+
   async function handleAiGenerate() {
     if (!aiContext?.name) return;
     setAiLoading(true);
+    setAiError('');
     try {
       const res = await fetch('/api/ai-generate', {
         method: 'POST',
@@ -45,24 +48,53 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
           },
         }),
       });
-      const data = await res.json();
-      // API returns { content: "..." } not { text: "..." }
-      const rawText = data.content || data.text || '';
-      if (rawText) {
-        // Parse the JSON response from Gemini (strip any markdown code fences)
-        const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        const parsed = JSON.parse(cleaned);
-        // Single onChange call to avoid race conditions
-        onChange({
-          ...seo,
-          metaTitle: parsed.metaTitle || seo?.metaTitle || '',
-          metaDescription: parsed.metaDescription || seo?.metaDescription || '',
-          ogTitle: parsed.metaTitle || seo?.ogTitle || '',
-          ogDescription: parsed.metaDescription || seo?.ogDescription || '',
-        });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setAiError(errData.error || `API error: ${res.status}`);
+        return;
       }
-    } catch (err) {
+
+      const data = await res.json();
+      const rawText = data.content || data.text || '';
+      
+      if (!rawText) {
+        setAiError('AI returned empty response');
+        return;
+      }
+
+      // Robust JSON extraction: find the first {...} block in the response
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        console.error('[SEO AI] Could not find JSON in response:', rawText);
+        setAiError('Could not parse AI response');
+        return;
+      }
+
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      if (!parsed.metaTitle && !parsed.metaDescription) {
+        setAiError('AI returned no meta data');
+        return;
+      }
+
+      // Build the canonical URL from slug
+      const slug = aiContext.slug || aiContext.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const canonical = `https://jackseliquid.co.uk/product/${slug}`;
+
+      // Single onChange call with all generated fields
+      onChange({
+        ...seo,
+        metaTitle: parsed.metaTitle || seo?.metaTitle || '',
+        metaDescription: parsed.metaDescription || seo?.metaDescription || '',
+        ogTitle: parsed.metaTitle || seo?.ogTitle || '',
+        ogDescription: parsed.metaDescription || seo?.ogDescription || '',
+        keywords: parsed.focusKeyword || seo?.keywords || aiContext.name || '',
+        canonicalUrl: seo?.canonicalUrl || canonical,
+      });
+    } catch (err: any) {
       console.error('AI SEO generation failed:', err);
+      setAiError(err.message || 'Generation failed');
     } finally {
       setAiLoading(false);
     }
@@ -98,7 +130,13 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
         )}
       </div>
       <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' as const, gap: '1.25rem' }}>
-        
+
+        {/* AI Error Feedback */}
+        {aiError && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.6rem 1rem', color: '#dc2626', fontSize: '0.85rem' }}>
+            ⚠️ {aiError}
+          </div>
+        )}        
         {/* Snippet Preview */}
         <div style={{ background: '#f5f5f7', padding: '1rem', borderRadius: '8px', border: '1px solid #d2d2d7' }}>
             <div style={{ fontSize: '0.8rem', color: '#545454', marginBottom: '4px' }}>Google Snippet Preview</div>

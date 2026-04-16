@@ -994,6 +994,7 @@ export default function ProductEditorPage({
              brand: product.brand || '',
              price: product.price || '',
              description: plainDescription || '',
+             slug: product.slug || '',
            }}
         />
 
