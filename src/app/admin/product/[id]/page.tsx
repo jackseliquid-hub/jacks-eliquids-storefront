@@ -308,9 +308,10 @@ export default function ProductEditorPage({
       await updateProduct(product.id, payload);
       setProduct(payload);
       showToast(statusText === 'draft' ? 'Saved as Draft!' : 'Saved successfully!');
-    } catch (e) {
-      showToast('Save failed — check console', true);
-      console.error(e);
+    } catch (e: any) {
+      const msg = e?.message || e?.details || String(e);
+      showToast('Save failed: ' + msg, true);
+      console.error('Save error:', e);
     } finally {
       setSaving(false);
     }
