@@ -20,6 +20,7 @@ import styles from '../../admin.module.css';
 import MediaModal from '@/components/MediaModal';
 import SeoEditorCard from '@/components/SeoEditorCard';
 import AiGenerateButton from '@/components/AiGenerateButton';
+import RelatedProductsPicker from '@/components/RelatedProductsPicker';
 
 // Load MDEditor only on client to avoid SSR issues
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
@@ -35,6 +36,7 @@ export default function ProductEditorPage({
   const [categories, setCategories] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<TaxonomyItem[]>([]);
   const [allBrands, setAllBrands] = useState<TaxonomyItem[]>([]);
+  const [allProductsForPicker, setAllProductsForPicker] = useState<{id:string;name:string;image?:string;category?:string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
@@ -70,6 +72,10 @@ export default function ProductEditorPage({
       setCategories(cats);
       setAllTags(tags);
       setAllBrands(brands);
+      // Lightweight product list for related products picker
+      const { data: prodList } = await (await import('@/lib/supabase')).supabase
+        .from('products').select('id, name, image, category').order('name');
+      setAllProductsForPicker((prodList || []).map((p: any) => ({ id: p.id, name: p.name, image: p.image, category: p.category })));
       setLoading(false);
     }
     load();
@@ -996,6 +1002,14 @@ export default function ProductEditorPage({
              description: plainDescription || '',
              slug: product.slug || '',
            }}
+        />
+
+        {/* Related Products Picker */}
+        <RelatedProductsPicker
+          selectedIds={product.relatedProducts || []}
+          onChange={(ids) => setField('relatedProducts', ids)}
+          allProducts={allProductsForPicker}
+          currentProductId={product.id}
         />
 
         {/* Bottom Save */}

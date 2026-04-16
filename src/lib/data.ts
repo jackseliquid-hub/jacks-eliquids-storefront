@@ -54,6 +54,7 @@ export interface Product {
   status?: 'published' | 'draft';
   seo?: SeoMeta;
   updatedAt?: string;
+  relatedProducts?: string[];
 }
 
 export interface Blog {
@@ -128,6 +129,7 @@ function mapProduct(row: Record<string, unknown>, variations: Variation[] = []):
     status:        (row.status as 'published' | 'draft') || 'draft',
     seo:           (row.seo as SeoMeta) || {},
     updatedAt:     row.updated_at ? String(row.updated_at) : undefined,
+    relatedProducts: (row.related_products as string[]) || [],
   };
 }
 
@@ -246,6 +248,7 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
   if (data.attributes     !== undefined) dbData.attributes      = data.attributes;
   if (data.status         !== undefined) dbData.status          = data.status;
   if (data.seo            !== undefined) dbData.seo             = data.seo;
+  if (data.relatedProducts !== undefined) dbData.related_products = data.relatedProducts;
   dbData.updated_at = Date.now();
 
   const { error: productError } = await supabase

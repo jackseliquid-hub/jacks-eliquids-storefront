@@ -8,6 +8,7 @@ import styles from './product.module.css';
 import { getProductBySlug, getCompatibilityLinksForProduct, Product } from '@/lib/data';
 import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discounts';
 import { createClient } from '@/utils/supabase/client';
+import RelatedProducts from '@/components/RelatedProducts';
 
 export default function ProductPage({
   params,
@@ -699,6 +700,9 @@ export default function ProductPage({
           </div>
         </div>
       </div>
+
+      {/* Related Products */}
+      {product && <RelatedProducts currentProduct={product} />}
     </div>
   );
 }
