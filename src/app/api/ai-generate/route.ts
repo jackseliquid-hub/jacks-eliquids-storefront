@@ -48,8 +48,11 @@ export async function POST(request: NextRequest) {
       requestBody.tools = [{ google_search: {} }];
     }
 
+    // Use Flash for simple/short tasks (SEO meta), Pro for complex content
+    const model = type === 'seo_meta' ? 'gemini-2.0-flash' : 'gemini-2.5-pro';
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
