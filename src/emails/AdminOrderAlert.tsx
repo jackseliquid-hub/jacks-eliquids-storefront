@@ -47,6 +47,7 @@ interface AdminOrderAlertProps {
   billingAddress: AddressData;
   shippingAddress: AddressData;
   siteUrl: string;
+  couponCode?: string;
 }
 
 export const AdminOrderAlert = ({
@@ -61,7 +62,8 @@ export const AdminOrderAlert = ({
   items = [],
   billingAddress = { first_name: "John", last_name: "Doe", address: "123 Test St", city: "Test City", postcode: "AB1 2CD" },
   shippingAddress = { first_name: "John", last_name: "Doe", address: "123 Test St", city: "Test City", postcode: "AB1 2CD" },
-  siteUrl = "https://jackseliquid.co.uk"
+  siteUrl = "https://jackseliquid.co.uk",
+  couponCode
 }: AdminOrderAlertProps) => {
 
   const isBacs = paymentMethod === 'bacs';
@@ -149,7 +151,7 @@ export const AdminOrderAlert = ({
             </Row>
             {Number(discount) > 0 && (
               <Row style={{ padding: '6px 0' }}>
-                <Column align="right"><Text style={{ margin: 0, fontSize: '14px', color: '#0d9488' }}>Discount</Text></Column>
+                <Column align="right"><Text style={{ margin: 0, fontSize: '14px', color: '#0d9488' }}>{couponCode ? `Discount (${couponCode})` : 'Discount'}</Text></Column>
                 <Column style={{ width: '110px' }} align="right"><Text style={{ margin: 0, fontSize: '14px', color: '#0d9488' }}>-£{Number(discount).toFixed(2)}</Text></Column>
               </Row>
             )}

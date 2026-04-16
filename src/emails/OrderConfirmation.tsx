@@ -45,6 +45,7 @@ interface OrderConfirmationEmailProps {
   billingAddress: AddressData;
   shippingAddress: AddressData;
   siteUrl: string;
+  couponCode?: string;
 }
 
 export const OrderConfirmationEmail = ({
@@ -58,7 +59,8 @@ export const OrderConfirmationEmail = ({
   items = [],
   billingAddress = { first_name: "John", last_name: "Doe", address: "123 Test St", city: "Test City", postcode: "AB1 2CD" },
   shippingAddress = { first_name: "John", last_name: "Doe", address: "123 Test St", city: "Test City", postcode: "AB1 2CD" },
-  siteUrl = "https://jackseliquid.co.uk"
+  siteUrl = "https://jackseliquid.co.uk",
+  couponCode
 }: OrderConfirmationEmailProps) => {
   
   const isBacs = paymentMethod === 'bacs';
@@ -143,8 +145,8 @@ export const OrderConfirmationEmail = ({
               </Row>
               {Number(discount) > 0 && (
                 <Row>
-                  <Column align="right"><Text style={totalLabel}>Discount</Text></Column>
-                  <Column align="right" style={{ width: '100px' }}><Text style={totalValue}>-£{Number(discount).toFixed(2)}</Text></Column>
+                  <Column align="right"><Text style={totalLabel}>{couponCode ? `Discount (${couponCode})` : 'Discount'}</Text></Column>
+                  <Column align="right" style={{ width: '100px' }}><Text style={{...totalValue, color: '#059669'}}>-£{Number(discount).toFixed(2)}</Text></Column>
                 </Row>
               )}
               <Row>

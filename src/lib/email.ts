@@ -34,6 +34,7 @@ interface SendOrderEmailParams {
   items: any[];
   billingAddress: any;
   shippingAddress: any;
+  couponCode?: string;
 }
 
 export async function sendOrderConfirmationEmail(params: SendOrderEmailParams) {
@@ -58,7 +59,8 @@ export async function sendOrderConfirmationEmail(params: SendOrderEmailParams) {
         items: sanitizeItems(params.items),
         billingAddress: params.billingAddress,
         shippingAddress: params.shippingAddress,
-        siteUrl: SITE_URL
+        siteUrl: SITE_URL,
+        couponCode: params.couponCode
       })
     });
 
@@ -124,7 +126,8 @@ export async function sendAdminOrderAlert(params: SendOrderEmailParams, adminEma
         items: sanitizeItems(params.items),
         billingAddress: params.billingAddress,
         shippingAddress: params.shippingAddress,
-        siteUrl: SITE_URL
+        siteUrl: SITE_URL,
+        couponCode: params.couponCode
       })
     });
     return { success: true, data };

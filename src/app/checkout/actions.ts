@@ -187,11 +187,12 @@ export async function processOrder(payload: CheckoutPayload) {
       paymentMethod: 'bacs',
       subtotal: subtotal,
       shipping: shippingQuote.shippingCost,
-      discount: discountTotal + couponDiscount,
+      discount: couponDiscount,
       total: finalTotal,
       items: itemsWithImages,
       billingAddress: payload.billingAddress,
-      shippingAddress: finalShippingAddress
+      shippingAddress: finalShippingAddress,
+      couponCode: payload.discountCode || undefined
     });
 
     await sendAdminOrderAlert({
@@ -202,11 +203,12 @@ export async function processOrder(payload: CheckoutPayload) {
       paymentMethod: 'bacs',
       subtotal: subtotal,
       shipping: shippingQuote.shippingCost,
-      discount: discountTotal + couponDiscount,
+      discount: couponDiscount,
       total: finalTotal,
       items: itemsWithImages,
       billingAddress: payload.billingAddress,
-      shippingAddress: finalShippingAddress
+      shippingAddress: finalShippingAddress,
+      couponCode: payload.discountCode || undefined
     });
 
     return { 
@@ -233,11 +235,12 @@ export async function processOrder(payload: CheckoutPayload) {
         paymentMethod: 'viva',
         subtotal: subtotal,
         shipping: shippingQuote.shippingCost,
-        discount: discountTotal + couponDiscount,
+        discount: couponDiscount,
         total: finalTotal,
         items: itemsWithImages,
         billingAddress: payload.billingAddress,
-        shippingAddress: finalShippingAddress
+        shippingAddress: finalShippingAddress,
+        couponCode: payload.discountCode || undefined
       });
 
       await sendAdminOrderAlert({
@@ -248,11 +251,12 @@ export async function processOrder(payload: CheckoutPayload) {
         paymentMethod: 'viva',
         subtotal: subtotal,
         shipping: shippingQuote.shippingCost,
-        discount: discountTotal + couponDiscount,
+        discount: couponDiscount,
         total: finalTotal,
         items: itemsWithImages,
         billingAddress: payload.billingAddress,
-        shippingAddress: finalShippingAddress
+        shippingAddress: finalShippingAddress,
+        couponCode: payload.discountCode || undefined
       });
 
       return { 
