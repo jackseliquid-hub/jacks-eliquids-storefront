@@ -174,38 +174,53 @@ export async function processOrder(payload: CheckoutPayload) {
     productDataMap[p.id] = { image: p.image, price: p.price, sale_price: p.sale_price };
   });
 
-  // Calculate savings breakdown for the "feel good" block in emails
-  let saleSavings = 0;     // savings from sale prices (RRP vs selling price)
-  let bulkSavings = 0;     // savings from bulk buy discount rules
+  // Also fetch variant prices for items that are variations
+  const variantIds = validOrderItems.filter(i => i.variation_id).map(i => i.variation_id);
+  let variantPriceMap: Record<string, string> = {};
+  if (variantIds.length > 0) {
+    const { data: variantRows } = await supabase
+      .from('product_variations')
+      .select('id, price')
+      .in('id', variantIds);
+    (variantRows || []).forEach((v: any) => {
+      if (v.price) variantPriceMap[v.id] = v.price;
+    });
+  }
+
+  // Calculate savings: get the FULL RRP from DB, compare with what customer actually paid
+  // RRP = the highest price we can find (product.price, product.sale_price, variant.price)
+  // Paid = discounted_price (after bulk rules) from the order item
+  let productSavings = 0;
 
   validOrderItems.forEach(item => {
     const prod = productDataMap[item.product_id];
     if (!prod) return;
 
-    const dbPrice = prod.price ? parseFloat(prod.price) : NaN;
-    const dbSalePrice = prod.sale_price ? parseFloat(prod.sale_price) : NaN;
-    
-    // Detect sale savings: whichever is higher is the RRP, whichever is lower is the sale price
-    if (!isNaN(dbPrice) && !isNaN(dbSalePrice) && dbPrice !== dbSalePrice) {
-      const rrp = Math.max(dbPrice, dbSalePrice);
-      const currentPrice = Math.min(dbPrice, dbSalePrice);
-      saleSavings += (rrp - currentPrice) * item.quantity;
+    // Collect all known prices for this item and take the MAX as the full RRP
+    const prices: number[] = [];
+    if (prod.price) prices.push(parseFloat(prod.price));
+    if (prod.sale_price) prices.push(parseFloat(prod.sale_price));
+    if (item.variation_id && variantPriceMap[item.variation_id]) {
+      prices.push(parseFloat(variantPriceMap[item.variation_id]));
     }
 
-    // Detect bulk buy savings: difference between the cart unit_price and the discounted_price
-    // unit_price = what was in the cart (base price), discounted_price = after bulk rules
-    const unitPrice = Number(item.unit_price) || 0;
-    const discountedPrice = Number(item.discounted_price) || 0;
-    if (unitPrice > discountedPrice) {
-      bulkSavings += (unitPrice - discountedPrice) * item.quantity;
+    const validPrices = prices.filter(p => !isNaN(p) && p > 0);
+    if (validPrices.length === 0) return;
+
+    const fullRrp = Math.max(...validPrices);
+    const paidPerUnit = Number(item.discounted_price) || Number(item.unit_price) || 0;
+
+    if (fullRrp > paidPerUnit) {
+      productSavings += (fullRrp - paidPerUnit) * item.quantity;
     }
   });
 
-  const totalSavings = saleSavings + bulkSavings + couponDiscount;
+  const totalSavings = productSavings + couponDiscount;
 
   const savingsBreakdown = {
-    saleSavings: Math.round(saleSavings * 100) / 100,
-    bulkSavings: Math.round(bulkSavings * 100) / 100,
+    saleSavings: 0,  // legacy — not split anymore
+    bulkSavings: 0,  // legacy — not split anymore
+    productSavings: Math.round(productSavings * 100) / 100,
     couponSavings: Math.round(couponDiscount * 100) / 100,
     totalSavings: Math.round(totalSavings * 100) / 100,
     couponCode: payload.discountCode || undefined,

@@ -36,8 +36,7 @@ interface SendOrderEmailParams {
   shippingAddress: any;
   couponCode?: string;
   savings?: {
-    saleSavings: number;
-    bulkSavings: number;
+    productSavings: number;
     couponSavings: number;
     totalSavings: number;
     couponCode?: string;

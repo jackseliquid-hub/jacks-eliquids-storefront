@@ -47,8 +47,7 @@ interface OrderConfirmationEmailProps {
   siteUrl: string;
   couponCode?: string;
   savings?: {
-    saleSavings: number;
-    bulkSavings: number;
+    productSavings: number;
     couponSavings: number;
     totalSavings: number;
     couponCode?: string;
@@ -169,16 +168,10 @@ export const OrderConfirmationEmail = ({
             <Section style={savingsBlock}>
               <div style={savingsInner}>
                 <Text style={savingsHeading}>🎉 Your Savings on This Order</Text>
-                {savings.saleSavings > 0 && (
+                {savings.productSavings > 0 && (
                   <Row style={{ padding: '3px 0' }}>
-                    <Column><Text style={savingsLabel}>Sale prices</Text></Column>
-                    <Column align="right" style={{ width: '100px' }}><Text style={savingsValue}>-£{savings.saleSavings.toFixed(2)}</Text></Column>
-                  </Row>
-                )}
-                {savings.bulkSavings > 0 && (
-                  <Row style={{ padding: '3px 0' }}>
-                    <Column><Text style={savingsLabel}>Bulk buy deals</Text></Column>
-                    <Column align="right" style={{ width: '100px' }}><Text style={savingsValue}>-£{savings.bulkSavings.toFixed(2)}</Text></Column>
+                    <Column><Text style={savingsLabel}>Product deals</Text></Column>
+                    <Column align="right" style={{ width: '100px' }}><Text style={savingsValue}>-£{savings.productSavings.toFixed(2)}</Text></Column>
                   </Row>
                 )}
                 {savings.couponSavings > 0 && (
