@@ -162,19 +162,46 @@ export async function processOrder(payload: CheckoutPayload) {
     return { error: 'Failed to record cart items to database.' };
   }
 
-  // Fetch product images to include in emails
+  // Fetch product data (images + pricing for savings calculation)
   const productIds = Array.from(new Set(validOrderItems.map(i => i.product_id)));
-  const { data: productImageData } = await supabase
+  const { data: productDataRows } = await supabase
     .from('products')
-    .select('id, image')
+    .select('id, image, price, sale_price')
     .in('id', productIds);
-  const productImageMap: Record<string, string> = (productImageData || []).reduce((acc: any, p: any) => {
-    if (p.image) acc[p.id] = p.image;
-    return acc;
-  }, {});
+  
+  const productDataMap: Record<string, { image?: string; price?: string; sale_price?: string }> = {};
+  (productDataRows || []).forEach((p: any) => {
+    productDataMap[p.id] = { image: p.image, price: p.price, sale_price: p.sale_price };
+  });
+
+  // Calculate savings breakdown for the "feel good" block in emails
+  let saleSavings = 0;     // savings from sale prices
+  const bulkSavings = discountTotal; // savings from bulk buy rules (already calculated)
+
+  validOrderItems.forEach(item => {
+    const prod = productDataMap[item.product_id];
+    if (prod && prod.sale_price && prod.price) {
+      const rrp = parseFloat(prod.price);
+      const sale = parseFloat(prod.sale_price);
+      if (!isNaN(rrp) && !isNaN(sale) && sale < rrp) {
+        saleSavings += (rrp - sale) * item.quantity;
+      }
+    }
+  });
+
+  const totalSavings = saleSavings + bulkSavings + couponDiscount;
+
+  const savingsBreakdown = {
+    saleSavings: Math.round(saleSavings * 100) / 100,
+    bulkSavings: Math.round(bulkSavings * 100) / 100,
+    couponSavings: Math.round(couponDiscount * 100) / 100,
+    totalSavings: Math.round(totalSavings * 100) / 100,
+    couponCode: payload.discountCode || undefined,
+  };
+
   const itemsWithImages = validOrderItems.map(i => ({
     ...i,
-    image_url: productImageMap[i.product_id] || undefined
+    image_url: productDataMap[i.product_id]?.image || undefined
   }));
 
   if (payload.paymentMethod === 'bacs') {
@@ -192,7 +219,8 @@ export async function processOrder(payload: CheckoutPayload) {
       items: itemsWithImages,
       billingAddress: payload.billingAddress,
       shippingAddress: finalShippingAddress,
-      couponCode: payload.discountCode || undefined
+      couponCode: payload.discountCode || undefined,
+      savings: savingsBreakdown
     });
 
     await sendAdminOrderAlert({
@@ -208,7 +236,8 @@ export async function processOrder(payload: CheckoutPayload) {
       items: itemsWithImages,
       billingAddress: payload.billingAddress,
       shippingAddress: finalShippingAddress,
-      couponCode: payload.discountCode || undefined
+      couponCode: payload.discountCode || undefined,
+      savings: savingsBreakdown
     });
 
     return { 
@@ -240,7 +269,8 @@ export async function processOrder(payload: CheckoutPayload) {
         items: itemsWithImages,
         billingAddress: payload.billingAddress,
         shippingAddress: finalShippingAddress,
-        couponCode: payload.discountCode || undefined
+        couponCode: payload.discountCode || undefined,
+      savings: savingsBreakdown
       });
 
       await sendAdminOrderAlert({
@@ -256,7 +286,8 @@ export async function processOrder(payload: CheckoutPayload) {
         items: itemsWithImages,
         billingAddress: payload.billingAddress,
         shippingAddress: finalShippingAddress,
-        couponCode: payload.discountCode || undefined
+        couponCode: payload.discountCode || undefined,
+      savings: savingsBreakdown
       });
 
       return { 

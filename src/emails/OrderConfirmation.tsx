@@ -46,6 +46,13 @@ interface OrderConfirmationEmailProps {
   shippingAddress: AddressData;
   siteUrl: string;
   couponCode?: string;
+  savings?: {
+    saleSavings: number;
+    bulkSavings: number;
+    couponSavings: number;
+    totalSavings: number;
+    couponCode?: string;
+  };
 }
 
 export const OrderConfirmationEmail = ({
@@ -60,7 +67,8 @@ export const OrderConfirmationEmail = ({
   billingAddress = { first_name: "John", last_name: "Doe", address: "123 Test St", city: "Test City", postcode: "AB1 2CD" },
   shippingAddress = { first_name: "John", last_name: "Doe", address: "123 Test St", city: "Test City", postcode: "AB1 2CD" },
   siteUrl = "https://jackseliquid.co.uk",
-  couponCode
+  couponCode,
+  savings
 }: OrderConfirmationEmailProps) => {
   
   const isBacs = paymentMethod === 'bacs';
@@ -155,6 +163,38 @@ export const OrderConfirmationEmail = ({
               </Row>
             </div>
           </Section>
+
+          {/* Savings "Feel Good" Block — only shown if any savings */}
+          {savings && savings.totalSavings > 0 && (
+            <Section style={savingsBlock}>
+              <div style={savingsInner}>
+                <Text style={savingsHeading}>🎉 Your Savings on This Order</Text>
+                {savings.saleSavings > 0 && (
+                  <Row style={{ padding: '3px 0' }}>
+                    <Column><Text style={savingsLabel}>Sale prices</Text></Column>
+                    <Column align="right" style={{ width: '100px' }}><Text style={savingsValue}>-£{savings.saleSavings.toFixed(2)}</Text></Column>
+                  </Row>
+                )}
+                {savings.bulkSavings > 0 && (
+                  <Row style={{ padding: '3px 0' }}>
+                    <Column><Text style={savingsLabel}>Bulk buy deals</Text></Column>
+                    <Column align="right" style={{ width: '100px' }}><Text style={savingsValue}>-£{savings.bulkSavings.toFixed(2)}</Text></Column>
+                  </Row>
+                )}
+                {savings.couponSavings > 0 && (
+                  <Row style={{ padding: '3px 0' }}>
+                    <Column><Text style={savingsLabel}>Discount code{savings.couponCode ? ` (${savings.couponCode})` : ''}</Text></Column>
+                    <Column align="right" style={{ width: '100px' }}><Text style={savingsValue}>-£{savings.couponSavings.toFixed(2)}</Text></Column>
+                  </Row>
+                )}
+                <Hr style={{ borderColor: '#86efac', margin: '8px 0' }} />
+                <Row>
+                  <Column><Text style={savingsTotalLabel}>Total saved</Text></Column>
+                  <Column align="right" style={{ width: '100px' }}><Text style={savingsTotalValue}>£{savings.totalSavings.toFixed(2)}</Text></Column>
+                </Row>
+              </div>
+            </Section>
+          )}
 
           {/* Address Section */}
           <Section style={addressBlock}>
@@ -402,3 +442,53 @@ const footerLink = {
   color: '#0d9488',
   textDecoration: 'underline',
 };
+
+// Savings "feel good" block styles
+const savingsBlock = {
+  padding: '0 35px 10px',
+  backgroundColor: '#ffffff',
+};
+
+const savingsInner = {
+  backgroundColor: '#f0fdf4',
+  border: '1px solid #bbf7d0',
+  borderRadius: '8px',
+  padding: '18px 20px',
+};
+
+const savingsHeading = {
+  fontSize: '16px',
+  fontWeight: 'bold' as const,
+  color: '#059669',
+  margin: '0 0 12px',
+};
+
+const savingsLabel = {
+  fontSize: '14px',
+  color: '#065f46',
+  margin: '0',
+};
+
+const savingsValue = {
+  fontSize: '14px',
+  color: '#059669',
+  fontWeight: '600',
+  margin: '0',
+  textAlign: 'right' as const,
+};
+
+const savingsTotalLabel = {
+  fontSize: '16px',
+  fontWeight: 'bold' as const,
+  color: '#047857',
+  margin: '0',
+};
+
+const savingsTotalValue = {
+  fontSize: '16px',
+  fontWeight: 'bold' as const,
+  color: '#047857',
+  margin: '0',
+  textAlign: 'right' as const,
+};
+

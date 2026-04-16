@@ -35,6 +35,13 @@ interface SendOrderEmailParams {
   billingAddress: any;
   shippingAddress: any;
   couponCode?: string;
+  savings?: {
+    saleSavings: number;
+    bulkSavings: number;
+    couponSavings: number;
+    totalSavings: number;
+    couponCode?: string;
+  };
 }
 
 export async function sendOrderConfirmationEmail(params: SendOrderEmailParams) {
@@ -60,7 +67,8 @@ export async function sendOrderConfirmationEmail(params: SendOrderEmailParams) {
         billingAddress: params.billingAddress,
         shippingAddress: params.shippingAddress,
         siteUrl: SITE_URL,
-        couponCode: params.couponCode
+        couponCode: params.couponCode,
+        savings: params.savings
       })
     });
 
