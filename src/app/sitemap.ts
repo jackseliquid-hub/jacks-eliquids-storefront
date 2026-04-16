@@ -8,16 +8,21 @@ import { getAllProducts, getAllBlogs, getAllPages } from '@/lib/data';
 function safeDate(value: string | number | null | undefined): Date {
   if (!value) return new Date();
   
-  // If it's a number — could be Unix seconds or Unix ms
   if (typeof value === 'number') {
-    // Unix timestamps in seconds are < 10 digits before year 2001 — use a threshold
-    // Seconds: ~1.7 billion (10 digits), ms: ~1.7 trillion (13 digits)
     const ms = value < 1_000_000_000_000 ? value * 1000 : value;
     const d = new Date(ms);
     return isNaN(d.getTime()) ? new Date() : d;
   }
   
-  // If it's a string
+  // If it's a numeric string (Unix timestamp), convert first
+  const num = Number(value);
+  if (!isNaN(num) && num > 0) {
+    const ms = num < 1_000_000_000_000 ? num * 1000 : num;
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  // Otherwise treat as ISO/date string
   const d = new Date(value);
   return isNaN(d.getTime()) ? new Date() : d;
 }
@@ -43,18 +48,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/contact`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.5,
     }
   ];
 
-  products.forEach((product) => {
-    entries.push({
-      url: `${baseUrl}/product/${product.slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
+  // Products — use real updated_at timestamps, exclude noIndex and drafts
+  products
+    .filter(p => p.status !== 'draft')
+    .filter(p => !p.seo?.noIndex)
+    .forEach((product) => {
+      entries.push({
+        url: `${baseUrl}/product/${product.slug}`,
+        lastModified: safeDate(product.updatedAt),
+        changeFrequency: 'weekly',
+        priority: 0.8,
+      });
     });
-  });
 
+  // Blogs
   blogs.filter(b => b.status === 'published').forEach((blog) => {
     entries.push({
       url: `${baseUrl}/blog/${blog.slug}`,
@@ -64,6 +80,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   });
 
+  // Pages
   pages.filter(p => p.status === 'published').forEach((page) => {
     entries.push({
       url: `${baseUrl}/p/${page.slug}`,

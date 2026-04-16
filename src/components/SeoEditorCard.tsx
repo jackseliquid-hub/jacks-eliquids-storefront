@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { SeoMeta } from '@/lib/data';
 
 interface SeoEditorCardProps {
@@ -6,76 +7,145 @@ interface SeoEditorCardProps {
   onChange: (seo: SeoMeta) => void;
   titlePlaceholder?: string;
   descPlaceholder?: string;
+  /** Context for AI generation — product name, description, category, etc. */
+  aiContext?: Record<string, string>;
 }
 
-export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPlaceholder }: SeoEditorCardProps) {
+export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPlaceholder, aiContext }: SeoEditorCardProps) {
   const metaTitle = seo?.metaTitle || '';
   const metaDescription = seo?.metaDescription || '';
   const keywords = seo?.keywords || '';
   const canonicalUrl = seo?.canonicalUrl || '';
+  const ogTitle = seo?.ogTitle || '';
+  const ogDescription = seo?.ogDescription || '';
+  const noIndex = seo?.noIndex || false;
 
-  const update = (field: keyof SeoMeta, value: string) => {
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showOg, setShowOg] = useState(!!(ogTitle || ogDescription));
+
+  const update = (field: keyof SeoMeta, value: string | boolean) => {
     onChange({ ...seo, [field]: value });
   };
 
+  async function handleAiGenerate() {
+    if (!aiContext?.name) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'seo_meta',
+          context: {
+            name: aiContext.name,
+            category: aiContext.category || '',
+            brand: aiContext.brand || '',
+            price: aiContext.price || '',
+            existingContent: aiContext.description || '',
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.text) {
+        // Parse the JSON response from Gemini
+        const cleaned = data.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.metaTitle) update('metaTitle', parsed.metaTitle);
+        if (parsed.metaDescription) update('metaDescription', parsed.metaDescription);
+        // Also set as OG if empty
+        if (parsed.metaTitle && !ogTitle) {
+          onChange({ 
+            ...seo, 
+            metaTitle: parsed.metaTitle, 
+            metaDescription: parsed.metaDescription || seo?.metaDescription,
+            ogTitle: parsed.metaTitle,
+            ogDescription: parsed.metaDescription || seo?.ogDescription,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('AI SEO generation failed:', err);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  const inputStyle = { width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #d2d2d7', fontSize: '0.9rem' };
+  const labelStyle = { display: 'block' as const, fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: '0.4rem' };
+  const hintStyle = (len: number, max: number) => ({ fontSize: '0.75rem', marginTop: '4px', color: len > max ? '#ff3b30' : '#86868b' });
+
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e5e5', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ padding: '1rem 1.5rem', background: '#f5f5f7', borderBottom: '1px solid #e5e5e5', fontWeight: 600 }}>
-        SEO Settings (Rank Math Style)
+    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e5e5', display: 'flex', flexDirection: 'column' as const, overflow: 'hidden' }}>
+      <div style={{ padding: '1rem 1.5rem', background: '#f5f5f7', borderBottom: '1px solid #e5e5e5', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>SEO Settings</span>
+        {aiContext?.name && (
+          <button
+            onClick={handleAiGenerate}
+            disabled={aiLoading}
+            style={{
+              padding: '0.4rem 0.9rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: aiLoading ? 'wait' : 'pointer',
+              opacity: aiLoading ? 0.7 : 1,
+              transition: 'all 0.2s',
+            }}
+          >
+            {aiLoading ? '⏳ Generating…' : '✨ Auto-Generate with AI'}
+          </button>
+        )}
       </div>
-      <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' as const, gap: '1.25rem' }}>
         
         {/* Snippet Preview */}
         <div style={{ background: '#f5f5f7', padding: '1rem', borderRadius: '8px', border: '1px solid #d2d2d7' }}>
-            <div style={{ fontSize: '0.8rem', color: '#545454', marginBottom: '4px' }}>Snippet Preview</div>
+            <div style={{ fontSize: '0.8rem', color: '#545454', marginBottom: '4px' }}>Google Snippet Preview</div>
             <div style={{ fontSize: '1.2rem', color: '#1a0dab', textDecoration: 'none', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {metaTitle || titlePlaceholder || 'Your Page Title'}
             </div>
             <div style={{ fontSize: '0.9rem', color: '#006621', margin: '2px 0 4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {canonicalUrl || 'jacks-e-liquid.co.uk/example-url'}
+              {canonicalUrl || 'jackseliquid.co.uk/product/example'}
             </div>
             <div style={{ fontSize: '0.85rem', color: '#545454' }}>
-               {metaDescription || descPlaceholder || 'Please provide a meta description. This helps search engines understand what your page is about and can improve click-through rates.'}
+               {metaDescription || descPlaceholder || 'Please provide a meta description. This helps search engines understand what your page is about.'}
             </div>
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: '0.4rem' }}>
-            Meta Title
-          </label>
+          <label style={labelStyle}>Meta Title</label>
           <input
-            style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #d2d2d7', fontSize: '0.9rem' }}
+            style={inputStyle}
             value={metaTitle}
             onChange={e => update('metaTitle', e.target.value)}
             placeholder={titlePlaceholder || 'e.g. Cherry Ice Nic Salt | Jacks E-Liquid'}
           />
-          <div style={{ fontSize: '0.75rem', marginTop: '4px', color: metaTitle.length > 60 ? '#ff3b30' : '#86868b' }}>
+          <div style={hintStyle(metaTitle.length, 60)}>
             {metaTitle.length}/60 characters (recommended)
           </div>
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: '0.4rem' }}>
-            Meta Description
-          </label>
+          <label style={labelStyle}>Meta Description</label>
           <textarea
-            style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #d2d2d7', fontSize: '0.9rem', fontFamily: 'inherit', resize: 'vertical' }}
+            style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' as const }}
             rows={3}
             value={metaDescription}
             onChange={e => update('metaDescription', e.target.value)}
             placeholder={descPlaceholder || 'Write a compelling description for this page.'}
           />
-          <div style={{ fontSize: '0.75rem', marginTop: '4px', color: metaDescription.length > 160 ? '#ff3b30' : '#86868b' }}>
+          <div style={hintStyle(metaDescription.length, 160)}>
             {metaDescription.length}/160 characters (recommended)
           </div>
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: '0.4rem' }}>
-            Focus Keyword
-          </label>
+          <label style={labelStyle}>Focus Keyword</label>
           <input
-            style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #d2d2d7', fontSize: '0.9rem' }}
+            style={inputStyle}
             value={keywords}
             onChange={e => update('keywords', e.target.value)}
             placeholder="e.g. cherry ice vape, cheap nic salt"
@@ -83,15 +153,70 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#1d1d1f', marginBottom: '0.4rem' }}>
-            Canonical URL
-          </label>
+          <label style={labelStyle}>Canonical URL</label>
           <input
-            style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid #d2d2d7', fontSize: '0.9rem' }}
+            style={inputStyle}
             value={canonicalUrl}
             onChange={e => update('canonicalUrl', e.target.value)}
-            placeholder="e.g. https://www.jacks-eliquids.co.uk/product/cherry-ice"
+            placeholder="e.g. https://jackseliquid.co.uk/product/cherry-ice"
           />
+        </div>
+
+        {/* Social Media Preview Toggle */}
+        <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1.25rem' }}>
+          <div 
+            onClick={() => setShowOg(!showOg)} 
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+          >
+            <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }}>📱 Social Media Preview (Open Graph)</label>
+            <span style={{ fontSize: '0.8rem', color: '#6366f1', fontWeight: 600 }}>{showOg ? '▲ Hide' : '▼ Show'}</span>
+          </div>
+          {showOg && (
+            <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '1rem', marginTop: '1rem' }}>
+              <div>
+                <label style={labelStyle}>OG Title</label>
+                <input
+                  style={inputStyle}
+                  value={ogTitle}
+                  onChange={e => update('ogTitle', e.target.value)}
+                  placeholder={metaTitle || 'Defaults to Meta Title if empty'}
+                />
+                <div style={{ fontSize: '0.75rem', marginTop: '4px', color: '#86868b' }}>
+                  Shown when shared on Facebook, Twitter, etc. Leave empty to use Meta Title.
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>OG Description</label>
+                <textarea
+                  style={{ ...inputStyle, fontFamily: 'inherit', resize: 'vertical' as const }}
+                  rows={2}
+                  value={ogDescription}
+                  onChange={e => update('ogDescription', e.target.value)}
+                  placeholder={metaDescription || 'Defaults to Meta Description if empty'}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* NoIndex Toggle */}
+        <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: '1.25rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={noIndex}
+              onChange={e => update('noIndex', e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: '#ff3b30' }}
+            />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: noIndex ? '#ff3b30' : '#1d1d1f' }}>
+              🚫 Hide from Search Engines (NoIndex)
+            </span>
+          </label>
+          {noIndex && (
+            <div style={{ fontSize: '0.8rem', color: '#ff3b30', marginTop: '6px', paddingLeft: '2rem' }}>
+              This page will NOT appear in Google or other search engines. It will also be excluded from the sitemap.
+            </div>
+          )}
         </div>
 
       </div>

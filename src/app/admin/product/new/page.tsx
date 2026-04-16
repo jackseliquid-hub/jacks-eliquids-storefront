@@ -940,6 +940,13 @@ export default function AddProductPage() {
            onChange={(seo) => setField('seo', seo)}
            titlePlaceholder={product.name ? `${product.name} | Jacks` : undefined}
            descPlaceholder={plainDescription ? plainDescription.slice(0, 150) + '...' : undefined}
+           aiContext={{
+             name: product.name || '',
+             category: product.category || '',
+             brand: product.brand || '',
+             price: product.price || '',
+             description: plainDescription || '',
+           }}
         />
 
         {/* Bottom Save */}

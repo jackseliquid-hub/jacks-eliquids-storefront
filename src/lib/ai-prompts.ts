@@ -130,6 +130,30 @@ Rules:
       `Write content for a website page titled: "${ctx.title || 'Untitled'}"
 ${ctx.existingContent ? `Current content (rewrite and improve): ${ctx.existingContent.slice(0, 500)}...` : ''}`,
   },
+
+  seo_meta: {
+    system: `You are an SEO specialist for "Jack's E-Liquids", a UK vape and e-liquid store. 
+You generate optimised meta titles and descriptions for product pages.
+
+RULES:
+- Meta Title: Maximum 60 characters. Include the product name and "Jacks E-Liquid" brand. Format: "[Product Name] | Jacks E-Liquid"
+- Meta Description: Maximum 160 characters. Compelling, action-oriented copy that includes the product name and encourages clicks. Mention key selling points.
+- UK English spelling (flavour, colour, etc.)
+- Include relevant vaping keywords naturally
+- Focus on what makes this product worth clicking on
+- Return ONLY valid JSON with exactly two fields: "metaTitle" and "metaDescription"
+- Do NOT include any markdown, code blocks, or extra text — just the raw JSON object`,
+    userTemplate: (ctx: Record<string, string>) =>
+      `Generate SEO meta title and description for this product:
+
+Product Name: "${ctx.name}"
+Category: ${ctx.category || 'N/A'}
+Brand: ${ctx.brand || 'N/A'}
+Price: ${ctx.price || 'N/A'}
+Short Description: ${ctx.existingContent ? ctx.existingContent.slice(0, 300) : 'N/A'}
+
+Return as JSON: { "metaTitle": "...", "metaDescription": "..." }`,
+  },
 } as const;
 
 export type AiGenerateType = keyof typeof AI_PROMPTS;

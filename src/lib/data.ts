@@ -7,6 +7,9 @@ export interface SeoMeta {
   metaDescription?: string;
   keywords?: string;
   canonicalUrl?: string;
+  ogTitle?: string;
+  ogDescription?: string;
+  noIndex?: boolean;
 }
 
 export interface GlobalSeo {
@@ -50,6 +53,7 @@ export interface Product {
   variations: Variation[];
   status?: 'published' | 'draft';
   seo?: SeoMeta;
+  updatedAt?: string;
 }
 
 export interface Blog {
@@ -123,6 +127,7 @@ function mapProduct(row: Record<string, unknown>, variations: Variation[] = []):
     variations,
     status:        (row.status as 'published' | 'draft') || 'draft',
     seo:           (row.seo as SeoMeta) || {},
+    updatedAt:     row.updated_at ? String(row.updated_at) : undefined,
   };
 }
 
