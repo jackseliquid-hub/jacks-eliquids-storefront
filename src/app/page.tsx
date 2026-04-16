@@ -40,7 +40,7 @@ function HomeInner() {
           getAllProducts(),
           getCategories()
         ]);
-        setProducts(prodData);
+        setProducts(prodData.filter(p => p.status !== 'draft'));
         setCategories(catData);
       } catch (err) {
         console.error("Home: Data fetch error", err);

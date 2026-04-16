@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { getAllProducts, getCategories, getTags, getBrands, updateProduct, getProductById, Product, TaxonomyItem, Variation } from '@/lib/data';
@@ -10,16 +11,18 @@ import MediaModal from '@/components/MediaModal';
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
 export default function AdminProductsPage() {
+  const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [allCategories, setAllCategories] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<TaxonomyItem[]>([]);
   const [allBrands, setAllBrands] = useState<TaxonomyItem[]>([]);
   
-  // Filters
+  // Filters — initialise from URL params if present
   const [search, setSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
-  const [brandFilter, setBrandFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('cat') || '');
+  const [brandFilter, setBrandFilter] = useState(searchParams.get('brand') || '');
+  const [tagFilter, setTagFilter] = useState(searchParams.get('tag') || '');
   const [missingFilter, setMissingFilter] = useState<'weight' | 'sku' | 'cost' | null>(null);
 
   // Inline editing state  
@@ -63,6 +66,7 @@ export default function AdminProductsPage() {
     let result = products;
     if (categoryFilter) result = result.filter(p => p.category === categoryFilter);
     if (brandFilter) result = result.filter(p => p.brand === brandFilter);
+    if (tagFilter) result = result.filter(p => p.tags?.includes(tagFilter));
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(p => {

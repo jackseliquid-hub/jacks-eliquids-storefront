@@ -46,7 +46,7 @@ export default function ProductPage({
           getProductBySlug(slug),
           getDiscountRules()
         ]);
-        setProduct(prod || null);
+        setProduct(prod && prod.status !== 'draft' ? prod : null);
         if (prod?.image) setMainImage(prod.image);
         setGlobalRules(rules || []);
 
