@@ -171,9 +171,9 @@ export default function RelatedProductsPicker({
 
             {showDropdown && (
               <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999,
                 background: '#fff', border: '1px solid #d2d2d7', borderRadius: '0 0 8px 8px',
-                maxHeight: '250px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                maxHeight: '250px', overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
               }}>
                 {availableProducts.length === 0 ? (
                   <div style={{ padding: '0.75rem 1rem', color: '#86868b', fontSize: '0.85rem' }}>
