@@ -135,7 +135,7 @@ export async function processOrder(payload: CheckoutPayload) {
       total: finalTotal,
       billing_address: payload.billingAddress,
       shipping_address: finalShippingAddress,
-      notes: notesParts.join(' | ')
+      notes: notesParts.join('\n')
     })
     .select('id, order_number')
     .single();
@@ -187,7 +187,7 @@ export async function processOrder(payload: CheckoutPayload) {
       paymentMethod: 'bacs',
       subtotal: subtotal,
       shipping: shippingQuote.shippingCost,
-      discount: discountTotal,
+      discount: discountTotal + couponDiscount,
       total: finalTotal,
       items: itemsWithImages,
       billingAddress: payload.billingAddress,
@@ -202,7 +202,7 @@ export async function processOrder(payload: CheckoutPayload) {
       paymentMethod: 'bacs',
       subtotal: subtotal,
       shipping: shippingQuote.shippingCost,
-      discount: discountTotal,
+      discount: discountTotal + couponDiscount,
       total: finalTotal,
       items: itemsWithImages,
       billingAddress: payload.billingAddress,
@@ -233,7 +233,7 @@ export async function processOrder(payload: CheckoutPayload) {
         paymentMethod: 'viva',
         subtotal: subtotal,
         shipping: shippingQuote.shippingCost,
-        discount: discountTotal,
+        discount: discountTotal + couponDiscount,
         total: finalTotal,
         items: itemsWithImages,
         billingAddress: payload.billingAddress,
@@ -248,7 +248,7 @@ export async function processOrder(payload: CheckoutPayload) {
         paymentMethod: 'viva',
         subtotal: subtotal,
         shipping: shippingQuote.shippingCost,
-        discount: discountTotal,
+        discount: discountTotal + couponDiscount,
         total: finalTotal,
         items: itemsWithImages,
         billingAddress: payload.billingAddress,

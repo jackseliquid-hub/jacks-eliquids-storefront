@@ -133,7 +133,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
             {order.notes && (
               <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                 <strong style={{ display: 'block', fontSize: '0.85rem', color: '#4b5563', marginBottom: '0.5rem' }}>Order Notes:</strong>
-                <p style={{ margin: 0, fontSize: '0.9rem', color: '#111' }}>{order.notes}</p>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#111', whiteSpace: 'pre-line' }}>{order.notes}</p>
               </div>
             )}
           </div>
