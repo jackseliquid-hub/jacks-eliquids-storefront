@@ -170,7 +170,10 @@ export function analyseCart(cartItems: CartItem[]): { totalWeight: number; hasSm
     if (item.weight && !isNaN(item.weight)) {
       totalWeight += item.weight * item.quantity;
     }
-    if (item.shippingClass === 'small-parcel') {
+    // Check for small parcel class — handle all formats:
+    // "Small Parcel", "small-parcel", "small_parcel", etc.
+    const sc = (item.shippingClass || '').toLowerCase().replace(/[\s_-]+/g, '');
+    if (sc === 'smallparcel') {
       hasSmallParcel = true;
     }
   }
