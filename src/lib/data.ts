@@ -260,7 +260,12 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
 
   // If variations are included, replace them
   if (data.variations !== undefined) {
-    await supabase.from('product_variations').delete().eq('product_id', id);
+    // Get existing variation IDs
+    const { data: existingVars } = await supabase
+      .from('product_variations')
+      .select('id')
+      .eq('product_id', id);
+    const existingIds = (existingVars || []).map((v: any) => v.id);
 
     if (data.variations.length > 0) {
       const varRows = data.variations.map(v => ({
@@ -272,8 +277,22 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
         in_stock:   v.inStock !== undefined ? v.inStock : true,
         stock_qty:  v.stockQty !== undefined ? v.stockQty : null,
       }));
-      const { error: varError } = await supabase.from('product_variations').insert(varRows);
+      const { error: varError } = await supabase
+        .from('product_variations')
+        .upsert(varRows, { onConflict: 'id' });
       if (varError) throw varError;
+
+      // Delete variations that were removed
+      const newIds = data.variations.map(v => v.id);
+      const removedIds = existingIds.filter(eid => !newIds.includes(eid));
+      if (removedIds.length > 0) {
+        await supabase.from('product_variations').delete().in('id', removedIds);
+      }
+    } else {
+      // All variations removed
+      if (existingIds.length > 0) {
+        await supabase.from('product_variations').delete().eq('product_id', id);
+      }
     }
   }
 }
