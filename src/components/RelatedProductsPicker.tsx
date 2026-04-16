@@ -77,8 +77,8 @@ export default function RelatedProductsPicker({
   }
 
   return (
-    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e5e5', overflow: 'hidden' }}>
-      <div style={{ padding: '1rem 1.5rem', background: '#f5f5f7', borderBottom: '1px solid #e5e5e5', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid #e5e5e5', overflow: 'visible', position: 'relative' }}>
+      <div style={{ padding: '1rem 1.5rem', background: '#f5f5f7', borderBottom: '1px solid #e5e5e5', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '12px 12px 0 0' }}>
         <span>Related Products</span>
         <span style={{ fontSize: '0.8rem', color: '#86868b', fontWeight: 400 }}>
           {selectedIds.length}/{maxItems} manual picks · remaining slots auto-filled
