@@ -175,17 +175,29 @@ export async function processOrder(payload: CheckoutPayload) {
   });
 
   // Calculate savings breakdown for the "feel good" block in emails
-  let saleSavings = 0;     // savings from sale prices
-  const bulkSavings = discountTotal; // savings from bulk buy rules (already calculated)
+  let saleSavings = 0;     // savings from sale prices (RRP vs selling price)
+  let bulkSavings = 0;     // savings from bulk buy discount rules
 
   validOrderItems.forEach(item => {
     const prod = productDataMap[item.product_id];
-    if (prod && prod.sale_price && prod.price) {
-      const rrp = parseFloat(prod.price);
-      const sale = parseFloat(prod.sale_price);
-      if (!isNaN(rrp) && !isNaN(sale) && sale < rrp) {
-        saleSavings += (rrp - sale) * item.quantity;
-      }
+    if (!prod) return;
+
+    const dbPrice = prod.price ? parseFloat(prod.price) : NaN;
+    const dbSalePrice = prod.sale_price ? parseFloat(prod.sale_price) : NaN;
+    
+    // Detect sale savings: whichever is higher is the RRP, whichever is lower is the sale price
+    if (!isNaN(dbPrice) && !isNaN(dbSalePrice) && dbPrice !== dbSalePrice) {
+      const rrp = Math.max(dbPrice, dbSalePrice);
+      const currentPrice = Math.min(dbPrice, dbSalePrice);
+      saleSavings += (rrp - currentPrice) * item.quantity;
+    }
+
+    // Detect bulk buy savings: difference between the cart unit_price and the discounted_price
+    // unit_price = what was in the cart (base price), discounted_price = after bulk rules
+    const unitPrice = Number(item.unit_price) || 0;
+    const discountedPrice = Number(item.discounted_price) || 0;
+    if (unitPrice > discountedPrice) {
+      bulkSavings += (unitPrice - discountedPrice) * item.quantity;
     }
   });
 
