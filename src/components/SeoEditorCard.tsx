@@ -30,10 +30,7 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
   const [aiError, setAiError] = useState('');
 
   async function handleAiGenerate() {
-    if (!aiContext?.name) {
-      alert('DEBUG: No product name in aiContext');
-      return;
-    }
+    if (!aiContext?.name) return;
     setAiLoading(true);
     setAiError('');
     try {
@@ -54,9 +51,7 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        const msg = errData.error || `API error: ${res.status}`;
-        alert('DEBUG API Error: ' + msg);
-        setAiError(msg);
+        setAiError(errData.error || `API error: ${res.status}`);
         return;
       }
 
@@ -64,7 +59,6 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
       const rawText = data.content || data.text || '';
       
       if (!rawText) {
-        alert('DEBUG: AI returned empty. Full response: ' + JSON.stringify(data).slice(0, 500));
         setAiError('AI returned empty response');
         return;
       }
@@ -72,13 +66,11 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
       // Robust JSON extraction: find the first {...} block in the response
       const jsonMatch = rawText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        alert('DEBUG: No JSON found in: ' + rawText.slice(0, 300));
         setAiError('Could not parse AI response');
         return;
       }
 
       const parsed = JSON.parse(jsonMatch[0]);
-      alert('DEBUG: Parsed OK! metaTitle=' + (parsed.metaTitle || 'EMPTY') + ', metaDesc=' + (parsed.metaDescription || 'EMPTY').slice(0, 50));
 
       // Build the canonical URL from slug
       const slug = aiContext.slug || aiContext.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -95,7 +87,6 @@ export default function SeoEditorCard({ seo, onChange, titlePlaceholder, descPla
         canonicalUrl: seo?.canonicalUrl || canonical,
       });
     } catch (err: any) {
-      alert('DEBUG: Exception: ' + err.message);
       console.error('AI SEO generation failed:', err);
       setAiError(err.message || 'Generation failed');
     } finally {

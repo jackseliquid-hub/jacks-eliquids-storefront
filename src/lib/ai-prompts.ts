@@ -136,8 +136,8 @@ ${ctx.existingContent ? `Current content (rewrite and improve): ${ctx.existingCo
 You generate optimised meta titles, descriptions, and focus keywords for product pages.
 
 RULES:
-- Meta Title: Maximum 60 characters. Include the product name and "Jacks E-Liquid" brand. Format: "[Product Name] | Jacks E-Liquid"
-- Meta Description: Maximum 160 characters. Compelling, action-oriented copy that includes the product name and encourages clicks. Mention key selling points. Must be a COMPLETE sentence - do not cut off mid-word.
+- Meta Title: Maximum 55 characters. Include the product name and "Jacks E-Liquid" brand. Format: "[Product Name] | Jacks E-Liquid"
+- Meta Description: STRICTLY maximum 155 characters. No exceptions. Count carefully. Compelling, action-oriented copy that includes the product name. Must be a COMPLETE sentence - do not cut off mid-word.
 - Focus Keyword: 2-4 word phrase that a customer would search for to find this product. e.g. "aquavape pod kit" or "cherry ice nic salt"
 - UK English spelling (flavour, colour, etc.)
 - Include relevant vaping keywords naturally
