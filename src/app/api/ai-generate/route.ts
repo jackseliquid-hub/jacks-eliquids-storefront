@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use Flash for simple/short tasks (SEO meta), Pro for complex content
-    const model = type === 'seo_meta' ? 'gemini-2.0-flash' : 'gemini-2.5-pro';
+    const model = type === 'seo_meta' ? 'gemini-2.5-flash' : 'gemini-2.5-pro';
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -63,8 +63,14 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.text();
       console.error('[AI Generate] Gemini API error:', errorData);
+      // Pass actual error detail to client
+      let errorMsg = 'Gemini API error';
+      try {
+        const errJson = JSON.parse(errorData);
+        errorMsg = errJson?.error?.message || errorMsg;
+      } catch {}
       return NextResponse.json(
-        { error: 'Gemini API error — check console' },
+        { error: errorMsg },
         { status: 502 }
       );
     }
