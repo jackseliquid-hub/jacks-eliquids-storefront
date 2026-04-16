@@ -194,6 +194,9 @@ export async function processOrder(payload: CheckoutPayload) {
   // Calculate savings: get the FULL RRP from DB, compare with what customer actually paid
   let productSavings = 0;
 
+  // Helper: strip currency symbols (prices are stored as "£4.99" not "4.99")
+  const parsePrice = (s: string) => parseFloat(s.replace(/[^0-9.]/g, ''));
+
   validOrderItems.forEach(item => {
     const prod = productDataMap[item.product_id];
     if (!prod) {
@@ -203,10 +206,10 @@ export async function processOrder(payload: CheckoutPayload) {
 
     // Collect all known prices for this item and take the MAX as the full RRP
     const prices: number[] = [];
-    if (prod.price) prices.push(parseFloat(prod.price));
-    if (prod.sale_price) prices.push(parseFloat(prod.sale_price));
+    if (prod.price) prices.push(parsePrice(prod.price));
+    if (prod.sale_price) prices.push(parsePrice(prod.sale_price));
     if (item.variation_id && variantPriceMap[item.variation_id]) {
-      prices.push(parseFloat(variantPriceMap[item.variation_id]));
+      prices.push(parsePrice(variantPriceMap[item.variation_id]));
     }
 
     const validPrices = prices.filter(p => !isNaN(p) && p > 0);
