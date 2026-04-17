@@ -242,22 +242,6 @@ async function sendImportReportEmail(result: {
       <ul style="font-size: 13px; color: #374151;">${costList}</ul>
       ` : ''}
 
-      ${qtyList ? `
-      <h3>📦 Stock Qty Changes</h3>
-      <ul style="font-size: 13px; color: #374151;">${qtyList}</ul>
-      ` : ''}
-
-      ${updatedVarList ? `
-      <h3>🔧 Variation SKUs Updated (cost/qty)</h3>
-      <ul style="font-size: 13px; color: #374151;">${updatedVarList}</ul>
-      ` : ''}
-
-      ${newVarList ? `
-      <h3 style="color: #0f766e;">✨ New Variations Added to Existing Products</h3>
-      <ul style="font-size: 13px; color: #374151;">${newVarList}</ul>
-      <p style="font-size: 12px; color: #9ca3af;">These variations need a retail price setting before they appear on the storefront.</p>
-      ` : ''}
-
       ${result.errors.length > 0 ? `
       <h3 style="color: #dc2626;">❌ Errors</h3>
       <ul style="font-size: 13px; color: #dc2626;">${errorList}</ul>
