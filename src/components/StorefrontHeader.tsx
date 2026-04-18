@@ -104,11 +104,11 @@ export default function StorefrontHeader() {
       )}
 
       <div ref={headerRef} style={{ position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)', borderBottom: '1px solid var(--border-color)' }}>
-        {/* ═══ TOP BAR: Utility links + Search + Account + Cart ═══ */}
+        {/* ═══ TOP BAR: Left links | Center search | Right account+cart ═══ */}
         <div className="container" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0.5rem 0', borderBottom: '1px solid rgba(0,0,0,0.06)',
-          fontSize: '0.82rem',
+          fontSize: '0.82rem', gap: '1rem',
         }}>
           {/* Left: utility links */}
           <div className={styles.topBarLinks}>
@@ -116,6 +116,7 @@ export default function StorefrontHeader() {
               color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500,
               opacity: 0.75, transition: 'opacity 0.2s',
               display: 'flex', alignItems: 'center', gap: '0.35rem',
+              whiteSpace: 'nowrap',
             }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
@@ -129,6 +130,7 @@ export default function StorefrontHeader() {
               color: 'var(--deep-teal)', textDecoration: 'none', fontWeight: 600,
               opacity: 0.9, transition: 'opacity 0.2s',
               display: 'flex', alignItems: 'center', gap: '0.35rem',
+              whiteSpace: 'nowrap',
             }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.9')}
@@ -140,19 +142,39 @@ export default function StorefrontHeader() {
             </Link>
           </div>
 
-          {/* Right: Search + Account + Cart */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <button className={styles.headerIconBtn} onClick={openSearch} aria-label="Search products" style={{ padding: '0.25rem' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </button>
+          {/* Center: Search bar */}
+          <button
+            onClick={openSearch}
+            aria-label="Search products"
+            className={styles.searchBar}
+            style={{
+              flex: '1 1 auto',
+              maxWidth: '420px',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: '#f5f5f7', border: '1px solid #e5e5e5',
+              borderRadius: '9999px', padding: '0.45rem 0.9rem',
+              cursor: 'pointer', transition: 'border-color 0.2s, box-shadow 0.2s',
+              color: '#86868b', fontSize: '0.82rem',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#0f766e'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(15,118,110,0.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e5e5'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.5 }}>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <span style={{ flex: 1, textAlign: 'left' }}>Search for anything...</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.35 }}>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
 
-            <Link href="/account" style={{
+          {/* Right: Account + Cart */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <Link href="/account" className={styles.topBarLinks} style={{
               display: 'flex', alignItems: 'center', gap: '0.3rem',
               color: 'var(--text-primary)', textDecoration: 'none',
               fontWeight: 500, opacity: 0.8, transition: 'opacity 0.2s',
-              fontSize: '0.82rem',
+              fontSize: '0.82rem', whiteSpace: 'nowrap',
             }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
@@ -163,7 +185,7 @@ export default function StorefrontHeader() {
               {isLoggedIn ? 'My Account' : 'Login / Create Account'}
             </Link>
 
-            <button className={styles.cartBtn} onClick={openCart} aria-label="Open cart" style={{ marginLeft: '0.25rem' }}>
+            <button className={styles.cartBtn} onClick={openCart} aria-label="Open cart">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
               </svg>

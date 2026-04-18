@@ -6,8 +6,15 @@
   gap: 1.25rem;
 }
 
+.searchBar {
+  flex: 1 1 auto;
+}
+
 @media (max-width: 768px) {
   .topBarLinks {
+    display: none !important;
+  }
+  .searchBar {
     display: none !important;
   }
 }
