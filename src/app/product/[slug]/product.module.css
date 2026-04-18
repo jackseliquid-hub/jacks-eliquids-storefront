@@ -55,6 +55,12 @@
   .layout {
     grid-template-columns: 1fr;
   }
+  .imagePanel {
+    position: static !important;
+    border-right: none;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 2rem 1.5rem;
+  }
 }
 
 /* Left: Image panel */
