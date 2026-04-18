@@ -48,6 +48,14 @@ function buildTreeFromFlat(items: MenuItem[]): MenuItem[] {
   return roots;
 }
 
+/** Get the range [idx, endIdx) of an item and all its children */
+function getGroupRange(items: FlatItem[], idx: number): [number, number] {
+  const baseDepth = items[idx].depth;
+  let endIdx = idx + 1;
+  while (endIdx < items.length && items[endIdx].depth > baseDepth) endIdx++;
+  return [idx, endIdx];
+}
+
 // ─── "Add Item" source types ────────────────────────────────────────────────
 type AddSource = 'custom' | 'category' | 'tag' | 'brand' | 'page' | 'product';
 
@@ -85,6 +93,9 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
   const [addType, setAddType] = useState<'link' | 'mega'>('link');
   const [sourceOptions, setSourceOptions] = useState<{ label: string; url: string }[]>([]);
   const [sourceLoading, setSourceLoading] = useState(false);
+
+  // Collapsed groups
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Drag
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -174,12 +185,10 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
     setAddUrl(opt.url);
   }
 
-  // ─── Delete ──────────────────────────────────────────────
+  // ─── Delete (group-aware) ────────────────────────────────
   function removeItem(idx: number) {
-    const item = items[idx];
-    let endIdx = idx + 1;
-    while (endIdx < items.length && items[endIdx].depth > item.depth) endIdx++;
-    setItems(items.filter((_, i) => i < idx || i >= endIdx));
+    const [start, end] = getGroupRange(items, idx);
+    setItems(items.filter((_, i) => i < start || i >= end));
   }
 
   // ─── Indent / Outdent ────────────────────────────────────
@@ -196,28 +205,69 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
     setItems(items.map((it, i) => i === idx ? { ...it, depth: it.depth - 1 } : it));
   }
 
-  // ─── Move ────────────────────────────────────────────────
+  // ─── Move (group-aware: parent moves with all children) ──
   function moveUp(idx: number) {
     if (idx === 0) return;
+    const [groupStart, groupEnd] = getGroupRange(items, idx);
+    // Find the item/group before this group
+    let prevStart = groupStart - 1;
+    if (prevStart < 0) return;
+    // If the item above is a child of something above, find the topmost parent of that group
+    while (prevStart > 0 && items[prevStart].depth > items[groupStart].depth) prevStart--;
+    const [prevGroupStart] = getGroupRange(items, prevStart);
+
     const updated = [...items];
-    [updated[idx - 1], updated[idx]] = [updated[idx], updated[idx - 1]];
-    setItems(updated);
-  }
-  function moveDown(idx: number) {
-    if (idx >= items.length - 1) return;
-    const updated = [...items];
-    [updated[idx], updated[idx + 1]] = [updated[idx + 1], updated[idx]];
+    const group = updated.splice(groupStart, groupEnd - groupStart);
+    updated.splice(prevGroupStart, 0, ...group);
     setItems(updated);
   }
 
-  // ─── Drag ────────────────────────────────────────────────
+  function moveDown(idx: number) {
+    const [groupStart, groupEnd] = getGroupRange(items, idx);
+    if (groupEnd >= items.length) return;
+    // Find the group below
+    const [, nextGroupEnd] = getGroupRange(items, groupEnd);
+
+    const updated = [...items];
+    const group = updated.splice(groupStart, groupEnd - groupStart);
+    // Insert after the next group (adjust for removed items)
+    const insertAt = nextGroupEnd - (groupEnd - groupStart);
+    updated.splice(insertAt, 0, ...group);
+    setItems(updated);
+  }
+
+  // ─── Drag (group-aware) ──────────────────────────────────
   function handleDrop(idx: number) {
     if (dragIdx === null || dragIdx === idx) { setDragIdx(null); return; }
+    const [groupStart, groupEnd] = getGroupRange(items, dragIdx);
     const updated = [...items];
-    const [moved] = updated.splice(dragIdx, 1);
-    updated.splice(idx, 0, moved);
+    const group = updated.splice(groupStart, groupEnd - groupStart);
+    const adjustedIdx = idx > groupStart ? idx - (groupEnd - groupStart) : idx;
+    updated.splice(adjustedIdx, 0, ...group);
     setItems(updated);
     setDragIdx(null);
+  }
+
+  // ─── Collapse/Expand ─────────────────────────────────────
+  function toggleCollapse(id: string) {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function collapseAll() {
+    const parents = new Set<string>();
+    items.forEach((item, idx) => {
+      const [, end] = getGroupRange(items, idx);
+      if (end - idx > 1) parents.add(item.id); // has children
+    });
+    setCollapsed(parents);
+  }
+
+  function expandAll() {
+    setCollapsed(new Set());
   }
 
   // ─── Inline Edit ─────────────────────────────────────────
@@ -231,6 +281,37 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
 
   if (loading) return <div style={{ textAlign: 'center', padding: '4rem', color: '#9ca3af' }}>Loading…</div>;
 
+  // Build visibility map — hide children of collapsed parents
+  const visibleItems: { item: FlatItem; originalIdx: number }[] = [];
+  const collapsedParentStack: number[] = []; // tracks depth at which a collapse is active
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    // If we're inside a collapsed subtree, skip
+    if (collapsedParentStack.length > 0 && item.depth > collapsedParentStack[collapsedParentStack.length - 1]) {
+      continue;
+    }
+    // Clean up stack
+    while (collapsedParentStack.length > 0 && item.depth <= collapsedParentStack[collapsedParentStack.length - 1]) {
+      collapsedParentStack.pop();
+    }
+    visibleItems.push({ item, originalIdx: i });
+    // If this item is collapsed, push its depth
+    if (collapsed.has(item.id)) {
+      collapsedParentStack.push(item.depth);
+    }
+  }
+
+  const hasChildren = (idx: number) => {
+    const [, end] = getGroupRange(items, idx);
+    return end - idx > 1;
+  };
+
+  const childCount = (idx: number) => {
+    const [, end] = getGroupRange(items, idx);
+    return end - idx - 1;
+  };
+
   const typeBadge = (type: string) => {
     const c = type === 'mega' ? { bg: '#dbeafe', color: '#1d4ed8' } : { bg: '#f3f4f6', color: '#6b7280' };
     return (
@@ -239,6 +320,19 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
       </span>
     );
   };
+
+  const saveButton = (
+    <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+      {saved && <span style={{ color: '#0d9488', fontWeight: 600, fontSize: '0.85rem' }}>✓ Saved</span>}
+      {error && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ {error}</span>}
+      <button onClick={handleSave} disabled={saving} style={{
+        background: '#0d9488', color: '#fff', border: 'none', padding: '0.55rem 1.5rem',
+        borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', opacity: saving ? 0.6 : 1,
+      }}>
+        {saving ? 'Saving…' : 'Save Menu'}
+      </button>
+    </div>
+  );
 
   return (
     <div>
@@ -251,25 +345,32 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
             <span style={{ fontSize: '0.8rem', color: '#9ca3af', fontFamily: 'monospace' }}>{menu?.slug}</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          {saved && <span style={{ color: '#0d9488', fontWeight: 600, fontSize: '0.85rem' }}>✓ Saved</span>}
-          {error && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>⚠️ {error}</span>}
-          <button onClick={handleSave} disabled={saving} style={{
-            background: '#0d9488', color: '#fff', border: 'none', padding: '0.55rem 1.5rem',
-            borderRadius: 8, fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', opacity: saving ? 0.6 : 1,
-          }}>
-            {saving ? 'Saving…' : 'Save Menu'}
-          </button>
-        </div>
+        {saveButton}
+      </div>
+
+      {/* ── Collapse/Expand controls ──────────────────────── */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', justifyContent: 'flex-end' }}>
+        <button onClick={collapseAll} style={{
+          background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.3rem 0.8rem',
+          fontSize: '0.78rem', color: '#6b7280', cursor: 'pointer', fontWeight: 500,
+        }}>
+          ▶ Collapse All
+        </button>
+        <button onClick={expandAll} style={{
+          background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '0.3rem 0.8rem',
+          fontSize: '0.78rem', color: '#6b7280', cursor: 'pointer', fontWeight: 500,
+        }}>
+          ▼ Expand All
+        </button>
       </div>
 
       {/* ── Items List ──────────────────────────────────────── */}
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 14, overflow: 'hidden' }}>
         {items.length === 0 && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>No items yet. Click "+ Add item" below.</div>
+          <div style={{ padding: '3rem', textAlign: 'center', color: '#9ca3af' }}>No items yet. Click &quot;+ Add item&quot; below.</div>
         )}
 
-        {items.map((item, idx) => (
+        {visibleItems.map(({ item, originalIdx: idx }) => (
           <div
             key={item.id}
             draggable
@@ -285,7 +386,23 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
             }}
           >
             <span style={{ color: '#d1d5db', cursor: 'grab', userSelect: 'none', fontSize: '0.85rem' }}>⋮⋮</span>
-            {item.depth > 0 && <span style={{ color: '#e5e7eb', fontSize: '0.72rem' }}>└─</span>}
+
+            {/* Collapse toggle for items with children */}
+            {hasChildren(idx) ? (
+              <button
+                onClick={() => toggleCollapse(item.id)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '0.1rem 0.3rem',
+                  fontSize: '0.7rem', color: '#6b7280', borderRadius: 4,
+                  transition: 'background 0.15s',
+                }}
+                title={collapsed.has(item.id) ? 'Expand children' : 'Collapse children'}
+              >
+                {collapsed.has(item.id) ? `▶ (${childCount(idx)})` : '▼'}
+              </button>
+            ) : (
+              item.depth > 0 && <span style={{ color: '#e5e7eb', fontSize: '0.72rem' }}>└─</span>
+            )}
 
             {editingId === item.id ? (
               <div style={{ display: 'flex', gap: '0.5rem', flex: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -308,10 +425,15 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
                 <span style={{ fontWeight: 600, color: '#111', fontSize: '0.88rem', flex: 1 }}>{item.label}</span>
                 <span style={{ color: '#9ca3af', fontSize: '0.75rem', fontFamily: 'monospace', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.url || '—'}</span>
                 {typeBadge(item.type)}
+                {hasChildren(idx) && (
+                  <span style={{ fontSize: '0.68rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: 9999, background: '#f0fdfa', color: '#0f766e' }}>
+                    {childCount(idx)} items
+                  </span>
+                )}
                 <div style={{ display: 'flex', gap: '0.15rem' }}>
                   {[
-                    { fn: () => moveUp(idx), icon: '▲', tip: 'Move up' },
-                    { fn: () => moveDown(idx), icon: '▼', tip: 'Move down' },
+                    { fn: () => moveUp(idx), icon: '▲', tip: 'Move up (with children)' },
+                    { fn: () => moveDown(idx), icon: '▼', tip: 'Move down (with children)' },
                     { fn: () => indent(idx), icon: '→', tip: 'Nest' },
                     { fn: () => outdent(idx), icon: '←', tip: 'Unnest' },
                     { fn: () => startEdit(item), icon: '✏️', tip: 'Edit', color: '#0d9488' },
@@ -444,6 +566,14 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
         )}
       </div>
 
+      {/* ── Bottom Save Button ────────────────────────────── */}
+      <div style={{
+        display: 'flex', justifyContent: 'flex-end', marginTop: '1.25rem',
+        paddingTop: '1rem', borderTop: '1px solid #e5e7eb',
+      }}>
+        {saveButton}
+      </div>
+
       {/* ── Help ────────────────────────────────────────────── */}
       <div style={{
         background: '#f0fdfa', border: '1px solid #99f6e4', borderRadius: 12,
@@ -451,6 +581,8 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
       }}>
         <strong style={{ color: '#0f766e' }}>💡 Tips</strong>
         <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem' }}>
+          <li><strong>▲ / ▼</strong> moves an item <strong>with all its children</strong> as a group.</li>
+          <li><strong>▶ / ▼</strong> next to a parent collapses/expands its children.</li>
           <li><strong>Drag</strong> items to reorder. Use <strong>→ / ←</strong> to nest/unnest.</li>
           <li>Set type to <strong>Mega Menu</strong> for items that open a dropdown panel on hover.</li>
           <li>Nest items under a Mega Menu parent — they appear as links in the dropdown.</li>
