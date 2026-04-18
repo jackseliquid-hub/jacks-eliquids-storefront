@@ -459,7 +459,7 @@ export async function getBlogBySlug(slug: string): Promise<Blog | undefined> {
 }
 
 export async function updateBlog(id: string, data: Partial<Blog>): Promise<void> {
-  const dbData: Record<string, unknown> = { updated_at: Date.now() };
+  const dbData: Record<string, unknown> = {};
   if (data.slug        !== undefined) dbData.slug         = data.slug;
   if (data.title       !== undefined) dbData.title        = data.title;
   if (data.content     !== undefined) dbData.content      = data.content;

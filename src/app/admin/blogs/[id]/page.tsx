@@ -46,7 +46,7 @@ export default function EditBlogPage({
 
   const showToast = useCallback((msg: string, err = false) => {
     setToast({ msg, err });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), err ? 10000 : 3000);
   }, []);
 
   function setField<K extends keyof Blog>(key: K, value: Blog[K]) {
@@ -244,8 +244,9 @@ export default function EditBlogPage({
       </div>
 
       {toast && (
-        <div className={`${styles.toast} ${toast.err ? styles.toastError : ''}`}>
-          {toast.msg}
+        <div className={`${styles.toast} ${toast.err ? styles.toastError : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ flex: 1 }}>{toast.msg}</span>
+          <button onClick={() => setToast(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px', opacity: 0.8 }}>✕</button>
         </div>
       )}
 
