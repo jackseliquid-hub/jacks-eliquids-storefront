@@ -232,6 +232,14 @@ export default function EditBlogPage({
            onChange={(seo) => setField('seo', seo)}
            titlePlaceholder={blog.title ? `${blog.title} | Jacks` : undefined}
            descPlaceholder={blog.content ? blog.content.replace(/<[^>]*>?/gm, '').slice(0, 150) + '...' : undefined}
+           aiContext={{
+             name: blog.title || '',
+             category: blog.category || '',
+             brand: 'Jacks E-Liquids',
+             price: '',
+             description: blog.content ? blog.content.replace(/<[^>]*>?/gm, '').slice(0, 500) : '',
+             slug: blog.slug || '',
+           }}
         />
       </div>
 
