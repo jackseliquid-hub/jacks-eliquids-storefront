@@ -470,7 +470,11 @@ export async function updateBlog(id: string, data: Partial<Blog>): Promise<void>
   if (data.tags        !== undefined) dbData.tags         = data.tags;
   if (data.publishedAt !== undefined) dbData.published_at = data.publishedAt;
   if (data.seo         !== undefined) dbData.seo          = data.seo;
-  if (data.createdAt   !== undefined) dbData.created_at   = Number(data.createdAt);
+  if (data.createdAt   !== undefined) {
+    // Handle both ISO strings and epoch numbers
+    const ts = typeof data.createdAt === 'string' ? new Date(data.createdAt).getTime() : Number(data.createdAt);
+    dbData.created_at = isNaN(ts) ? Date.now() : ts;
+  }
 
   const { error } = await supabase.from('blogs').upsert({ id, ...dbData }, { onConflict: 'id' });
   if (error) throw error;

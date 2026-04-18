@@ -74,9 +74,10 @@ export default function AddBlogPage() {
       setTimeout(() => {
           router.push('/admin/blogs');
       }, 1000);
-    } catch (e) {
-      showToast('Save failed — check console', true);
-      console.error(e);
+    } catch (e: any) {
+      const msg = e?.message || e?.details || String(e);
+      showToast('Save failed: ' + msg, true);
+      console.error('Blog save error:', e);
     } finally {
       setSaving(false);
     }
