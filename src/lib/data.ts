@@ -96,6 +96,7 @@ export interface CategoryItem {
   id: string;
   name: string;
   tags?: string[];
+  image_url?: string | null;
 }
 
 // ─── Row mappers (snake_case DB → camelCase TypeScript) ──────────────────────
@@ -326,7 +327,7 @@ export async function getCategoriesWithTags(): Promise<CategoryItem[]> {
   try {
     const { data, error } = await supabase
       .from('categories')
-      .select('id, name, tags')
+      .select('id, name, tags, image_url')
       .order('name', { ascending: true });
 
     if (error) throw error;
@@ -334,6 +335,7 @@ export async function getCategoriesWithTags(): Promise<CategoryItem[]> {
       id: row.id,
       name: row.name,
       tags: row.tags || [],
+      image_url: row.image_url || null,
     }));
   } catch (err) {
     console.error('Supabase getCategoriesWithTags:', err);
@@ -343,6 +345,11 @@ export async function getCategoriesWithTags(): Promise<CategoryItem[]> {
 
 export async function updateCategoryTags(id: string, tags: string[]): Promise<void> {
   const { error } = await supabase.from('categories').update({ tags }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateCategoryImage(id: string, image_url: string | null): Promise<void> {
+  const { error } = await supabase.from('categories').update({ image_url }).eq('id', id);
   if (error) throw error;
 }
 

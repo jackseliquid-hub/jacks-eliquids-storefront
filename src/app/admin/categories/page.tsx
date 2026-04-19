@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getCategoriesWithTags, saveCategories, updateCategoryTags, getTags, CategoryItem, TaxonomyItem } from '@/lib/data';
+import { getCategoriesWithTags, saveCategories, updateCategoryTags, updateCategoryImage, getTags, CategoryItem, TaxonomyItem } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import styles from '../admin.module.css';
@@ -15,6 +15,8 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
+  const [editingImageId, setEditingImageId] = useState<string | null>(null);
+  const [imageInput, setImageInput] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -87,6 +89,23 @@ export default function CategoriesPage() {
     }
   }
 
+  function openImageEdit(cat: CategoryItem) {
+    setEditingImageId(cat.id);
+    setImageInput(cat.image_url || '');
+  }
+
+  async function handleSaveImage(catId: string) {
+    try {
+      const url = imageInput.trim() || null;
+      await updateCategoryImage(catId, url);
+      setCategories(prev => prev.map(c => c.id === catId ? { ...c, image_url: url } : c));
+      setEditingImageId(null);
+      showToast('Image updated');
+    } catch {
+      showToast('Failed to update image');
+    }
+  }
+
   return (
     <>
       <div className={styles.pageHeader}>
@@ -123,6 +142,10 @@ export default function CategoriesPage() {
                     <div key={cat.id}>
                       <div className={styles.taxonomyItem}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                          {cat.image_url && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={cat.image_url} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
+                          )}
                           <span className={styles.taxonomyName}>{cat.name}</span>
                           {(cat.tags && cat.tags.length > 0) && (
                             <span style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 500 }}>
@@ -131,6 +154,18 @@ export default function CategoriesPage() {
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => editingImageId === cat.id ? setEditingImageId(null) : openImageEdit(cat)}
+                            style={{
+                              background: editingImageId === cat.id ? '#fef3c7' : 'none', border: '1px solid',
+                              borderColor: editingImageId === cat.id ? '#f59e0b' : '#e5e7eb',
+                              borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: '0.78rem',
+                              cursor: 'pointer', color: editingImageId === cat.id ? '#92400e' : '#6b7280',
+                              fontWeight: editingImageId === cat.id ? 600 : 400,
+                            }}
+                          >
+                            🖼️ Image
+                          </button>
                           <button
                             onClick={() => setEditingTagsId(isEditingTags ? null : cat.id)}
                             style={{
@@ -166,6 +201,33 @@ export default function CategoriesPage() {
                           </button>
                         </div>
                       </div>
+                      {/* Image URL panel */}
+                      {editingImageId === cat.id && (
+                        <div style={{
+                          padding: '0.6rem 1.5rem 0.8rem', background: '#fffbeb',
+                          borderBottom: '1px solid #fde68a',
+                          display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap',
+                        }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#92400e' }}>Image URL:</span>
+                          <input
+                            value={imageInput}
+                            onChange={e => setImageInput(e.target.value)}
+                            placeholder="https://example.com/category-image.png"
+                            style={{ flex: 1, minWidth: 200, padding: '0.35rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.82rem', fontFamily: 'monospace' }}
+                          />
+                          {imageInput && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={imageInput} alt="preview" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, border: '1px solid #e5e7eb' }} />
+                          )}
+                          <button onClick={() => handleSaveImage(cat.id)} style={{
+                            background: '#f59e0b', color: '#fff', border: 'none', padding: '0.3rem 0.7rem',
+                            borderRadius: 6, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                          }}>Save</button>
+                          <button onClick={() => setEditingImageId(null)} style={{
+                            background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem',
+                          }}>Cancel</button>
+                        </div>
+                      )}
                       {/* Tag assignment panel */}
                       {isEditingTags && (
                         <div style={{

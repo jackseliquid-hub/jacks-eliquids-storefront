@@ -14,11 +14,12 @@ export default function CategoriesPage() {
   useEffect(() => {
     Promise.all([
       getCategoriesWithTags(),
-      supabase.from('products').select('category').eq('status', 'active').range(0, 9999),
+      supabase.from('products').select('category, status').range(0, 9999),
     ]).then(([cats, { data: prods }]) => {
       setCategories(cats);
       const counts = new Map<string, number>();
       for (const p of prods || []) {
+        if (p.status === 'draft') continue; // skip drafts
         const cat = p.category || '';
         if (cat) counts.set(cat, (counts.get(cat) || 0) + 1);
       }
@@ -27,7 +28,7 @@ export default function CategoriesPage() {
     });
   }, []);
 
-  // Only show categories that have at least 1 active product
+  // Only show categories that have at least 1 product
   const visibleCategories = useMemo(() => {
     return categories.filter(c => (productCounts.get(c.name) || 0) > 0);
   }, [categories, productCounts]);
@@ -76,11 +77,20 @@ export default function CategoriesPage() {
                 className={styles.card}
               >
                 <div className={styles.cardInner}>
-                  <div className={styles.iconPlaceholder}>
-                    <span className={styles.iconLetter}>
-                      {cat.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                  {cat.image_url ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={cat.image_url}
+                      alt={cat.name}
+                      className={styles.catImage}
+                    />
+                  ) : (
+                    <div className={styles.iconPlaceholder}>
+                      <span className={styles.iconLetter}>
+                        {cat.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                   <h2 className={styles.catName}>{cat.name}</h2>
                   <span className={styles.catCount}>{count} product{count !== 1 ? 's' : ''}</span>
                 </div>
