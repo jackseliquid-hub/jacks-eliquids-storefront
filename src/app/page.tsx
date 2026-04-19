@@ -191,34 +191,18 @@ function HomeInner() {
           </section>
         )}
 
-        {/* Category Bar */}
-        <div className={styles.categoryBar}>
-          <div className={`container ${styles.categoryScroll}`}>
-            <button
-              className={`${styles.categoryPill} ${activeCategory === 'All' && !tagParam && !brandParam ? styles.active : ''}`}
-              onClick={() => { setActiveCategory('All'); setActiveTag(null); window.history.replaceState(null, '', '/'); }}
-            >
-              All
-            </button>
-            {categories.map((cat, index) => (
-              <button
-                key={cat || `cat-${index}`}
-                className={`${styles.categoryPill} ${activeCategory === cat && !(tagParam && !catParam) && !brandParam ? styles.active : ''}`}
-                onClick={() => { setActiveCategory(cat); setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(cat)}`); }}
-              >
-                {cat}
-              </button>
-            ))}
+        {/* Products Grid */}
+        <section className={`container ${styles.productsSection}`}>
+          <div className={styles.sectionHeader} style={{ marginBottom: '0.25rem' }}>
+            <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>{filterTitle}</h2>
+            <span className={styles.viewAll} style={{ cursor: 'default' }}>
+              {featuredProducts.length} Product{featuredProducts.length !== 1 ? 's' : ''}
+            </span>
           </div>
-        </div>
 
-        {/* Tag Sub-filter Pills — only when a category is selected and has tags */}
-        {activeCategory !== 'All' && !brandParam && !(tagParam && !catParam) && categoryTags.length > 0 && (
-          <div style={{
-            background: 'rgba(255,255,255,0.95)', borderBottom: '1px solid var(--border-color)',
-            padding: '0.25rem 0',
-          }}>
-            <div className={`container ${styles.tagFilterWrap}`}>
+          {/* Tag Sub-filter Pills — only when a category is selected and has tags */}
+          {activeCategory !== 'All' && !brandParam && !(tagParam && !catParam) && categoryTags.length > 0 && (
+            <div className={`${styles.tagFilterWrap}`} style={{ marginBottom: '0.75rem' }}>
               <button
                 className={`${styles.tagPill} ${!activeTag ? styles.active : ''}`}
                 onClick={() => { setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}`); }}
@@ -235,17 +219,7 @@ function HomeInner() {
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Products Grid */}
-        <section className={`container ${styles.productsSection}`}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>{filterTitle}</h2>
-            <span className={styles.viewAll} style={{ cursor: 'default' }}>
-              {featuredProducts.length} Product{featuredProducts.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+          )}
 
           {featuredProducts.length === 0 && (
             <div style={{ textAlign: 'center', padding: '4rem', color: '#9ca3af', fontSize: '1.1rem' }}>
