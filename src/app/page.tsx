@@ -216,22 +216,20 @@ function HomeInner() {
         {activeCategory !== 'All' && !brandParam && !(tagParam && !catParam) && categoryTags.length > 0 && (
           <div style={{
             background: 'rgba(255,255,255,0.95)', borderBottom: '1px solid var(--border-color)',
-            padding: '0.5rem 0',
+            padding: '0.25rem 0',
           }}>
-            <div className={`container ${styles.categoryScroll}`}>
+            <div className={`container ${styles.tagFilterWrap}`}>
               <button
-                className={`${styles.categoryPill} ${!activeTag ? styles.active : ''}`}
+                className={`${styles.tagPill} ${!activeTag ? styles.active : ''}`}
                 onClick={() => { setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}`); }}
-                style={{ fontSize: '0.75rem', padding: '0.3rem 0.85rem' }}
               >
                 All {activeCategory}
               </button>
               {categoryTags.map(tag => (
                 <button
                   key={tag}
-                  className={`${styles.categoryPill} ${activeTag === tag ? styles.active : ''}`}
+                  className={`${styles.tagPill} ${activeTag === tag ? styles.active : ''}`}
                   onClick={() => { setActiveTag(tag); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}&tag=${encodeURIComponent(tag)}`); }}
-                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.85rem' }}
                 >
                   {tag}
                 </button>

@@ -152,6 +152,48 @@
   font-weight: 600;
 }
 
+/* Tag sub-filter pill row — wraps instead of horizontal scroll */
+.tagFilterWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.6rem 0;
+}
+
+.tagPill {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid #e5e5e5;
+  color: #555;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 400;
+  padding: 0.35rem 1rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.tagPill:hover {
+  border-color: #333;
+  color: #333;
+}
+
+.tagPill.active {
+  background: var(--deep-teal);
+  border-color: var(--deep-teal);
+  color: #fff;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .tagPill {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.8rem;
+  }
+}
+
 .logo {
   font-size: 1.25rem;
   font-weight: 700;
