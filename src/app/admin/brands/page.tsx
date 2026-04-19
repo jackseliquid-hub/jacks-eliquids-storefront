@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getBrands, addBrand, deleteBrand, updateBrandTags, getTags, TaxonomyItem } from '@/lib/data';
+import { getBrands, addBrand, deleteBrand, updateBrandTags, updateBrandLogo, getTags, TaxonomyItem } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import styles from '../admin.module.css';
@@ -15,6 +15,8 @@ export default function BrandsPage() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
+  const [editingLogoId, setEditingLogoId] = useState<string | null>(null);
+  const [logoInput, setLogoInput] = useState('');
 
   useEffect(() => {
     Promise.all([
@@ -85,6 +87,23 @@ export default function BrandsPage() {
     }
   }
 
+  function openLogoEdit(brand: TaxonomyItem) {
+    setEditingLogoId(brand.id);
+    setLogoInput(brand.logo_url || '');
+  }
+
+  async function handleSaveLogo(brandId: string) {
+    try {
+      const url = logoInput.trim() || null;
+      await updateBrandLogo(brandId, url);
+      setBrands(prev => prev.map(b => b.id === brandId ? { ...b, logo_url: url } : b));
+      setEditingLogoId(null);
+      showToast('Logo updated');
+    } catch {
+      showToast('Failed to update logo');
+    }
+  }
+
   return (
     <>
       <div className={styles.pageHeader}>
@@ -126,6 +145,10 @@ export default function BrandsPage() {
                     <div key={brand.id}>
                       <div className={styles.taxonomyItem}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                          {brand.logo_url && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={brand.logo_url} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />
+                          )}
                           <span className={styles.taxonomyName}>{brand.name}</span>
                           {(brand.tags && brand.tags.length > 0) && (
                             <span style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 500 }}>
@@ -134,6 +157,18 @@ export default function BrandsPage() {
                           )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => editingLogoId === brand.id ? setEditingLogoId(null) : openLogoEdit(brand)}
+                            style={{
+                              background: editingLogoId === brand.id ? '#fef3c7' : 'none', border: '1px solid',
+                              borderColor: editingLogoId === brand.id ? '#f59e0b' : '#e5e7eb',
+                              borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: '0.78rem',
+                              cursor: 'pointer', color: editingLogoId === brand.id ? '#92400e' : '#6b7280',
+                              fontWeight: editingLogoId === brand.id ? 600 : 400,
+                            }}
+                          >
+                            🖼️ Logo
+                          </button>
                           <button
                             onClick={() => setEditingTagsId(isEditingTags ? null : brand.id)}
                             style={{
@@ -169,6 +204,33 @@ export default function BrandsPage() {
                           </button>
                         </div>
                       </div>
+                      {/* Logo URL panel */}
+                      {editingLogoId === brand.id && (
+                        <div style={{
+                          padding: '0.6rem 1.5rem 0.8rem', background: '#fffbeb',
+                          borderBottom: '1px solid #fde68a',
+                          display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap',
+                        }}>
+                          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#92400e' }}>Logo URL:</span>
+                          <input
+                            value={logoInput}
+                            onChange={e => setLogoInput(e.target.value)}
+                            placeholder="https://example.com/logo.png"
+                            style={{ flex: 1, minWidth: 200, padding: '0.35rem 0.6rem', border: '1.5px solid #e5e7eb', borderRadius: 6, fontSize: '0.82rem', fontFamily: 'monospace' }}
+                          />
+                          {logoInput && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={logoInput} alt="preview" style={{ width: 36, height: 36, objectFit: 'contain', borderRadius: 4, border: '1px solid #e5e7eb' }} />
+                          )}
+                          <button onClick={() => handleSaveLogo(brand.id)} style={{
+                            background: '#f59e0b', color: '#fff', border: 'none', padding: '0.3rem 0.7rem',
+                            borderRadius: 6, fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                          }}>Save</button>
+                          <button onClick={() => setEditingLogoId(null)} style={{
+                            background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '0.8rem',
+                          }}>Cancel</button>
+                        </div>
+                      )}
                       {/* Tag assignment panel */}
                       {isEditingTags && (
                         <div style={{

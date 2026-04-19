@@ -89,6 +89,7 @@ export interface TaxonomyItem {
   createdAt?: number;
   seo?: SeoMeta;
   tags?: string[];
+  logo_url?: string | null;
 }
 
 export interface CategoryItem {
@@ -404,6 +405,7 @@ export async function getBrands(): Promise<TaxonomyItem[]> {
       name:      row.name,
       createdAt: row.created_at,
       tags:      row.tags || [],
+      logo_url:  row.logo_url || null,
     }));
   } catch (err) {
     console.error('Supabase getBrands:', err);
@@ -421,6 +423,11 @@ export async function addBrand(name: string): Promise<void> {
 
 export async function updateBrandTags(id: string, tags: string[]): Promise<void> {
   const { error } = await supabase.from('brands').update({ tags }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateBrandLogo(id: string, logo_url: string | null): Promise<void> {
+  const { error } = await supabase.from('brands').update({ logo_url }).eq('id', id);
   if (error) throw error;
 }
 
