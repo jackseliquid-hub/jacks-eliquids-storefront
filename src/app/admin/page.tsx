@@ -73,8 +73,9 @@ export default function AdminProductsPage() {
         const n = p.name || '';
         const s = p.sku || '';
         const i = p.id || '';
+        const st = p.status || 'active';
         const varSkuMatch = p.variations?.some(v => v.sku?.toLowerCase().includes(q));
-        return n.toLowerCase().includes(q) || s.toLowerCase().includes(q) || i.toLowerCase().includes(q) || varSkuMatch;
+        return n.toLowerCase().includes(q) || s.toLowerCase().includes(q) || i.toLowerCase().includes(q) || st.toLowerCase().includes(q) || varSkuMatch;
       });
     }
     // Missing data filters
@@ -209,15 +210,16 @@ export default function AdminProductsPage() {
               {brands.map(b => <option key={b} value={b}>{b}</option>)}
             </select>
 
-            <div className={styles.searchBar} style={{ margin: 0, borderRadius: 20 }}>
-              <span className={styles.searchIcon}>🔍</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #e5e5e5', borderRadius: 20, padding: '0.25rem 0.75rem', background: '#fff' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#86868b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
               <input
-                className={styles.searchInput}
-                style={{ padding: '0.4rem', fontSize: '0.85rem', width: 180, background: 'transparent' }}
                 type="text"
-                placeholder="Search by name or SKU…"
+                placeholder="Search name, SKU or status…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                style={{ border: 'none', outline: 'none', padding: '0.35rem 0', fontSize: '0.85rem', width: 200, background: 'transparent', fontFamily: 'var(--font-sans)' }}
               />
             </div>
           </div>
@@ -293,12 +295,14 @@ export default function AdminProductsPage() {
                     <React.Fragment key={product.id || `prod-${index}`}>
                     <tr style={{ opacity: savingId === product.id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
                       <td>
+                        <Link href={`/admin/products/${product.id}`} title="Edit product" style={{ display: 'block', cursor: 'pointer' }}>
                         {product.image ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={product.image} alt={product.name} className={styles.thumb} />
                         ) : (
                           <div className={styles.thumbPlaceholder}>📦</div>
                         )}
+                        </Link>
                       </td>
                       <td style={{ fontWeight: 500, maxWidth: 300 }}>
                         <div style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>

@@ -115,9 +115,20 @@
 }
 
 .letterGrid {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  column-count: 3;
+  column-gap: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .letterGrid {
+    column-count: 2;
+  }
+}
+
+@media (max-width: 600px) {
+  .letterGrid {
+    column-count: 1;
+  }
 }
 
 .letterGroup {
@@ -126,6 +137,7 @@
   align-items: baseline;
   padding: 0.5rem 0;
   border-bottom: 1px solid #f3f4f6;
+  break-inside: avoid;
 }
 
 .letter {
