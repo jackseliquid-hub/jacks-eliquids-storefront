@@ -1,31 +1,34 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getBrands, addBrand, deleteBrand, TaxonomyItem } from '@/lib/data';
+import { getBrands, addBrand, deleteBrand, updateBrandTags, getTags, TaxonomyItem } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import styles from '../admin.module.css';
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState<TaxonomyItem[]>([]);
+  const [allTags, setAllTags] = useState<TaxonomyItem[]>([]);
   const [productBrands, setProductBrands] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
       getBrands(),
+      getTags(),
       supabase.from('products').select('brand').range(0, 9999),
-    ]).then(([b, { data: prods }]) => {
+    ]).then(([b, tags, { data: prods }]) => {
       setBrands(b);
+      setAllTags(tags);
       setProductBrands((prods || []).map(p => p.brand || '').filter(Boolean));
       setLoading(false);
     });
   }, []);
 
-  // Count products per brand
   const countMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const brand of productBrands) {
@@ -67,6 +70,21 @@ export default function BrandsPage() {
     showToast(`"${brand.name}" removed`);
   }
 
+  async function handleToggleTag(brandId: string, tagName: string) {
+    const brand = brands.find(b => b.id === brandId);
+    if (!brand) return;
+    const currentTags = brand.tags || [];
+    const newTags = currentTags.includes(tagName)
+      ? currentTags.filter(t => t !== tagName)
+      : [...currentTags, tagName];
+    try {
+      await updateBrandTags(brandId, newTags);
+      setBrands(prev => prev.map(b => b.id === brandId ? { ...b, tags: newTags } : b));
+    } catch {
+      showToast('Failed to update tags');
+    }
+  }
+
   return (
     <>
       <div className={styles.pageHeader}>
@@ -103,34 +121,87 @@ export default function BrandsPage() {
                 )}
                 {brands.map(brand => {
                   const count = countMap.get(brand.name) || 0;
+                  const isEditingTags = editingTagsId === brand.id;
                   return (
-                    <div key={brand.id} className={styles.taxonomyItem}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                        <span className={styles.taxonomyName}>{brand.name}</span>
+                    <div key={brand.id}>
+                      <div className={styles.taxonomyItem}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                          <span className={styles.taxonomyName}>{brand.name}</span>
+                          {(brand.tags && brand.tags.length > 0) && (
+                            <span style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 500 }}>
+                              {brand.tags.length} tag{brand.tags.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => setEditingTagsId(isEditingTags ? null : brand.id)}
+                            style={{
+                              background: isEditingTags ? '#f0fdfa' : 'none', border: '1px solid',
+                              borderColor: isEditingTags ? '#0d9488' : '#e5e7eb',
+                              borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: '0.78rem',
+                              cursor: 'pointer', color: isEditingTags ? '#0f766e' : '#6b7280',
+                              fontWeight: isEditingTags ? 600 : 400,
+                            }}
+                          >
+                            🏷️ Tags
+                          </button>
+                          <Link
+                            href={`/admin?brand=${encodeURIComponent(brand.name)}`}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              minWidth: '36px', padding: '0.2rem 0.6rem',
+                              background: count > 0 ? '#e8f8f0' : '#f5f5f7',
+                              color: count > 0 ? '#1c8f55' : '#999',
+                              borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600,
+                              textDecoration: 'none',
+                            }}
+                            title={count > 0 ? `View ${count} products by "${brand.name}"` : 'No products'}
+                          >
+                            {count}
+                          </Link>
+                          <button
+                            className={`${styles.btn} ${styles.btnDanger}`}
+                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
+                            onClick={() => handleDelete(brand)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <Link
-                          href={`/admin?brand=${encodeURIComponent(brand.name)}`}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            minWidth: '36px', padding: '0.2rem 0.6rem',
-                            background: count > 0 ? '#e8f8f0' : '#f5f5f7',
-                            color: count > 0 ? '#1c8f55' : '#999',
-                            borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600,
-                            textDecoration: 'none',
-                          }}
-                          title={count > 0 ? `View ${count} products by "${brand.name}"` : 'No products'}
-                        >
-                          {count}
-                        </Link>
-                        <button
-                          className={`${styles.btn} ${styles.btnDanger}`}
-                          style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
-                          onClick={() => handleDelete(brand)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {/* Tag assignment panel */}
+                      {isEditingTags && (
+                        <div style={{
+                          padding: '0.6rem 1.5rem 0.8rem', background: '#fafafa',
+                          borderBottom: '1px solid #f0f0f0',
+                          display: 'flex', flexWrap: 'wrap', gap: '0.35rem',
+                        }}>
+                          {allTags.length === 0 && (
+                            <span style={{ fontSize: '0.82rem', color: '#9ca3af' }}>No tags created yet. Add tags first.</span>
+                          )}
+                          {allTags.map(tag => {
+                            const isActive = (brand.tags || []).includes(tag.name);
+                            return (
+                              <button
+                                key={tag.id}
+                                onClick={() => handleToggleTag(brand.id, tag.name)}
+                                style={{
+                                  padding: '0.25rem 0.7rem', borderRadius: 9999,
+                                  fontSize: '0.78rem', cursor: 'pointer',
+                                  border: '1px solid',
+                                  borderColor: isActive ? '#0d9488' : '#e5e7eb',
+                                  background: isActive ? '#0d9488' : '#fff',
+                                  color: isActive ? '#fff' : '#555',
+                                  fontWeight: isActive ? 600 : 400,
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                {isActive ? '✓ ' : ''}{tag.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

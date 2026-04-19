@@ -1,32 +1,34 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getCategories, saveCategories } from '@/lib/data';
+import { getCategoriesWithTags, saveCategories, updateCategoryTags, getTags, CategoryItem, TaxonomyItem } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import styles from '../admin.module.css';
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [allTags, setAllTags] = useState<TaxonomyItem[]>([]);
   const [productCats, setProductCats] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
-      getCategories(),
-      // Lightweight query — just fetch category column for all products
+      getCategoriesWithTags(),
+      getTags(),
       supabase.from('products').select('category').range(0, 9999),
-    ]).then(([cats, { data: prods }]) => {
-      setCategories([...cats].sort());
+    ]).then(([cats, tags, { data: prods }]) => {
+      setCategories(cats);
+      setAllTags(tags);
       setProductCats((prods || []).map(p => p.category || '').filter(Boolean));
       setLoading(false);
     });
   }, []);
 
-  // Count products per category
   const countMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const cat of productCats) {
@@ -44,12 +46,13 @@ export default function CategoriesPage() {
 
   async function handleAdd() {
     const name = newName.trim();
-    if (!name || categories.includes(name)) return;
-    const updated = [...categories, name].sort();
+    if (!name || categories.some(c => c.name === name)) return;
+    const updated = [...categories.map(c => c.name), name].sort();
     setSaving(true);
     try {
       await saveCategories(updated);
-      setCategories(updated);
+      const refreshed = await getCategoriesWithTags();
+      setCategories(refreshed);
       setNewName('');
       showToast(`"${name}" added`);
     } finally {
@@ -57,16 +60,31 @@ export default function CategoriesPage() {
     }
   }
 
-  async function handleDelete(cat: string) {
-    const count = countMap.get(cat) || 0;
+  async function handleDelete(cat: CategoryItem) {
+    const count = countMap.get(cat.name) || 0;
     const msg = count > 0
-      ? `Delete category "${cat}"? ${count} product${count > 1 ? 's' : ''} will lose this category.`
-      : `Delete category "${cat}"?`;
+      ? `Delete category "${cat.name}"? ${count} product${count > 1 ? 's' : ''} will lose this category.`
+      : `Delete category "${cat.name}"?`;
     if (!confirm(msg)) return;
-    const updated = categories.filter(c => c !== cat);
+    const updated = categories.filter(c => c.id !== cat.id).map(c => c.name);
     await saveCategories(updated);
-    setCategories(updated);
-    showToast(`"${cat}" removed`);
+    setCategories(prev => prev.filter(c => c.id !== cat.id));
+    showToast(`"${cat.name}" removed`);
+  }
+
+  async function handleToggleTag(catId: string, tagName: string) {
+    const cat = categories.find(c => c.id === catId);
+    if (!cat) return;
+    const currentTags = cat.tags || [];
+    const newTags = currentTags.includes(tagName)
+      ? currentTags.filter(t => t !== tagName)
+      : [...currentTags, tagName];
+    try {
+      await updateCategoryTags(catId, newTags);
+      setCategories(prev => prev.map(c => c.id === catId ? { ...c, tags: newTags } : c));
+    } catch {
+      showToast('Failed to update tags');
+    }
   }
 
   return (
@@ -99,35 +117,88 @@ export default function CategoriesPage() {
 
               <div className={styles.taxonomyList}>
                 {categories.map(cat => {
-                  const count = countMap.get(cat) || 0;
+                  const count = countMap.get(cat.name) || 0;
+                  const isEditingTags = editingTagsId === cat.id;
                   return (
-                    <div key={cat} className={styles.taxonomyItem}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-                        <span className={styles.taxonomyName}>{cat}</span>
+                    <div key={cat.id}>
+                      <div className={styles.taxonomyItem}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                          <span className={styles.taxonomyName}>{cat.name}</span>
+                          {(cat.tags && cat.tags.length > 0) && (
+                            <span style={{ fontSize: '0.72rem', color: '#0f766e', fontWeight: 500 }}>
+                              {cat.tags.length} tag{cat.tags.length > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <button
+                            onClick={() => setEditingTagsId(isEditingTags ? null : cat.id)}
+                            style={{
+                              background: isEditingTags ? '#f0fdfa' : 'none', border: '1px solid',
+                              borderColor: isEditingTags ? '#0d9488' : '#e5e7eb',
+                              borderRadius: 6, padding: '0.25rem 0.6rem', fontSize: '0.78rem',
+                              cursor: 'pointer', color: isEditingTags ? '#0f766e' : '#6b7280',
+                              fontWeight: isEditingTags ? 600 : 400,
+                            }}
+                          >
+                            🏷️ Tags
+                          </button>
+                          <Link
+                            href={`/admin?cat=${encodeURIComponent(cat.name)}`}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              minWidth: '36px', padding: '0.2rem 0.6rem',
+                              background: count > 0 ? '#e8f8f0' : '#f5f5f7',
+                              color: count > 0 ? '#1c8f55' : '#999',
+                              borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600,
+                              textDecoration: 'none',
+                            }}
+                            title={count > 0 ? `View ${count} products in "${cat.name}"` : 'No products'}
+                          >
+                            {count}
+                          </Link>
+                          <button
+                            className={`${styles.btn} ${styles.btnDanger}`}
+                            style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
+                            onClick={() => handleDelete(cat)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <Link
-                          href={`/admin?cat=${encodeURIComponent(cat)}`}
-                          style={{
-                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                            minWidth: '36px', padding: '0.2rem 0.6rem',
-                            background: count > 0 ? '#e8f8f0' : '#f5f5f7',
-                            color: count > 0 ? '#1c8f55' : '#999',
-                            borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600,
-                            textDecoration: 'none',
-                          }}
-                          title={count > 0 ? `View ${count} products in "${cat}"` : 'No products'}
-                        >
-                          {count}
-                        </Link>
-                        <button
-                          className={`${styles.btn} ${styles.btnDanger}`}
-                          style={{ padding: '0.3rem 0.75rem', fontSize: '0.8rem' }}
-                          onClick={() => handleDelete(cat)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {/* Tag assignment panel */}
+                      {isEditingTags && (
+                        <div style={{
+                          padding: '0.6rem 1.5rem 0.8rem', background: '#fafafa',
+                          borderBottom: '1px solid #f0f0f0',
+                          display: 'flex', flexWrap: 'wrap', gap: '0.35rem',
+                        }}>
+                          {allTags.length === 0 && (
+                            <span style={{ fontSize: '0.82rem', color: '#9ca3af' }}>No tags created yet. Add tags first.</span>
+                          )}
+                          {allTags.map(tag => {
+                            const isActive = (cat.tags || []).includes(tag.name);
+                            return (
+                              <button
+                                key={tag.id}
+                                onClick={() => handleToggleTag(cat.id, tag.name)}
+                                style={{
+                                  padding: '0.25rem 0.7rem', borderRadius: 9999,
+                                  fontSize: '0.78rem', cursor: 'pointer',
+                                  border: '1px solid',
+                                  borderColor: isActive ? '#0d9488' : '#e5e7eb',
+                                  background: isActive ? '#0d9488' : '#fff',
+                                  color: isActive ? '#fff' : '#555',
+                                  fontWeight: isActive ? 600 : 400,
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                {isActive ? '✓ ' : ''}{tag.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

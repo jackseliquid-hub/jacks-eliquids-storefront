@@ -88,6 +88,13 @@ export interface TaxonomyItem {
   name: string;
   createdAt?: number;
   seo?: SeoMeta;
+  tags?: string[];
+}
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  tags?: string[];
 }
 
 // ─── Row mappers (snake_case DB → camelCase TypeScript) ──────────────────────
@@ -314,6 +321,30 @@ export async function getCategories(): Promise<string[]> {
   }
 }
 
+export async function getCategoriesWithTags(): Promise<CategoryItem[]> {
+  try {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('id, name, tags')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return (data || []).map(row => ({
+      id: row.id,
+      name: row.name,
+      tags: row.tags || [],
+    }));
+  } catch (err) {
+    console.error('Supabase getCategoriesWithTags:', err);
+    return [];
+  }
+}
+
+export async function updateCategoryTags(id: string, tags: string[]): Promise<void> {
+  const { error } = await supabase.from('categories').update({ tags }).eq('id', id);
+  if (error) throw error;
+}
+
 export async function saveCategories(categories: string[]): Promise<void> {
   // In Supabase we store categories as individual rows — upsert each
   const rows = categories.map(name => ({
@@ -372,6 +403,7 @@ export async function getBrands(): Promise<TaxonomyItem[]> {
       id:        row.id,
       name:      row.name,
       createdAt: row.created_at,
+      tags:      row.tags || [],
     }));
   } catch (err) {
     console.error('Supabase getBrands:', err);
@@ -384,6 +416,11 @@ export async function addBrand(name: string): Promise<void> {
   const { error } = await supabase
     .from('brands')
     .upsert({ id, name, created_at: Date.now() }, { onConflict: 'id' });
+  if (error) throw error;
+}
+
+export async function updateBrandTags(id: string, tags: string[]): Promise<void> {
+  const { error } = await supabase.from('brands').update({ tags }).eq('id', id);
   if (error) throw error;
 }
 
