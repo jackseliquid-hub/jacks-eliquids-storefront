@@ -84,3 +84,20 @@ h1, h2, h3, h4, h5, h6 {
 .text-gradient {
   color: var(--text-primary); /* Remove gradient for minimal theme */
 }
+
+/* ─── Mobile Preview Mode (staff only) ─────────────────────── */
+body.mobile-preview {
+  background: #1a1a2e !important;
+}
+
+body.mobile-preview > * {
+  max-width: 390px;
+  margin-left: auto;
+  margin-right: auto;
+  background: #fff;
+  min-height: 100vh;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.3);
+  border-left: 1px solid #333;
+  border-right: 1px solid #333;
+  overflow-x: hidden;
+}

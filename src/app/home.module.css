@@ -17,6 +17,9 @@
   .searchBar {
     display: none !important;
   }
+  .mobileSearchBtn {
+    display: flex !important;
+  }
 }
 
 .cartBtn {

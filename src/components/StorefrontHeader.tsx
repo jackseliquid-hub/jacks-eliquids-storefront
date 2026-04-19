@@ -21,6 +21,7 @@ export default function StorefrontHeader() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [megaOpen, setMegaOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobilePreview, setMobilePreview] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [panelTop, setPanelTop] = useState(62);
@@ -82,6 +83,16 @@ export default function StorefrontHeader() {
   // Cleanup
   useEffect(() => { return () => { if (closeTimer.current) clearTimeout(closeTimer.current); }; }, []);
 
+  // Mobile preview: toggle a class on body so global CSS can shrink the viewport
+  useEffect(() => {
+    if (mobilePreview) {
+      document.body.classList.add('mobile-preview');
+    } else {
+      document.body.classList.remove('mobile-preview');
+    }
+    return () => document.body.classList.remove('mobile-preview');
+  }, [mobilePreview]);
+
   if (pathname.startsWith('/admin')) return null;
 
   return (
@@ -94,6 +105,18 @@ export default function StorefrontHeader() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
         }}>
           <span>👨‍🍳 You&apos;re viewing the storefront as staff</span>
+          <button
+            onClick={() => setMobilePreview(!mobilePreview)}
+            style={{
+              background: mobilePreview ? '#fff' : 'rgba(255,255,255,0.2)',
+              padding: '3px 12px', borderRadius: '9999px',
+              border: '1px solid rgba(255,255,255,0.4)',
+              fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
+              color: mobilePreview ? '#0f766e' : '#fff',
+            }}
+          >
+            {mobilePreview ? '🖥️ Desktop View' : '📱 Mobile Preview'}
+          </button>
           <Link href="/admin" style={{
             color: '#fff', background: 'rgba(255,255,255,0.2)',
             padding: '3px 12px', borderRadius: '9999px',
@@ -168,8 +191,24 @@ export default function StorefrontHeader() {
             </svg>
           </button>
 
-          {/* Right: Account + Cart */}
+          {/* Right: Account + Cart + Mobile Search */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Mobile search icon — only visible on mobile */}
+            <button
+              onClick={openSearch}
+              aria-label="Search"
+              className={styles.mobileSearchBtn}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-primary)', padding: '0.25rem',
+                display: 'none', /* shown via CSS on mobile */
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </button>
+
             <Link href="/account" className={styles.topBarLinks} style={{
               display: 'flex', alignItems: 'center', gap: '0.3rem',
               color: 'var(--text-primary)', textDecoration: 'none',
