@@ -27,6 +27,7 @@ function HomeInner() {
   const searchQuery  = searchParams.get('q');
 
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
@@ -51,10 +52,43 @@ function HomeInner() {
     fetchData();
   }, []);
 
-  // Sync URL param → activeCategory only when the param is a category
+  // Sync URL params → activeCategory and activeTag
   useEffect(() => {
     if (catParam) setActiveCategory(catParam);
-  }, [catParam]);
+    // If URL has both cat and tag, set the tag sub-filter
+    if (catParam && tagParam) {
+      setActiveTag(tagParam);
+    } else if (!catParam && tagParam) {
+      // Tag-only filter (from menu link) — no sub-filter needed
+      setActiveTag(null);
+    } else {
+      setActiveTag(null);
+    }
+  }, [catParam, tagParam]);
+
+  // Products filtered by category (before tag sub-filter)
+  const categoryProducts = useMemo(() => {
+    const sorted = [...products].reverse();
+    if (activeCategory === 'All') return sorted;
+    return sorted.filter(p => p.category === activeCategory);
+  }, [activeCategory, products]);
+
+  // Collect unique tags from products in the active category (for sub-filter pills)
+  const categoryTags = useMemo(() => {
+    if (activeCategory === 'All') return [];
+    const tagCounts = new Map<string, number>();
+    for (const p of categoryProducts) {
+      if (p.tags) {
+        for (const t of p.tags) {
+          tagCounts.set(t, (tagCounts.get(t) || 0) + 1);
+        }
+      }
+    }
+    // Sort by count (most used first), then alphabetically
+    return Array.from(tagCounts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [activeCategory, categoryProducts]);
 
   const featuredProducts = useMemo(() => {
     const sorted = [...products].reverse();
@@ -69,7 +103,6 @@ function HomeInner() {
         p.sku?.toLowerCase().includes(low) ||
         p.tags?.some(t => t.toLowerCase().includes(low))
       );
-      // Sort: name matches first
       matched.sort((a, b) => {
         const aName = a.name.toLowerCase().includes(low) ? 0 : 1;
         const bName = b.name.toLowerCase().includes(low) ? 0 : 1;
@@ -78,8 +111,8 @@ function HomeInner() {
       return matched;
     }
 
-    // Tag filter — show products that have this tag
-    if (tagParam) {
+    // Tag-only filter (from menu link, no category context)
+    if (tagParam && !catParam) {
       const tagLower = tagParam.toLowerCase();
       return sorted.filter(p =>
         p.tags && p.tags.some(t => t.toLowerCase() === tagLower)
@@ -94,21 +127,35 @@ function HomeInner() {
       );
     }
 
-    // Category filter (from pills or URL)
-    if (activeCategory === 'All') return sorted.slice(0, 48);
-    return sorted.filter(p => p.category === activeCategory);
-  }, [activeCategory, products, tagParam, brandParam, searchQuery]);
+    // Category filter + optional tag sub-filter
+    let filtered = categoryProducts;
+    if (activeCategory === 'All') {
+      filtered = sorted.slice(0, 48);
+    }
+
+    // Apply tag sub-filter if active
+    if (activeTag) {
+      const tagLower = activeTag.toLowerCase();
+      filtered = filtered.filter(p =>
+        p.tags && p.tags.some(t => t.toLowerCase() === tagLower)
+      );
+    }
+
+    return filtered;
+  }, [activeCategory, activeTag, products, categoryProducts, tagParam, catParam, brandParam, searchQuery]);
 
   // Page title based on active filter
   const filterTitle = searchQuery
     ? `Search: "${searchQuery}"`
-    : tagParam
+    : (tagParam && !catParam)
       ? tagParam
       : brandParam
         ? brandParam
-        : activeCategory === 'All'
-          ? 'Featured Blends'
-          : activeCategory;
+        : activeTag
+          ? `${activeCategory} — ${activeTag}`
+          : activeCategory === 'All'
+            ? 'Featured Blends'
+            : activeCategory;
 
   function handleAddToCart(e: React.MouseEvent, product: Product) {
     e.preventDefault();
@@ -149,21 +196,49 @@ function HomeInner() {
           <div className={`container ${styles.categoryScroll}`}>
             <button
               className={`${styles.categoryPill} ${activeCategory === 'All' && !tagParam && !brandParam ? styles.active : ''}`}
-              onClick={() => { setActiveCategory('All'); window.history.replaceState(null, '', '/'); }}
+              onClick={() => { setActiveCategory('All'); setActiveTag(null); window.history.replaceState(null, '', '/'); }}
             >
               All
             </button>
             {categories.map((cat, index) => (
               <button
                 key={cat || `cat-${index}`}
-                className={`${styles.categoryPill} ${activeCategory === cat && !tagParam && !brandParam ? styles.active : ''}`}
-                onClick={() => { setActiveCategory(cat); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(cat)}`); }}
+                className={`${styles.categoryPill} ${activeCategory === cat && !(tagParam && !catParam) && !brandParam ? styles.active : ''}`}
+                onClick={() => { setActiveCategory(cat); setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(cat)}`); }}
               >
                 {cat}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Tag Sub-filter Pills — only when a category is selected and has tags */}
+        {activeCategory !== 'All' && !brandParam && !(tagParam && !catParam) && categoryTags.length > 0 && (
+          <div style={{
+            background: 'rgba(255,255,255,0.95)', borderBottom: '1px solid var(--border-color)',
+            padding: '0.5rem 0',
+          }}>
+            <div className={`container ${styles.categoryScroll}`}>
+              <button
+                className={`${styles.categoryPill} ${!activeTag ? styles.active : ''}`}
+                onClick={() => { setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}`); }}
+                style={{ fontSize: '0.75rem', padding: '0.3rem 0.85rem' }}
+              >
+                All {activeCategory}
+              </button>
+              {categoryTags.map(tag => (
+                <button
+                  key={tag}
+                  className={`${styles.categoryPill} ${activeTag === tag ? styles.active : ''}`}
+                  onClick={() => { setActiveTag(tag); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}&tag=${encodeURIComponent(tag)}`); }}
+                  style={{ fontSize: '0.75rem', padding: '0.3rem 0.85rem' }}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Products Grid */}
         <section className={`container ${styles.productsSection}`}>
