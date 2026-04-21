@@ -127,7 +127,7 @@ export default function StorefrontHeader() {
       )}
 
       <div ref={headerRef} style={{ position: 'sticky', top: 0, zIndex: 100, backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'saturate(180%) blur(20px)', WebkitBackdropFilter: 'saturate(180%) blur(20px)', borderBottom: '1px solid var(--border-color)' }}>
-        {/* ═══ TOP BAR: Logo | Utility links | Search | Account + Cart ═══ */}
+        {/* ═══ TOP BAR: Logo | Blog | Search | Any Questions? | Account + Cart ═══ */}
         <div className="container" style={{
           display: 'flex', alignItems: 'center',
           padding: '0.55rem 0', gap: '1rem',
@@ -139,8 +139,8 @@ export default function StorefrontHeader() {
             </Link>
           </div>
 
-          {/* Utility links — hidden on mobile */}
-          <div className={styles.topBarLinks} style={{ display: 'flex', gap: '1.25rem', fontSize: '0.82rem', flexShrink: 0 }}>
+          {/* Blog link — hidden on mobile */}
+          <div className={styles.topBarLinks} style={{ display: 'flex', fontSize: '0.82rem', flexShrink: 0 }}>
             <Link href="/blog" style={{
               color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500,
               opacity: 0.75, transition: 'opacity 0.2s',
@@ -154,19 +154,6 @@ export default function StorefrontHeader() {
               </svg>
               Read Our Blog
             </Link>
-            <Link href="/contact" style={{
-              color: 'var(--deep-teal)', textDecoration: 'none', fontWeight: 600,
-              opacity: 0.9, transition: 'opacity 0.2s',
-              display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.9')}
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
-              Any Questions?
-            </Link>
           </div>
 
           {/* Search bar — grows to fill space */}
@@ -176,7 +163,7 @@ export default function StorefrontHeader() {
             className={styles.searchBar}
             style={{
               flex: '1 1 auto',
-              maxWidth: '380px',
+              maxWidth: '420px',
               display: 'flex', alignItems: 'center', gap: '0.5rem',
               background: '#f5f5f7', border: '1px solid #e5e5e5',
               borderRadius: '9999px', padding: '0.4rem 0.85rem',
@@ -192,8 +179,23 @@ export default function StorefrontHeader() {
             <span style={{ flex: 1, textAlign: 'left' }}>Search...</span>
           </button>
 
-          {/* Right: Mobile search icon + Account + Cart + Hamburger */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginLeft: 'auto', flexShrink: 0 }}>
+          {/* Right: Any Questions | Mobile search | Account | Cart | Hamburger */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto', flexShrink: 0 }}>
+            {/* Any Questions — hidden on mobile */}
+            <Link href="/contact" className={styles.topBarLinks} style={{
+              color: 'var(--deep-teal)', textDecoration: 'none', fontWeight: 600,
+              opacity: 0.9, transition: 'opacity 0.2s',
+              display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap', fontSize: '0.82rem',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.9')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Any Questions?
+            </Link>
+
             {/* Mobile search icon — only visible on mobile */}
             <button
               onClick={openSearch}
@@ -236,9 +238,9 @@ export default function StorefrontHeader() {
           </div>
         </div>
 
-        {/* ═══ NAV BAR: Main Navigation ═══ */}
+        {/* ═══ NAV BAR: Main Navigation — centred ═══ */}
         <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-          <div className="container" style={{ padding: '0' }}>
+          <div className="container" style={{ padding: '0', display: 'flex', justifyContent: 'center' }}>
             <nav className={styles.nav}>
             {menuItems.map(item => {
               const hasChildren = item.children && item.children.length > 0;

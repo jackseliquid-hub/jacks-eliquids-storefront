@@ -363,6 +363,11 @@ export async function saveCategories(categories: string[]): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteCategory(id: string): Promise<void> {
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ─── Tags ─────────────────────────────────────────────────────────────────────
 
 export async function getTags(): Promise<TaxonomyItem[]> {

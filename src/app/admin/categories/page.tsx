@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getCategoriesWithTags, saveCategories, updateCategoryTags, updateCategoryImage, getTags, CategoryItem, TaxonomyItem } from '@/lib/data';
+import { getCategoriesWithTags, saveCategories, deleteCategory, updateCategoryTags, updateCategoryImage, getTags, CategoryItem, TaxonomyItem } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import styles from '../admin.module.css';
@@ -69,8 +69,7 @@ export default function CategoriesPage() {
       ? `Delete category "${cat.name}"? ${count} product${count > 1 ? 's' : ''} will lose this category.`
       : `Delete category "${cat.name}"?`;
     if (!confirm(msg)) return;
-    const updated = categories.filter(c => c.id !== cat.id).map(c => c.name);
-    await saveCategories(updated);
+    await deleteCategory(cat.id);
     setCategories(prev => prev.filter(c => c.id !== cat.id));
     setSelected(prev => { const next = new Set(prev); next.delete(cat.id); return next; });
     showToast(`"${cat.name}" removed`);
@@ -86,8 +85,7 @@ export default function CategoriesPage() {
     if (!confirm(msg)) return;
     setSaving(true);
     try {
-      const remaining = categories.filter(c => !selected.has(c.id)).map(c => c.name);
-      await saveCategories(remaining);
+      await Promise.all(toDelete.map(c => deleteCategory(c.id)));
       setCategories(prev => prev.filter(c => !selected.has(c.id)));
       setSelected(new Set());
       showToast(`${toDelete.length} categor${toDelete.length > 1 ? 'ies' : 'y'} deleted`);
