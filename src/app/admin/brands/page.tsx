@@ -17,6 +17,7 @@ export default function BrandsPage() {
   const [editingTagsId, setEditingTagsId] = useState<string | null>(null);
   const [editingLogoId, setEditingLogoId] = useState<string | null>(null);
   const [logoInput, setLogoInput] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
@@ -69,7 +70,27 @@ export default function BrandsPage() {
     if (!confirm(msg)) return;
     await deleteBrand(brand.id);
     setBrands(prev => prev.filter(b => b.id !== brand.id));
+    setSelected(prev => { const next = new Set(prev); next.delete(brand.id); return next; });
     showToast(`"${brand.name}" removed`);
+  }
+
+  async function handleBulkDelete() {
+    const toDelete = brands.filter(b => selected.has(b.id));
+    if (toDelete.length === 0) return;
+    const affected = toDelete.reduce((sum, b) => sum + (countMap.get(b.name) || 0), 0);
+    const msg = affected > 0
+      ? `Delete ${toDelete.length} brand${toDelete.length > 1 ? 's' : ''}? This affects ${affected} product${affected > 1 ? 's' : ''}.`
+      : `Delete ${toDelete.length} brand${toDelete.length > 1 ? 's' : ''}?`;
+    if (!confirm(msg)) return;
+    setSaving(true);
+    try {
+      await Promise.all(toDelete.map(b => deleteBrand(b.id)));
+      setBrands(prev => prev.filter(b => !selected.has(b.id)));
+      setSelected(new Set());
+      showToast(`${toDelete.length} brand${toDelete.length > 1 ? 's' : ''} deleted`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleToggleTag(brandId: string, tagName: string) {
@@ -128,7 +149,32 @@ export default function BrandsPage() {
                 fontSize: '0.75rem', fontWeight: 600, color: '#86868b',
                 textTransform: 'uppercase', letterSpacing: '0.05em',
               }}>
-                <span>Brand Name</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={brands.length > 0 && brands.every(b => selected.has(b.id))}
+                    onChange={() => {
+                      if (brands.every(b => selected.has(b.id))) setSelected(new Set());
+                      else setSelected(new Set(brands.map(b => b.id)));
+                    }}
+                    style={{ cursor: 'pointer', width: 15, height: 15 }}
+                    title="Select all"
+                  />
+                  <span>Brand Name</span>
+                  {selected.size > 0 && (
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={saving}
+                      style={{
+                        background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
+                        borderRadius: 6, padding: '0.2rem 0.7rem', fontSize: '0.75rem',
+                        fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      🗑 Delete {selected.size} selected
+                    </button>
+                  )}
+                </div>
                 <span style={{ minWidth: '120px', textAlign: 'right' }}>Products</span>
               </div>
 
@@ -141,10 +187,17 @@ export default function BrandsPage() {
                 {brands.map(brand => {
                   const count = countMap.get(brand.name) || 0;
                   const isEditingTags = editingTagsId === brand.id;
+                  const isSelected = selected.has(brand.id);
                   return (
-                    <div key={brand.id}>
+                    <div key={brand.id} style={{ background: isSelected ? '#fef9f0' : undefined }}>
                       <div className={styles.taxonomyItem}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => setSelected(prev => { const next = new Set(prev); isSelected ? next.delete(brand.id) : next.add(brand.id); return next; })}
+                            style={{ cursor: 'pointer', width: 15, height: 15, flexShrink: 0 }}
+                          />
                           {brand.logo_url && (
                             /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={brand.logo_url} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} />

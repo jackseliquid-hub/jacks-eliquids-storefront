@@ -13,6 +13,7 @@ export default function TagsPage() {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
@@ -20,24 +21,18 @@ export default function TagsPage() {
       supabase.from('products').select('tags').range(0, 9999),
     ]).then(([t, { data: prods }]) => {
       setTags(t);
-      // Flatten all tag arrays into a single list
       const allTags: string[] = [];
       (prods || []).forEach(p => {
-        if (Array.isArray(p.tags)) {
-          p.tags.forEach((tag: string) => { if (tag) allTags.push(tag); });
-        }
+        if (Array.isArray(p.tags)) p.tags.forEach((tag: string) => { if (tag) allTags.push(tag); });
       });
       setProductTags(allTags);
       setLoading(false);
     });
   }, []);
 
-  // Count products per tag
   const countMap = useMemo(() => {
     const map = new Map<string, number>();
-    for (const tag of productTags) {
-      map.set(tag, (map.get(tag) || 0) + 1);
-    }
+    for (const tag of productTags) map.set(tag, (map.get(tag) || 0) + 1);
     return map;
   }, [productTags]);
 
@@ -71,7 +66,35 @@ export default function TagsPage() {
     if (!confirm(msg)) return;
     await deleteTag(tag.id);
     setTags(prev => prev.filter(t => t.id !== tag.id));
+    setSelected(prev => { const next = new Set(prev); next.delete(tag.id); return next; });
     showToast(`"${tag.name}" removed`);
+  }
+
+  async function handleBulkDelete() {
+    const toDelete = tags.filter(t => selected.has(t.id));
+    if (toDelete.length === 0) return;
+    const affected = toDelete.reduce((sum, t) => sum + (countMap.get(t.name) || 0), 0);
+    const msg = affected > 0
+      ? `Delete ${toDelete.length} tag${toDelete.length > 1 ? 's' : ''}? This will remove them from ${affected} product assignment${affected > 1 ? 's' : ''}.`
+      : `Delete ${toDelete.length} tag${toDelete.length > 1 ? 's' : ''}?`;
+    if (!confirm(msg)) return;
+    setSaving(true);
+    try {
+      await Promise.all(toDelete.map(t => deleteTag(t.id)));
+      setTags(prev => prev.filter(t => !selected.has(t.id)));
+      setSelected(new Set());
+      showToast(`${toDelete.length} tag${toDelete.length > 1 ? 's' : ''} deleted`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const allChecked = tags.length > 0 && tags.every(t => selected.has(t.id));
+  const someChecked = selected.size > 0;
+
+  function toggleAll() {
+    if (allChecked) setSelected(new Set());
+    else setSelected(new Set(tags.map(t => t.id)));
   }
 
   return (
@@ -98,7 +121,29 @@ export default function TagsPage() {
                 fontSize: '0.75rem', fontWeight: 600, color: '#86868b',
                 textTransform: 'uppercase', letterSpacing: '0.05em',
               }}>
-                <span>Tag Name</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleAll}
+                    style={{ cursor: 'pointer', width: 15, height: 15 }}
+                    title="Select all"
+                  />
+                  <span>Tag Name</span>
+                  {someChecked && (
+                    <button
+                      onClick={handleBulkDelete}
+                      disabled={saving}
+                      style={{
+                        background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
+                        borderRadius: 6, padding: '0.2rem 0.7rem', fontSize: '0.75rem',
+                        fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      🗑 Delete {selected.size} selected
+                    </button>
+                  )}
+                </div>
                 <span style={{ minWidth: '120px', textAlign: 'right' }}>Products</span>
               </div>
 
@@ -110,9 +155,22 @@ export default function TagsPage() {
                 )}
                 {tags.map(tag => {
                   const count = countMap.get(tag.name) || 0;
+                  const isSelected = selected.has(tag.id);
                   return (
-                    <div key={tag.id} className={styles.taxonomyItem}>
+                    <div key={tag.id} className={styles.taxonomyItem} style={{ background: isSelected ? '#fef9f0' : undefined }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelected(prev => {
+                              const next = new Set(prev);
+                              isSelected ? next.delete(tag.id) : next.add(tag.id);
+                              return next;
+                            });
+                          }}
+                          style={{ cursor: 'pointer', width: 15, height: 15, flexShrink: 0 }}
+                        />
                         <span className={styles.taxonomyName}>{tag.name}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
