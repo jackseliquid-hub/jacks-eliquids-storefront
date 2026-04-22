@@ -11,7 +11,7 @@ import {
   addTag,
   getBrands,
   addBrand,
-  updateProduct,
+  createProduct,
   Product,
   Variation,
   TaxonomyItem,
@@ -304,14 +304,16 @@ export default function AddProductPage() {
     setSaving(true);
     try {
       const id = `prod_${Date.now()}`;
+      const slug = product.slug || slugify(product.name) || id;
       const productPayload: Product = {
           ...product,
-          status: statusText,
           id,
+          slug,
+          status: statusText,
       };
 
-      await updateProduct(id, productPayload);
-      
+      await createProduct(productPayload);
+
       showToast(statusText === 'draft' ? 'Saved as Draft!' : 'Product Published successfully!');
       setTimeout(() => {
           router.push('/admin');

@@ -233,6 +233,60 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
   }
 }
 
+export async function createProduct(data: Product): Promise<string> {
+  const id = data.id || `prod_${Date.now()}`;
+  const slug = data.slug || id;
+
+  const dbData: Record<string, unknown> = {
+    id,
+    slug,
+    name:             data.name,
+    sku:              data.sku             || null,
+    price:            data.price           || 'N/A',
+    sale_price:       data.salePrice       || null,
+    cost_price:       data.costPrice       || null,
+    weight:           data.weight          || null,
+    shipping_class:   data.shippingClass   || null,
+    track_stock:      data.trackStock      ?? false,
+    stock_qty:        data.stockQty        ?? null,
+    image:            data.image           || null,
+    gallery:          data.gallery         || [],
+    description:      data.description     || null,
+    long_description: data.longDescription || null,
+    category:         data.category        || null,
+    tags:             data.tags            || [],
+    brand:            data.brand           || null,
+    supplier_id:      data.supplierId      || null,
+    attributes:       data.attributes      || {},
+    status:           data.status          || 'active',
+    seo:              data.seo             || null,
+    created_at:       Date.now(),
+    updated_at:       Date.now(),
+  };
+
+  const { error: insertError } = await supabase.from('products').insert(dbData);
+  if (insertError) throw insertError;
+
+  // Insert variations if any
+  if (data.variations && data.variations.length > 0) {
+    const varRows = data.variations.map(v => ({
+      id:         v.id,
+      product_id: id,
+      sku:        v.sku        || null,
+      price:      v.price      || null,
+      attributes: v.attributes || {},
+      in_stock:   v.inStock    !== undefined ? v.inStock : true,
+      stock_qty:  v.stockQty   !== undefined ? v.stockQty : null,
+    }));
+    const { error: varError } = await supabase
+      .from('product_variations')
+      .insert(varRows);
+    if (varError) throw varError;
+  }
+
+  return id;
+}
+
 export async function updateProduct(id: string, data: Partial<Product>): Promise<void> {
   // Map camelCase fields back to snake_case for the DB
   const dbData: Record<string, unknown> = {};
