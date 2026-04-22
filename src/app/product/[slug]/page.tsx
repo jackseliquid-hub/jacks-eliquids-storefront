@@ -142,20 +142,8 @@ export default function ProductPage({
     return map;
   }, [product, attributeKeys, selectedAttributes]);
 
-  if (loading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <div className={styles.spinner} />
-      </div>
-    );
-  }
-
-  if (!product) return notFound();
-
-  const isSelectionComplete = attributeKeys.length === 0 || !!matchingVariation;
-  const isOutOfStock = matchingVariation ? !matchingVariation.inStock : false;
-
   // True if EVERY variation is out of stock (or simple product with trackStock + stockQty=0)
+  // NOTE: must be declared before any early returns to satisfy Rules of Hooks
   const allVariationsOOS = useMemo(() => {
     if (!product) return false;
     const vars = product.variations || [];
@@ -168,6 +156,19 @@ export default function ProductPage({
     }
     return false;
   }, [product]);
+
+  if (loading) {
+    return (
+      <div className={styles.loadingScreen}>
+        <div className={styles.spinner} />
+      </div>
+    );
+  }
+
+  if (!product) return notFound();
+
+  const isSelectionComplete = attributeKeys.length === 0 || !!matchingVariation;
+  const isOutOfStock = matchingVariation ? !matchingVariation.inStock : false;
 
   const displayPrice = matchingVariation?.price || product.price;
   const displaySalePrice = product.salePrice || null;
