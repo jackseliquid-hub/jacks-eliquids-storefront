@@ -27,6 +27,7 @@ const allNavItems = [
 
   { href: '/admin/media',     label: 'Media Library', icon: '🖼️' },
   { href: '/admin/seo',       label: 'Global SEO',    icon: '🔍' },
+  { href: '/admin/export',    label: 'Downloads',     icon: '⬇️' },
 ];
 
 function AdminNavInner({ children }: { children: React.ReactNode }) {
