@@ -45,6 +45,11 @@ function AdminNavInner({ children }: { children: React.ReactNode }) {
           <span className={styles.sidebarSub}>The Kitchen</span>
         </div>
 
+        {/* Back to storefront — top of sidebar */}
+        <Link href="/" className={styles.storeFrontLink} style={{ margin: '0.75rem 1rem 0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          🍽️ Back to the Restaurant
+        </Link>
+
         <nav className={styles.sidebarNav}>
           {navItems.map(item => {
             const isActive = item.exact
@@ -68,9 +73,6 @@ function AdminNavInner({ children }: { children: React.ReactNode }) {
           <div style={{ marginBottom: '0.75rem', padding: '6px 12px', background: 'rgba(255,255,255,0.08)', borderRadius: '6px', fontSize: '0.78rem', color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>
             {ROLE_LABELS[role]}
           </div>
-          <Link href="/" className={styles.storeFrontLink}>
-            ← Back to Storefront
-          </Link>
         </div>
       </aside>
 

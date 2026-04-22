@@ -21,7 +21,7 @@ export default function StorefrontHeader() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [megaOpen, setMegaOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobilePreview, setMobilePreview] = useState(false);
+  const [mobilePreview] = useState(false); // kept to avoid removing the import, but feature removed
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [panelTop, setPanelTop] = useState(62);
@@ -83,15 +83,7 @@ export default function StorefrontHeader() {
   // Cleanup
   useEffect(() => { return () => { if (closeTimer.current) clearTimeout(closeTimer.current); }; }, []);
 
-  // Mobile preview: toggle a class on body so global CSS can shrink the viewport
-  useEffect(() => {
-    if (mobilePreview) {
-      document.body.classList.add('mobile-preview');
-    } else {
-      document.body.classList.remove('mobile-preview');
-    }
-    return () => document.body.classList.remove('mobile-preview');
-  }, [mobilePreview]);
+
 
   if (pathname.startsWith('/admin')) return null;
 
@@ -105,18 +97,6 @@ export default function StorefrontHeader() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px'
         }}>
           <span>👨‍🍳 You&apos;re viewing the storefront as staff</span>
-          <button
-            onClick={() => setMobilePreview(!mobilePreview)}
-            style={{
-              background: mobilePreview ? '#fff' : 'rgba(255,255,255,0.2)',
-              padding: '3px 12px', borderRadius: '9999px',
-              border: '1px solid rgba(255,255,255,0.4)',
-              fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
-              color: mobilePreview ? '#0f766e' : '#fff',
-            }}
-          >
-            {mobilePreview ? '🖥️ Desktop View' : '📱 Mobile Preview'}
-          </button>
           <Link href="/admin" style={{
             color: '#fff', background: 'rgba(255,255,255,0.2)',
             padding: '3px 12px', borderRadius: '9999px',

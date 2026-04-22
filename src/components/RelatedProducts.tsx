@@ -9,7 +9,7 @@ interface RelatedProductsProps {
   maxItems?: number;
 }
 
-export default function RelatedProducts({ currentProduct, maxItems = 8 }: RelatedProductsProps) {
+export default function RelatedProducts({ currentProduct, maxItems = 7 }: RelatedProductsProps) {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -108,9 +108,14 @@ export default function RelatedProducts({ currentProduct, maxItems = 8 }: Relate
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+        gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '1rem',
-      }}>
+      }}
+      className="related-grid"
+      >
+        <style>{`
+          @media (min-width: 640px) { .related-grid { grid-template-columns: repeat(7, 1fr) !important; } }
+        `}</style>
         {relatedProducts.map(product => {
           const price = product.salePrice || product.price;
           const hasDiscount = product.salePrice && product.salePrice !== product.price;

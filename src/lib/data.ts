@@ -107,7 +107,7 @@ function mapVariation(v: Record<string, unknown>): Variation {
     sku:        (v.sku as string) || '',
     price:      (v.price as string) || null,
     attributes: (v.attributes as Record<string, string>) || {},
-    inStock:    v.in_stock !== undefined ? (v.in_stock as boolean) : true,
+    inStock:    v.in_stock === false ? false : true,  // null/undefined means in-stock, only explicit false = OOS
     stockQty:   v.stock_qty !== undefined && v.stock_qty !== null ? (v.stock_qty as number) : null,
   };
 }
