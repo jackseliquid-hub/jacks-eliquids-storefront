@@ -391,7 +391,9 @@ export default function ProductPage({
                     onChange={(e) => handleAttributeSelect(attrName, e.target.value)}
                   >
                     <option value="" disabled>Choose {attrName}</option>
-                    {(product.attributes[attrName] || []).map(value => {
+                    {[...(product.attributes[attrName] || [])].sort((a, b) =>
+                      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+                    ).map(value => {
                       const inStock = optionStockMap[attrName]?.[value] !== false;
                       return (
                         <option key={value} value={value} className={!inStock ? styles.oosOption : ''}>

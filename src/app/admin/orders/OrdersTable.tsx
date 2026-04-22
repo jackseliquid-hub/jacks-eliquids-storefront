@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import styles from '../admin.module.css';
 import { bulkUpdateOrderStatuses, bulkDeleteOrders } from './actions';
@@ -9,6 +9,19 @@ export default function OrdersTable({ initialOrders }: { initialOrders: any[] })
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkAction, setBulkAction] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filteredOrders = useMemo(() => {
+    if (!query.trim()) return initialOrders;
+    const q = query.toLowerCase();
+    return initialOrders.filter(order => {
+      const name = order.shipping_address
+        ? `${order.shipping_address.first_name} ${order.shipping_address.last_name}`.toLowerCase()
+        : '';
+      const orderNum = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
+      return name.includes(q) || orderNum.toLowerCase().includes(q);
+    });
+  }, [initialOrders, query]);
 
   const toggleAll = (checked: boolean) => {
     if (checked) {
@@ -58,7 +71,24 @@ export default function OrdersTable({ initialOrders }: { initialOrders: any[] })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      
+
+      {/* Search bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <input
+          type="search"
+          placeholder="🔍 Search by customer name or order number…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          className={styles.input}
+          style={{ maxWidth: 380, margin: 0 }}
+        />
+        {query && (
+          <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+            {filteredOrders.length} of {initialOrders.length} orders
+          </span>
+        )}
+      </div>
+
       {/* Bulk Action Toolbar */}
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
         <select 
@@ -99,7 +129,7 @@ export default function OrdersTable({ initialOrders }: { initialOrders: any[] })
             <th style={{ width: '40px', textAlign: 'center' }}>
               <input 
                 type="checkbox" 
-                checked={selectedIds.length === initialOrders.length && initialOrders.length > 0}
+                checked={selectedIds.length === filteredOrders.length && filteredOrders.length > 0}
                 onChange={(e) => toggleAll(e.target.checked)}
                 style={{ width: '16px', height: '16px', cursor: 'pointer' }}
               />
@@ -113,7 +143,7 @@ export default function OrdersTable({ initialOrders }: { initialOrders: any[] })
           </tr>
         </thead>
         <tbody>
-          {initialOrders.map(order => {
+          {filteredOrders.map(order => {
             const d = new Date(order.created_at);
             const shortId = order.order_number ? order.order_number.toString() : order.id.substring(0, 8).toUpperCase();
             
