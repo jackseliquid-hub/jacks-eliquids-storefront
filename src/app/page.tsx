@@ -84,10 +84,9 @@ function HomeInner() {
         }
       }
     }
-    // Sort by count (most used first), then alphabetically
-    return Array.from(tagCounts.entries())
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([tag]) => tag);
+    // Sort alphabetically A→Z
+    return Array.from(tagCounts.keys())
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   }, [activeCategory, categoryProducts]);
 
   const featuredProducts = useMemo(() => {
