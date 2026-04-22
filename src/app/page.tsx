@@ -231,59 +231,88 @@ function HomeInner() {
           )}
 
           <div className={styles.grid}>
-            {featuredProducts.map((product, index) => (
-              <Link key={product.id || `prod-${index}`} href={`/product/${product.slug}`} className={styles.cardLink}>
-                <div className={styles.card}>
-                  <div className={styles.cardImageWrapper}>
-                    {product.image && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className={styles.productImage}
-                        loading="lazy"
-                      />
-                    )}
-                  </div>
-                  <div className={styles.cardContent}>
-                    <h3 className={styles.productName}>{product.name}</h3>
-                    <div className={styles.productFooter}>
-                      <div className={styles.priceWrapper}>
-                        {product.salePrice ? (
-                          <>
-                            <span className={styles.productPriceSlashed}>
-                              {product.price !== 'N/A' ? `From ${product.price}` : ''}
-                            </span>
-                            <span className={styles.productPriceSale}>{product.salePrice}</span>
-                            <span className={styles.saleTag}>Sale</span>
-                          </>
-                        ) : (
-                          <span className={styles.productPrice}>
-                            {product.price && product.price !== 'N/A' ? `From ${product.price}` : 'See Options'}
-                          </span>
-                        )}
-                      </div>
-                      {product.variations && product.variations.length > 0 ? (
-                        <button
-                          className={styles.addToCartBtn}
-                          aria-label="Select options"
-                        >
-                          Select Options
-                        </button>
-                      ) : (
-                        <button
-                          className={styles.addToCartBtn}
-                          aria-label="Add to cart"
-                          onClick={e => handleAddToCart(e, product)}
-                        >
-                          Add to Cart
-                        </button>
+            {featuredProducts.map((product, index) => {
+              // Detect whole-product OOS
+              const vars = product.variations || [];
+              const allOOS = vars.length > 0
+                ? vars.every(v => !v.inStock)
+                : (product.trackStock ? (product.stockQty ?? 1) <= 0 : false);
+
+              return (
+                <Link key={product.id || `prod-${index}`} href={`/product/${product.slug}`} className={styles.cardLink}>
+                  <div className={styles.card}>
+                    <div className={styles.cardImageWrapper} style={{ position: 'relative' }}>
+                      {product.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className={styles.productImage}
+                          loading="lazy"
+                          style={allOOS ? { filter: 'grayscale(55%) opacity(0.7)' } : undefined}
+                        />
+                      )}
+                      {allOOS && (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          pointerEvents: 'none',
+                        }}>
+                          <span style={{
+                            background: 'rgba(0,0,0,0.62)', color: '#fff',
+                            fontSize: '0.82rem', fontWeight: 800,
+                            padding: '0.3rem 1rem', borderRadius: 6,
+                            letterSpacing: '0.07em', textTransform: 'uppercase',
+                          }}>Out of Stock</span>
+                        </div>
                       )}
                     </div>
+                    <div className={styles.cardContent}>
+                      <h3 className={styles.productName}>{product.name}</h3>
+                      <div className={styles.productFooter}>
+                        <div className={styles.priceWrapper}>
+                          {product.salePrice ? (
+                            <>
+                              <span className={styles.productPriceSlashed}>
+                                {product.price !== 'N/A' ? `From ${product.price}` : ''}
+                              </span>
+                              <span className={styles.productPriceSale}>{product.salePrice}</span>
+                              <span className={styles.saleTag}>Sale</span>
+                            </>
+                          ) : (
+                            <span className={styles.productPrice}>
+                              {product.price && product.price !== 'N/A' ? `From ${product.price}` : 'See Options'}
+                            </span>
+                          )}
+                        </div>
+                        {allOOS ? (
+                          <button
+                            className={styles.addToCartBtn}
+                            style={{ background: 'var(--deep-teal)', opacity: 0.85 }}
+                            aria-label="Notify me when back in stock"
+                            onClick={e => e.preventDefault()}
+                          >
+                            🔔 Notify Me
+                          </button>
+                        ) : product.variations && product.variations.length > 0 ? (
+                          <button className={styles.addToCartBtn} aria-label="Select options">
+                            Select Options
+                          </button>
+                        ) : (
+                          <button
+                            className={styles.addToCartBtn}
+                            aria-label="Add to cart"
+                            onClick={e => handleAddToCart(e, product)}
+                          >
+                            Add to Cart
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </section>
       </main>

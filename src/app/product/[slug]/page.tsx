@@ -155,6 +155,20 @@ export default function ProductPage({
   const isSelectionComplete = attributeKeys.length === 0 || !!matchingVariation;
   const isOutOfStock = matchingVariation ? !matchingVariation.inStock : false;
 
+  // True if EVERY variation is out of stock (or simple product with trackStock + stockQty=0)
+  const allVariationsOOS = useMemo(() => {
+    if (!product) return false;
+    const vars = product.variations || [];
+    if (vars.length > 0) {
+      return vars.every(v => !v.inStock);
+    }
+    // Simple (no-variation) product: out of stock when trackStock is on and qty <= 0
+    if (product.trackStock) {
+      return (product.stockQty ?? 1) <= 0;
+    }
+    return false;
+  }, [product]);
+
   const displayPrice = matchingVariation?.price || product.price;
   const displaySalePrice = product.salePrice || null;
   const hasSale = !!(displaySalePrice && displaySalePrice !== displayPrice);
@@ -294,12 +308,22 @@ export default function ProductPage({
       <div className={styles.layout}>
         {/* Left: Image */}
         <div className={styles.imagePanel}>
-          <div className={styles.mainImageWrapper}>
+          <div className={styles.mainImageWrapper} style={{ position: 'relative' }}>
             {mainImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={mainImage} alt={product.name} className={styles.productImage} />
+              <img src={mainImage} alt={product.name} className={styles.productImage} style={allVariationsOOS ? { filter: 'grayscale(60%) opacity(0.75)' } : undefined} />
             ) : (
               <div className={styles.imagePlaceholder}>📦</div>
+            )}
+            {allVariationsOOS && (
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+              }}>
+                <span style={{
+                  background: 'rgba(0,0,0,0.65)', color: '#fff', fontSize: '1.1rem', fontWeight: 800,
+                  padding: '0.5rem 1.5rem', borderRadius: 8, letterSpacing: '0.08em', textTransform: 'uppercase',
+                }}>Out of Stock</span>
+              </div>
             )}
           </div>
           
@@ -507,38 +531,68 @@ export default function ProductPage({
           )}
 
           <div className={styles.purchaseSection}>
-              <>
-                <div className={styles.qtyContainer}>
-                  <span className={styles.variationLabel}>Quantity</span>
-                  <div className={styles.qtyControls}>
-                    <button 
-                      type="button" 
-                      className={styles.qtyBtn} 
-                      onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                      aria-label="Decrease quantity"
+              {allVariationsOOS ? (
+                /* ── Fully out of stock: notify-only ── */
+                <div className={styles.notifySection} style={{ marginTop: 0 }}>
+                  <div className={styles.oosBadge}>⚠️ Currently Out of Stock</div>
+                  <p style={{ fontSize: '0.88rem', color: '#6b7280', margin: '0.5rem 0 1rem' }}>
+                    Sign up below and we&apos;ll email you the moment this is back.
+                  </p>
+                  {notifyResult === 'success' ? (
+                    <div className={styles.notifySuccess}>
+                      ✅ You&apos;re on the list! We&apos;ll email you when this is back in stock.
+                    </div>
+                  ) : showNotifyForm && !userEmail ? (
+                    <form onSubmit={handleNotifySubmit} className={styles.notifyForm}>
+                      <input type="text" placeholder="Your name" value={notifyName} onChange={e => setNotifyName(e.target.value)} className={styles.notifyInput} />
+                      <input type="email" placeholder="Your email *" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)} className={styles.notifyInput} required />
+                      <button type="submit" disabled={notifyLoading || !notifyEmail} className={styles.notifySubmitBtn}>
+                        {notifyLoading ? 'Submitting...' : '📩 Notify Me'}
+                      </button>
+                      {notifyResult === 'error' && <p className={styles.notifyError}>Something went wrong. Please try again.</p>}
+                    </form>
+                  ) : (
+                    <button
+                      className={styles.notifyBtn}
+                      onClick={() => {
+                        if (userEmail) {
+                          // Submit directly — but need a productId not variationId for whole-product OOS
+                          setNotifyLoading(true);
+                          fetch('/api/notify-stock', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ productId: product.id, email: userEmail, name: userName }),
+                          }).then(r => r.json()).then(j => setNotifyResult(j.success ? 'success' : 'error')).catch(() => setNotifyResult('error')).finally(() => setNotifyLoading(false));
+                        } else {
+                          setShowNotifyForm(true);
+                        }
+                      }}
+                      disabled={notifyLoading}
                     >
-                      −
+                      {notifyLoading ? '⏳ Saving...' : '🔔 Notify Me When Available'}
                     </button>
-                    <span className={styles.qtyValue}>{quantity}</span>
-                    <button 
-                      type="button" 
-                      className={styles.qtyBtn} 
-                      onClick={() => setQuantity(q => q + 1)}
-                      aria-label="Increase quantity"
-                    >
-                      +
-                    </button>
-                  </div>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <div className={styles.qtyContainer}>
+                    <span className={styles.variationLabel}>Quantity</span>
+                    <div className={styles.qtyControls}>
+                      <button type="button" className={styles.qtyBtn} onClick={() => setQuantity(q => Math.max(1, q - 1))} aria-label="Decrease quantity">−</button>
+                      <span className={styles.qtyValue}>{quantity}</span>
+                      <button type="button" className={styles.qtyBtn} onClick={() => setQuantity(q => q + 1)} aria-label="Increase quantity">+</button>
+                    </div>
+                  </div>
 
-                <button 
-                  className={styles.cartButton} 
-                  onClick={handleAddToCart}
-                  disabled={!isSelectionComplete || isOutOfStock}
-                >
-                  {isSelectionComplete ? (isOutOfStock ? 'Out of Stock' : 'Add to Bag') : 'Select Options'}
-                </button>
-              </>
+                  <button
+                    className={styles.cartButton}
+                    onClick={handleAddToCart}
+                    disabled={!isSelectionComplete || isOutOfStock}
+                  >
+                    {isSelectionComplete ? (isOutOfStock ? 'Out of Stock' : 'Add to Bag') : 'Select Options'}
+                  </button>
+                </>
+              )}
           </div>
 
           {/* Compatibility Links Banner */}
