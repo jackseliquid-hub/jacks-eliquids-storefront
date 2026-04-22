@@ -25,6 +25,7 @@ export default function StorefrontHeader() {
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const [panelTop, setPanelTop] = useState(62);
+  const [panelLeft, setPanelLeft] = useState<number | null>(null);
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
@@ -38,12 +39,15 @@ export default function StorefrontHeader() {
     if (closeTimer.current) { clearTimeout(closeTimer.current); closeTimer.current = null; }
   }, []);
 
-  const openMega = useCallback((id: string) => {
+  const openMega = useCallback((id: string, triggerEl?: HTMLElement) => {
     cancelClose();
-    // Compute panel top from the actual header bottom
     if (headerRef.current) {
       const rect = headerRef.current.getBoundingClientRect();
-      setPanelTop(rect.bottom + 5); // 5px gap below header
+      setPanelTop(rect.bottom + 5);
+    }
+    if (triggerEl) {
+      const tRect = triggerEl.getBoundingClientRect();
+      setPanelLeft(tRect.left);
     }
     setMegaOpen(id);
   }, [cancelClose]);
@@ -231,7 +235,7 @@ export default function StorefrontHeader() {
                   <div
                     key={item.id}
                     className={megaStyles.triggerWrap}
-                    onMouseEnter={() => openMega(item.id)}
+                    onMouseEnter={e => openMega(item.id, e.currentTarget as HTMLElement)}
                     onMouseLeave={startClose}
                   >
                     <Link
@@ -266,7 +270,7 @@ export default function StorefrontHeader() {
         return (
           <div
             className={megaStyles.panel}
-            style={{ top: panelTop }}
+            style={{ top: panelTop, left: panelLeft ?? undefined }}
             onMouseEnter={cancelClose}
             onMouseLeave={startClose}
           >

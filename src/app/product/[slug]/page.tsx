@@ -336,7 +336,7 @@ export default function ProductPage({
                   className={`${styles.galleryThumb} ${mainImage === product.image ? styles.thumbActive : ''}`} 
                   onClick={() => setMainImage(product.image)}
                 >
-                  <img src={product.image} alt="Main" />
+                  <img src={product.image} alt={product.name} />
                 </div>
               )}
               {product.gallery?.map((img, i) => (
@@ -345,7 +345,7 @@ export default function ProductPage({
                   className={`${styles.galleryThumb} ${mainImage === img ? styles.thumbActive : ''}`} 
                   onClick={() => setMainImage(img)}
                 >
-                  <img src={img} alt={`Gallery ${i}`} />
+                  <img src={img} alt={`${product.name} - image ${i + 1}`} />
                 </div>
               ))}
             </div>

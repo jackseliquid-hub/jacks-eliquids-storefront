@@ -11,13 +11,13 @@
   color: var(--deep-teal, #0d9488) !important;
 }
 
-/* ── Panel (centered, dynamic width) ──────────────────────── */
+/* ── Panel (left-aligned to trigger, fits its content) ──── */
 .panel {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;                     /* overridden inline by JS with trigger's left offset */
   z-index: 200;
-  width: min(780px, 92vw);
+  width: max-content;          /* shrinks to content width */
+  max-width: min(780px, 92vw); /* but never wider than 780px */
   background: #fff;
   border: 1px solid #e5e7eb;
   border-radius: 14px;
@@ -28,8 +28,8 @@
 }
 
 @keyframes dropIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .inner {
