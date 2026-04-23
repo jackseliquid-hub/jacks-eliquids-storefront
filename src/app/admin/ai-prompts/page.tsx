@@ -169,17 +169,6 @@ export default function AiPromptsPage() {
           </div>
         </div>
 
-        {/* Supabase SQL reminder */}
-        <div style={{
-          background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 12,
-          padding: '0.85rem 1.1rem', marginBottom: '1.75rem',
-          display: 'flex', gap: '0.6rem', alignItems: 'flex-start', fontSize: '0.82rem', color: '#92400e',
-        }}>
-          <span style={{ flexShrink: 0 }}>⚠️</span>
-          <span>
-            First time? Run <strong>create_ai_prompt_overrides.sql</strong> in your Supabase SQL Editor to create the overrides table, then reload this page.
-          </span>
-        </div>
 
         {loading ? (
           <div className={styles.loadingWrap}>
