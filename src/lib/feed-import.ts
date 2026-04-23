@@ -476,7 +476,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     const to = from + varPageSize - 1;
     const { data: varBatch, error: varLoadError } = await supabase
       .from('product_variations')
-      .select('id, sku, product_id, cost_price, stock_qty')
+      .select('id, sku, product_id, cost_price, stock_qty, in_stock')
       .range(from, to);
 
     if (varLoadError) {
@@ -496,6 +496,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
     product_id: string;
     cost_price: string | null;
     stock_qty: number | null;
+    in_stock: boolean | null;
   }>();
 
   // Track which SKUs we've already seen to prevent duplicates
@@ -538,7 +539,9 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
           const existingVar = existingVarMap.get(fv.sku);
           if (existingVar) {
             const fvCost = fv.costprice_exvat.toFixed(2);
-            if (fvCost !== (existingVar.cost_price || '0.00') || fv.qty !== (existingVar.stock_qty ?? 0)) {
+            const expectedInStock = fv.qty > 0;
+            const inStockMismatch = existingVar.in_stock !== null && existingVar.in_stock !== expectedInStock;
+            if (fvCost !== (existingVar.cost_price || '0.00') || fv.qty !== (existingVar.stock_qty ?? 0) || inStockMismatch) {
               varChanged = true;
               // Track restock: was 0, now > 0
               if ((existingVar.stock_qty ?? 0) === 0 && fv.qty > 0) {
@@ -583,14 +586,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
 
         const updateData: Record<string, any> = {};
         if (parentCostChanged) updateData.cost_price = feedCostPrice;
-        if (parentQtyChanged) {
-          updateData.stock_qty = feedTotalQty;
-          // For simple products (no variations), also keep in_stock in sync
-          // Variation-only products track in_stock at the variation level
-          if (parent.prod_type === 'simple') {
-            updateData.in_stock = feedTotalQty > 0;
-          }
-        }
+        if (parentQtyChanged) updateData.stock_qty = feedTotalQty;
         if (attrChanged) updateData.attributes = feedAttributes;
 
         if (Object.keys(updateData).length > 0) {
