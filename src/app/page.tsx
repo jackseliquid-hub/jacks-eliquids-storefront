@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation';
 import styles from './home.module.css';
 import { useCart } from '@/context/CartContext';
 import { getAllProducts, getCategories, Product } from '@/lib/data';
+import HeroBanner from '@/components/HeroBanner';
+import { createClient } from '@/utils/supabase/client';
 
 // Wrapper to satisfy Next.js Suspense boundary for useSearchParams
 export default function Home() {
@@ -32,17 +34,21 @@ function HomeInner() {
   // Data state
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [banners, setBanners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [prodData, catData] = await Promise.all([
+        const supabase = createClient();
+        const [prodData, catData, bannerRes] = await Promise.all([
           getAllProducts(),
-          getCategories()
+          getCategories(),
+          supabase.from('banners').select('*').eq('active', true).order('sort_order'),
         ]);
         setProducts(prodData.filter(p => p.status !== 'draft'));
         setCategories(catData);
+        setBanners(bannerRes.data || []);
       } catch (err) {
         console.error("Home: Data fetch error", err);
       } finally {
@@ -179,8 +185,13 @@ function HomeInner() {
   return (
     <>
       <main className={styles.main}>
-        {/* Hero — only show when not filtering */}
-        {!tagParam && !brandParam && activeCategory === 'All' && (
+        {/* Hero Banner — only when not filtering */}
+        {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && (
+          <HeroBanner banners={banners} />
+        )}
+
+        {/* Static hero fallback when no banners configured */}
+        {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && banners.filter(b => b.active).length === 0 && (
           <section className={styles.hero}>
             <h1 className={styles.heroTitle}>Premium E-Liquids. Unmatched Quality.</h1>
             <p className={styles.heroSubtitle}>

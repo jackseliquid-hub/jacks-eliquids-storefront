@@ -24,6 +24,7 @@ const allNavItems = [
   { href: '/admin/shipping',  label: 'Shipping',      icon: '🚚' },
   { href: '/admin/feed-import',label: 'Feed Import',  icon: '📦' },
   { href: '/admin/menus',     label: 'Menus',         icon: '🧭' },
+  { href: '/admin/banners',   label: 'Banners',       icon: '🖼️' },
 
   { href: '/admin/media',     label: 'Media Library', icon: '🖼️' },
   { href: '/admin/seo',       label: 'Global SEO',    icon: '🔍' },
