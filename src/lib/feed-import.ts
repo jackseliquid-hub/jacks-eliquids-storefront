@@ -469,7 +469,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
 
   // ── 4. Load all existing variation SKUs ────────────────────────────────
   // IMPORTANT: Supabase caps queries at 1000 rows by default, so we must paginate
-  let allExistingVars: { id: string; sku: string; product_id: string; cost_price: string | null; stock_qty: number | null }[] = [];
+  let allExistingVars: { id: string; sku: string; product_id: string; cost_price: string | null; stock_qty: number | null; in_stock: boolean | null }[] = [];
   let varPage = 0;
   const varPageSize = 1000;
   while (true) {
