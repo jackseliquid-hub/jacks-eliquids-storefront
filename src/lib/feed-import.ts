@@ -583,7 +583,14 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
 
         const updateData: Record<string, any> = {};
         if (parentCostChanged) updateData.cost_price = feedCostPrice;
-        if (parentQtyChanged) updateData.stock_qty = feedTotalQty;
+        if (parentQtyChanged) {
+          updateData.stock_qty = feedTotalQty;
+          // For simple products (no variations), also keep in_stock in sync
+          // Variation-only products track in_stock at the variation level
+          if (parent.prod_type === 'simple') {
+            updateData.in_stock = feedTotalQty > 0;
+          }
+        }
         if (attrChanged) updateData.attributes = feedAttributes;
 
         if (Object.keys(updateData).length > 0) {
