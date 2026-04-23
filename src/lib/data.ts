@@ -323,12 +323,16 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
 
   // If variations are included, replace them
   if (data.variations !== undefined) {
-    // Get existing variation IDs
+    // Get existing variation IDs + stock status BEFORE the update
     const { data: existingVars } = await supabase
       .from('product_variations')
-      .select('id')
+      .select('id, in_stock')
       .eq('product_id', id);
     const existingIds = (existingVars || []).map((v: any) => v.id);
+    // Map of id → was_in_stock before save
+    const previousStockMap = new Map<string, boolean>(
+      (existingVars || []).map((v: any) => [v.id, v.in_stock !== false])
+    );
 
     if (data.variations.length > 0) {
       const varRows = data.variations.map(v => ({
@@ -347,9 +351,25 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
 
       // Delete variations that were removed
       const newIds = data.variations.map(v => v.id);
-      const removedIds = existingIds.filter(eid => !newIds.includes(eid));
+      const removedIds = existingIds.filter((eid: string) => !newIds.includes(eid));
       if (removedIds.length > 0) {
         await supabase.from('product_variations').delete().in('id', removedIds);
+      }
+
+      // ── Fire back-in-stock notifications for restocked variations ─────────
+      // A variation is "restocked" if it was previously OOS and is now in stock
+      const restockedVarIds = data.variations
+        .filter(v => v.inStock === true && previousStockMap.get(v.id) === false)
+        .map(v => v.id);
+
+      if (restockedVarIds.length > 0) {
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquids.co.uk';
+        // Fire and forget — don't block the save
+        fetch(`${siteUrl}/api/send-stock-notifications`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variationIds: restockedVarIds, productIds: [id] }),
+        }).catch(err => console.error('[updateProduct] Notification trigger failed:', err));
       }
     } else {
       // All variations removed
