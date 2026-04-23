@@ -98,7 +98,8 @@ function decodeEntities(str: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+    .replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))  // hex entities e.g. &#x3A9; → Ω
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));                      // decimal entities e.g. &#937; → Ω
 }
 
 // ─── Supabase Admin Client ──────────────────────────────────────────────────
