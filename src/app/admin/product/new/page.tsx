@@ -295,7 +295,7 @@ export default function AddProductPage() {
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
-  async function handleSave(statusText: 'published' | 'draft') {
+  async function handleSave(statusText: 'published' | 'draft' | 'archived') {
     if (!product.name || !product.category) {
         showToast('Please provide a Name and Category', true);
         return;

@@ -298,7 +298,7 @@ export default function ProductEditorPage({
 
   // ── Save ─────────────────────────────────────────────────────────────────
 
-  async function handleSave(statusText?: 'published' | 'draft') {
+  async function handleSave(statusText?: 'published' | 'draft' | 'archived') {
     if (!product) return;
     setSaving(true);
     try {
