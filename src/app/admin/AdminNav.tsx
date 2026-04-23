@@ -28,6 +28,7 @@ const allNavItems = [
 
   { href: '/admin/media',     label: 'Media Library', icon: '🖼️' },
   { href: '/admin/seo',       label: 'Global SEO',    icon: '🔍' },
+  { href: '/admin/ai-prompts',label: 'AI Prompts',    icon: '🤖' },
   { href: '/admin/export',    label: 'Downloads',     icon: '⬇️' },
 ];
 
