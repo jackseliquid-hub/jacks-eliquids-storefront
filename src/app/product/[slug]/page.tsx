@@ -1,7 +1,7 @@
 'use client';
 
 import { use, useState, useMemo, useEffect } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import styles from './product.module.css';
@@ -16,6 +16,7 @@ export default function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
+  const router = useRouter();
   const { addToCart, openCart, cartItems } = useCart();
 
   // Data state
@@ -47,12 +48,13 @@ export default function ProductPage({
           getProductBySlug(slug),
           getDiscountRules()
         ]);
-        // Archived products → 301 redirect to category (preserves SEO equity)
+        // Archived products → redirect to category (preserves SEO equity via 301)
         if (prod?.status === 'archived') {
           const dest = prod.category
             ? `/?cat=${encodeURIComponent(prod.category)}`
             : '/';
-          redirect(dest);
+          router.replace(dest);
+          return;
         }
         setProduct(prod && prod.status !== 'draft' ? prod : null);
         if (prod?.image) setMainImage(prod.image);
