@@ -62,7 +62,11 @@ export default function HeroBanner({ banners }: Props) {
     <div
       style={{
         position: 'relative',
-        width: '100%',
+        width: '100vw',
+        left: '50%',
+        right: '50%',
+        marginLeft: '-50vw',
+        marginRight: '-50vw',
         overflow: 'hidden',
         userSelect: 'none',
       }}

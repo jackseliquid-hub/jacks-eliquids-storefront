@@ -7,6 +7,7 @@ import styles from './home.module.css';
 import { useCart } from '@/context/CartContext';
 import { getAllProducts, getCategories, Product } from '@/lib/data';
 import HeroBanner from '@/components/HeroBanner';
+import PromoTiles from '@/components/PromoTiles';
 import { createClient } from '@/utils/supabase/client';
 
 // Wrapper to satisfy Next.js Suspense boundary for useSearchParams
@@ -35,20 +36,23 @@ function HomeInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [banners, setBanners] = useState<any[]>([]);
+  const [promoTiles, setPromoTiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
         const supabase = createClient();
-        const [prodData, catData, bannerRes] = await Promise.all([
+        const [prodData, catData, bannerRes, tilesRes] = await Promise.all([
           getAllProducts(),
           getCategories(),
           supabase.from('banners').select('*').eq('active', true).order('sort_order'),
+          supabase.from('promo_tiles').select('*').eq('active', true).order('sort_order'),
         ]);
         setProducts(prodData.filter(p => p.status !== 'draft'));
         setCategories(catData);
         setBanners(bannerRes.data || []);
+        setPromoTiles(tilesRes.data || []);
       } catch (err) {
         console.error("Home: Data fetch error", err);
       } finally {
@@ -199,6 +203,10 @@ function HomeInner() {
             </p>
             <button className={styles.ctaButton} onClick={openCart}>Shop the Collection</button>
           </section>
+        )}
+        {/* Promo tiles — 6 category/offer boxes below banner */}
+        {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && (
+          <PromoTiles tiles={promoTiles} />
         )}
 
         {/* Products Grid */}
