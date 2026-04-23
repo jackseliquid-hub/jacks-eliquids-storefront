@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import styles from './home.module.css';
@@ -9,6 +9,190 @@ import { getAllProducts, getCategories, Product } from '@/lib/data';
 import HeroBanner from '@/components/HeroBanner';
 import PromoTiles from '@/components/PromoTiles';
 import { createClient } from '@/utils/supabase/client';
+
+// ─── Notify Me Modal ──────────────────────────────────────────────────────────
+
+interface NotifyTarget {
+  productId: string;
+  productName: string;
+  variationId: string | null; // first variation id, or null for simple products
+}
+
+interface NotifyModalProps {
+  target: NotifyTarget | null;
+  userEmail: string | null;
+  userName: string | null;
+  onClose: () => void;
+}
+
+function NotifyModal({ target, userEmail, userName, onClose }: NotifyModalProps) {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<'success' | 'error' | null>(null);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+
+  // Auto-submit for logged-in users as soon as the modal opens
+  useEffect(() => {
+    if (!target || !userEmail || autoSubmitted) return;
+    setAutoSubmitted(true);
+    setLoading(true);
+    fetch('/api/notify-stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        variationId: target.variationId || target.productId,
+        productId: target.productId,
+        email: userEmail,
+        name: userName || null,
+      }),
+    })
+      .then(r => r.json())
+      .then(j => setResult(j.success ? 'success' : 'error'))
+      .catch(() => setResult('error'))
+      .finally(() => setLoading(false));
+  }, [target, userEmail, userName, autoSubmitted]);
+
+  // Focus email field for guests
+  useEffect(() => {
+    if (target && !userEmail) {
+      setTimeout(() => emailRef.current?.focus(), 100);
+    }
+  }, [target, userEmail]);
+
+  // Reset state when modal opens for a new product
+  useEffect(() => {
+    if (target) {
+      setEmail('');
+      setName('');
+      setResult(null);
+      setAutoSubmitted(false);
+      setLoading(false);
+    }
+  }, [target?.productId]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  if (!target) return null;
+
+  async function handleGuestSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !target) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/notify-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          variationId: target.variationId || target.productId,
+          productId: target.productId,
+          email,
+          name: name.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      setResult(json.success ? 'success' : 'error');
+    } catch {
+      setResult('error');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const displayName = userEmail ? (userName || userEmail.split('@')[0]) : (name.trim() || null);
+
+  return (
+    <div
+      className={styles.notifyOverlay}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Back in stock notification"
+    >
+      <div className={styles.notifyCard}>
+        {/* Close button */}
+        <button className={styles.notifyClose} onClick={onClose} aria-label="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+
+        <div className={styles.notifyBell}>🔔</div>
+
+        {result === 'success' ? (
+          /* ── Success state ───────────────── */
+          <div className={styles.notifySuccess}>
+            <div className={styles.notifySuccessIcon}>✅</div>
+            <h3 className={styles.notifySuccessTitle}>
+              {displayName ? `Thanks, ${displayName}!` : 'You\'re on the list!'}
+            </h3>
+            <p className={styles.notifySuccessBody}>
+              We'll email you as soon as <strong>{target.productName}</strong> is back in stock.
+            </p>
+            <button className={styles.notifySubmitBtn} onClick={onClose}>
+              Close
+            </button>
+          </div>
+        ) : result === 'error' ? (
+          /* ── Error state ─────────────────── */
+          <div className={styles.notifySuccess}>
+            <div className={styles.notifySuccessIcon}>⚠️</div>
+            <h3 className={styles.notifySuccessTitle}>Something went wrong</h3>
+            <p className={styles.notifySuccessBody}>Please try again or visit the product page to sign up.</p>
+            <button className={styles.notifySubmitBtn} onClick={onClose}>Close</button>
+          </div>
+        ) : userEmail ? (
+          /* ── Logged-in: show loading spinner while auto-submitting ── */
+          <div className={styles.notifySuccess}>
+            <div className={styles.notifySpinner} />
+            <p className={styles.notifySuccessBody}>Saving your request…</p>
+          </div>
+        ) : (
+          /* ── Guest: show form ─────────────── */
+          <>
+            <h3 className={styles.notifyTitle}>Notify me when it's back</h3>
+            <p className={styles.notifySubtitle}>
+              <strong>{target.productName}</strong> is currently out of stock. Enter your details below and we'll email you the moment it's available again.
+            </p>
+            <form onSubmit={handleGuestSubmit} className={styles.notifyForm}>
+              <input
+                type="text"
+                placeholder="Your name (optional)"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className={styles.notifyInput}
+              />
+              <input
+                ref={emailRef}
+                type="email"
+                placeholder="Your email address *"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className={styles.notifyInput}
+                required
+              />
+              <button
+                type="submit"
+                disabled={loading || !email}
+                className={styles.notifySubmitBtn}
+              >
+                {loading ? 'Saving…' : '📩 Notify Me'}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Home wrapper ─────────────────────────────────────────────────────────────
 
 // Wrapper to satisfy Next.js Suspense boundary for useSearchParams
 export default function Home() {
@@ -39,20 +223,42 @@ function HomeInner() {
   const [promoTiles, setPromoTiles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Logged-in user session (for Notify Me auto-submit)
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+
+  // Notify Me modal state
+  const [notifyTarget, setNotifyTarget] = useState<NotifyTarget | null>(null);
+
   useEffect(() => {
     async function fetchData() {
       try {
         const supabase = createClient();
-        const [prodData, catData, bannerRes, tilesRes] = await Promise.all([
+        const [prodData, catData, bannerRes, tilesRes, sessionRes] = await Promise.all([
           getAllProducts(),
           getCategories(),
           supabase.from('banners').select('*').eq('active', true).order('sort_order'),
           supabase.from('promo_tiles').select('*').eq('active', true).order('sort_order'),
+          supabase.auth.getUser(),
         ]);
         setProducts(prodData.filter(p => p.status !== 'draft'));
         setCategories(catData);
         setBanners(bannerRes.data || []);
         setPromoTiles(tilesRes.data || []);
+
+        // Resolve logged-in user details for Notify Me
+        const user = sessionRes.data?.user;
+        if (user) {
+          setUserEmail(user.email || null);
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('first_name, last_name')
+            .eq('id', user.id)
+            .single();
+          if (customer) {
+            setUserName(`${customer.first_name || ''} ${customer.last_name || ''}`.trim() || null);
+          }
+        }
       } catch (err) {
         console.error("Home: Data fetch error", err);
       } finally {
@@ -309,7 +515,15 @@ function HomeInner() {
                             className={styles.addToCartBtn}
                             style={{ background: 'var(--deep-teal)', opacity: 0.85 }}
                             aria-label="Notify me when back in stock"
-                            onClick={e => e.preventDefault()}
+                            onClick={e => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setNotifyTarget({
+                                productId: product.id,
+                                productName: product.name,
+                                variationId: product.variations?.[0]?.id || null,
+                              });
+                            }}
                           >
                             🔔 Notify Me
                           </button>
@@ -335,6 +549,14 @@ function HomeInner() {
           </div>
         </section>
       </main>
+
+      {/* Notify Me Modal — rendered outside main to avoid z-index / link issues */}
+      <NotifyModal
+        target={notifyTarget}
+        userEmail={userEmail}
+        userName={userName}
+        onClose={() => setNotifyTarget(null)}
+      />
     </>
   );
 }
