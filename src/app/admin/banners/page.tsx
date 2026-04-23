@@ -439,7 +439,7 @@ function PromoTilesSection() {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
         <div>
           <div style={{fontWeight:700,color:'#111',fontSize:'1rem'}}>Promo Tiles</div>
-          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>6 category/offer boxes shown below the hero banner (first 6 active tiles displayed)</div>
+          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Up to 12 tiles shown below the hero banner — max 6 per row on desktop, 2 per row on mobile. Partial rows are always centred.</div>
         </div>
         <button onClick={startNew} style={{
           background:'linear-gradient(135deg,#0f766e,#0d9488)',color:'#fff',
