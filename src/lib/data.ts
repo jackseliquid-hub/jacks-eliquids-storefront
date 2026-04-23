@@ -51,7 +51,7 @@ export interface Product {
   supplierId?: string;
   attributes: Record<string, string[]>;
   variations: Variation[];
-  status?: 'published' | 'draft';
+  status?: 'published' | 'draft' | 'archived';
   seo?: SeoMeta;
   updatedAt?: string;
   relatedProducts?: string[];
@@ -135,7 +135,7 @@ function mapProduct(row: Record<string, unknown>, variations: Variation[] = []):
     supplierId:    (row.supplier_id as string) || undefined,
     attributes:    (row.attributes as Record<string, string[]>) || {},
     variations,
-    status:        (row.status as 'published' | 'draft') || 'draft',
+    status:        (row.status as 'published' | 'draft' | 'archived') || 'draft',
     seo:           (row.seo as SeoMeta) || {},
     updatedAt:     row.updated_at ? String(row.updated_at) : undefined,
     relatedProducts: (row.related_products as string[]) || [],
@@ -512,7 +512,7 @@ function mapBlog(row: Record<string, unknown>): Blog {
     content:     (row.content as string) || '',
     author:      (row.author as string) || '',
     image:       (row.image as string) || undefined,
-    status:      (row.status as 'published' | 'draft') || 'draft',
+    status:      (row.status as 'published' | 'draft' | 'archived') || 'draft',
     category:    (row.category as string) || undefined,
     tags:        (row.tags as string[]) || [],
     publishedAt: (row.published_at as string) || undefined,
@@ -628,7 +628,7 @@ function mapPage(row: Record<string, unknown>): Page {
     slug:      row.slug as string,
     title:     row.title as string,
     content:   (row.content as string) || '',
-    status:    (row.status as 'published' | 'draft') || 'draft',
+    status:    (row.status as 'published' | 'draft' | 'archived') || 'draft',
     createdAt: row.created_at ? String(row.created_at) : undefined,
     updatedAt: row.updated_at ? String(row.updated_at) : undefined,
     seo:       (row.seo as SeoMeta) || {},

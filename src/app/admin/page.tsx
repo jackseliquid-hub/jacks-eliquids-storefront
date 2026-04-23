@@ -24,6 +24,7 @@ export default function AdminProductsPage() {
   const [brandFilter, setBrandFilter] = useState(searchParams.get('brand') || '');
   const [tagFilter, setTagFilter] = useState(searchParams.get('tag') || '');
   const [missingFilter, setMissingFilter] = useState<'weight' | 'sku' | 'cost' | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Inline editing state  
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -64,6 +65,8 @@ export default function AdminProductsPage() {
 
   const filtered = useMemo(() => {
     let result = products;
+    // By default hide archived products; show them only when toggled
+    if (!showArchived) result = result.filter(p => p.status !== 'archived');
     if (categoryFilter) result = result.filter(p => p.category === categoryFilter);
     if (brandFilter) result = result.filter(p => p.brand === brandFilter);
     if (tagFilter) result = result.filter(p => p.tags?.includes(tagFilter));
@@ -83,7 +86,7 @@ export default function AdminProductsPage() {
     if (missingFilter === 'sku')    result = result.filter(p => !p.sku || p.sku.trim() === '');
     if (missingFilter === 'cost')   result = result.filter(p => !p.costPrice || p.costPrice.trim() === '');
     return result;
-  }, [search, categoryFilter, brandFilter, missingFilter, products]);
+  }, [search, categoryFilter, brandFilter, missingFilter, tagFilter, showArchived, products]);
 
   // ─── Inline Save Helper ──────────────────────────────────────────────
   async function inlineSave(productId: string, field: string, value: string | string[]) {
@@ -99,6 +102,29 @@ export default function AdminProductsPage() {
       setSavingId(null);
       setEditingCell(null);
     }
+  }
+
+  // ─── Archive / Restore / Hard Delete ─────────────────────────────────
+  async function archiveProduct(productId: string) {
+    if (!confirm('Archive this product?\n\nIt will be removed from the storefront and any visitor to its URL will be automatically redirected (301) to its category page. You can restore it any time.')) return;
+    await updateProduct(productId, { status: 'archived' } as Partial<Product>);
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, status: 'archived' } : p));
+    showToast('Product archived ✓');
+  }
+
+  async function restoreProduct(productId: string) {
+    await updateProduct(productId, { status: 'published' } as Partial<Product>);
+    setProducts(prev => prev.map(p => p.id === productId ? { ...p, status: 'published' } : p));
+    showToast('Product restored ✓');
+  }
+
+  async function hardDeleteProduct(productId: string, productName: string) {
+    if (!confirm(`⚠️ PERMANENT DELETE: "${productName}"\n\nThis cannot be undone. The product will be removed from the database entirely.\nOrder history is safe — it stores snapshots of name, price, and variant at time of purchase.\n\nAre you absolutely sure?`)) return;
+    const { createClient } = await import('@/utils/supabase/client');
+    const supabase = createClient();
+    await supabase.from('products').delete().eq('id', productId);
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    showToast('Permanently deleted');
   }
 
   // ─── Inline Price/Cost Edit ──────────────────────────────────────────
@@ -263,6 +289,21 @@ export default function AdminProductsPage() {
               ✕ Clear
             </button>
           )}
+          <span style={{ flex: 1 }} />
+          {/* Show Archived toggle */}
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            style={{
+              padding: '0.32rem 0.9rem', borderRadius: 20, border: '1.5px solid',
+              borderColor: showArchived ? '#b45309' : '#e5e7eb',
+              background: showArchived ? '#fef3c7' : '#fff',
+              color: showArchived ? '#92400e' : '#6b7280',
+              fontSize: '0.8rem', fontWeight: showArchived ? 700 : 500, cursor: 'pointer',
+              whiteSpace: 'nowrap', transition: 'all 0.15s',
+            }}
+          >
+            {showArchived ? '📦 Showing Archived' : '📦 Show Archived'}
+          </button>
         </div>
       </div>
 
@@ -310,6 +351,11 @@ export default function AdminProductsPage() {
                           {product.status === 'draft' && (
                             <span style={{ marginLeft: '8px', padding: '1px 6px', backgroundColor: '#f5f5f7', color: '#86868b', borderRadius: '4px', fontSize: '0.70rem', fontWeight: 600, border: '1px solid #d2d2d7' }}>
                               DRAFT
+                            </span>
+                          )}
+                          {product.status === 'archived' && (
+                            <span style={{ marginLeft: '8px', padding: '1px 6px', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: '4px', fontSize: '0.70rem', fontWeight: 600, border: '1px solid #fcd34d' }}>
+                              ARCHIVED
                             </span>
                           )}
                         </div>
@@ -483,19 +529,62 @@ export default function AdminProductsPage() {
                         )}
                       </td>
                       <td>
-                        <button
-                          onClick={() => toggleEditPanel(product.id)}
-                          className={`${styles.btn} ${styles.btnSecondary}`}
-                          style={{
-                            padding: '0.4rem 0.9rem',
-                            fontSize: '0.82rem',
-                            background: expandedId === product.id ? '#0f766e' : undefined,
-                            color: expandedId === product.id ? '#fff' : undefined,
-                            borderColor: expandedId === product.id ? '#0f766e' : undefined,
-                          }}
-                        >
-                          {expandedId === product.id ? '▲ Close' : 'Edit'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={() => toggleEditPanel(product.id)}
+                            className={`${styles.btn} ${styles.btnSecondary}`}
+                            style={{
+                              padding: '0.4rem 0.9rem',
+                              fontSize: '0.82rem',
+                              background: expandedId === product.id ? '#0f766e' : undefined,
+                              color: expandedId === product.id ? '#fff' : undefined,
+                              borderColor: expandedId === product.id ? '#0f766e' : undefined,
+                            }}
+                          >
+                            {expandedId === product.id ? '▲ Close' : 'Edit'}
+                          </button>
+                          {product.status !== 'archived' ? (
+                            <button
+                              onClick={() => archiveProduct(product.id)}
+                              title="Archive — removes from store, 301 redirects URL to category. Restoreable."
+                              style={{
+                                padding: '0.4rem 0.65rem', fontSize: '0.75rem',
+                                border: '1px solid #fcd34d', borderRadius: 6,
+                                background: '#fef9c3', color: '#92400e', cursor: 'pointer',
+                                fontWeight: 600, whiteSpace: 'nowrap',
+                              }}
+                            >
+                              📦 Archive
+                            </button>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => restoreProduct(product.id)}
+                                title="Restore to Published"
+                                style={{
+                                  padding: '0.4rem 0.65rem', fontSize: '0.75rem',
+                                  border: '1px solid #86efac', borderRadius: 6,
+                                  background: '#f0fdf4', color: '#166534', cursor: 'pointer',
+                                  fontWeight: 600, whiteSpace: 'nowrap',
+                                }}
+                              >
+                                ✅ Restore
+                              </button>
+                              <button
+                                onClick={() => hardDeleteProduct(product.id, product.name)}
+                                title="Permanently delete from database"
+                                style={{
+                                  padding: '0.4rem 0.65rem', fontSize: '0.75rem',
+                                  border: '1px solid #fca5a5', borderRadius: 6,
+                                  background: '#fef2f2', color: '#dc2626', cursor: 'pointer',
+                                  fontWeight: 600, whiteSpace: 'nowrap',
+                                }}
+                              >
+                                🗑️ Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
 
@@ -545,10 +634,11 @@ export default function AdminProductsPage() {
                                   className={styles.select}
                                   style={{ width: '100%', marginTop: 4, padding: '0.4rem', borderRadius: 8 }}
                                   value={editProduct.status || 'published'}
-                                  onChange={e => setEditField('status', e.target.value as 'published' | 'draft')}
+                                  onChange={e => setEditField('status', e.target.value as 'published' | 'draft' | 'archived')}
                                 >
                                   <option value="published">Published</option>
-                                  <option value="draft">Draft</option>
+                                  <option value="draft">Draft (hidden from store)</option>
+                                  <option value="archived">📦 Archived (301 redirect to category)</option>
                                 </select>
                               </div>
                             </div>

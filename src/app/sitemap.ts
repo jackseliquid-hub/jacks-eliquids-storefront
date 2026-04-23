@@ -57,9 +57,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   ];
 
-  // Products — use real updated_at timestamps, exclude noIndex and drafts
+  // Products — exclude drafts and archived; respect noIndex flag
   products
-    .filter(p => p.status !== 'draft')
+    .filter(p => p.status !== 'draft' && p.status !== 'archived')
     .filter(p => !p.seo?.noIndex)
     .forEach((product) => {
       entries.push({
