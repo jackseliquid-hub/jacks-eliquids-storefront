@@ -16,6 +16,7 @@ interface Banner {
   image_url: string;
   bg_color: string;
   text_color: string;
+  height_px: number;
   sort_order: number;
   active: boolean;
 }
@@ -37,7 +38,7 @@ const BANNER_BLANK: Omit<Banner, 'id'> = {
   title: '', subtitle: '', badge_text: '',
   cta_text: 'Shop Now', cta_url: '/',
   image_url: '', bg_color: '#0f766e', text_color: 'light',
-  sort_order: 0, active: true,
+  height_px: 380, sort_order: 0, active: true,
 };
 
 const TILE_BLANK: Omit<PromoTile, 'id'> = {
@@ -321,6 +322,21 @@ function BannerSection() {
                 ))}
               </div>
             </div>
+            <div style={{gridColumn:'1/-1'}}>
+              <label className={styles.label}>
+                Banner Height: <strong>{form.height_px}px</strong>
+                <span style={{fontSize:'0.75rem',color:'#9ca3af',marginLeft:'0.5rem',fontWeight:400}}>Drag to adjust (200–600px)</span>
+              </label>
+              <input
+                type="range" min={200} max={600} step={10}
+                value={form.height_px}
+                onChange={e=>setForm(f=>({...f,height_px:parseInt(e.target.value)}))}
+                style={{width:'100%',accentColor:'#0f766e',marginTop:6}}
+              />
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.72rem',color:'#9ca3af'}}>
+                <span>200px (compact)</span><span>380px (default)</span><span>600px (tall)</span>
+              </div>
+            </div>
             <div>
               <label className={styles.label}>Display Order</label>
               <input type="number" className={styles.input} value={form.sort_order} onChange={e=>setForm(f=>({...f,sort_order:parseInt(e.target.value)||0}))}/>
@@ -361,7 +377,7 @@ function BannerSection() {
                       {b.title}
                     </div>
                     {b.subtitle&&<div style={{fontSize:'0.78rem',color:'#6b7280',marginTop:1}}>{b.subtitle}</div>}
-                    <div style={{fontSize:'0.72rem',color:'#9ca3af',marginTop:1}}>Order:{b.sort_order} · {b.cta_text}→{b.cta_url}</div>
+                    <div style={{fontSize:'0.72rem',color:'#9ca3af',marginTop:1}}>Order:{b.sort_order} · Height:{b.height_px||380}px · {b.cta_text}→{b.cta_url}</div>
                   </div>
                   <div style={{display:'flex',gap:'0.35rem',flexShrink:0}}>
                     <button onClick={()=>moveOrder(b,-1)} title="Up" style={iconBtn}>↑</button>

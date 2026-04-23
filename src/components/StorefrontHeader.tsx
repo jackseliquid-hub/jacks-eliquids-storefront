@@ -116,10 +116,10 @@ export default function StorefrontHeader() {
           display: 'flex', alignItems: 'center',
           padding: '0.55rem 0', gap: '1rem',
         }}>
-          {/* Logo */}
+          {/* Logo — always links to homepage */}
           <div className={styles.logo} style={{ flexShrink: 0 }}>
-            <Link href="/" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
-              <Image src="/logo.png" alt="Jack's E-Liquid" width={120} height={44} style={{ objectFit: 'contain' }} priority />
+            <Link href="/" onClick={() => { if (typeof window !== 'undefined') window.location.href = '/'; }} style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center' }}>
+              <Image src="/logo.png" alt="Jack's E-Liquid" width={138} height={51} style={{ objectFit: 'contain' }} priority />
             </Link>
           </div>
 
