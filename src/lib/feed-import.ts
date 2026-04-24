@@ -762,7 +762,7 @@ export async function runFeedImport(feedUrl: string, dryRun = false): Promise<Im
 
             try {
               await resend.emails.send({
-                from: 'Jack\'s E-Liquid <noreply@jackseliquids.co.uk>',
+                from: 'Jacks E-Liquid <sales@jackseliquid.co.uk>',
                 to: notif.email,
                 subject: `🔔 Back in Stock: ${prod.name}${variantLabel ? ` - ${variantLabel}` : ''}`,
                 html: `
