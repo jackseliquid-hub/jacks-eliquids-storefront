@@ -358,17 +358,8 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
 
       // ── Fire back-in-stock notifications for restocked variations ─────────
       // A variation is "restocked" if it was previously OOS and is now in stock
-      console.log('[updateProduct] Stock change detection:',
-        'variations:', data.variations.length,
-        'previousMap entries:', [...previousStockMap.entries()].map(([id, was]) => `${id}=${was}`).join(', '));
-
       const restockedVarIds = data.variations
-        .filter(v => {
-          const wasInStock = previousStockMap.get(v.id);
-          const isNowInStock = v.inStock;
-          console.log(`[updateProduct] Var ${v.id}: wasInStock=${wasInStock}, isNowInStock=${isNowInStock}, restocked=${isNowInStock === true && wasInStock === false}`);
-          return isNowInStock === true && wasInStock === false;
-        })
+        .filter(v => v.inStock === true && previousStockMap.get(v.id) === false)
         .map(v => v.id);
 
       if (restockedVarIds.length > 0) {
@@ -377,18 +368,12 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
         const notifyUrl = isBrowser
           ? '/api/send-stock-notifications'
           : `${process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquids.co.uk'}/api/send-stock-notifications`;
-        console.log(`[updateProduct] 🔔 Triggering notifications for ${restockedVarIds.length} restocked variations via ${notifyUrl}`);
         // Fire and forget — don't block the save
         fetch(notifyUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variationIds: restockedVarIds, productIds: [id] }),
-        })
-        .then(res => res.json())
-        .then(data => console.log('[updateProduct] Notification API response:', data))
-        .catch(err => console.error('[updateProduct] Notification trigger failed:', err));
-      } else {
-        console.log('[updateProduct] No restocked variations detected — skipping notification trigger');
+        }).catch(err => console.error('[updateProduct] Notification trigger failed:', err));
       }
     } else {
       // All variations removed
