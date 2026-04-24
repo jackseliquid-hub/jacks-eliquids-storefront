@@ -402,15 +402,6 @@ function HomeInner() {
     });
   }
 
-  if (loading) {
-    return (
-      <div className={styles.loadingScreen}>
-        <div className={styles.spinner} />
-        <span>Loading Shop...</span>
-      </div>
-    );
-  }
-
   // Determine if this is the curated homepage (no filters active)
   const isHome = !tagParam && !brandParam && activeCategory === 'All' && !searchQuery;
 
@@ -423,6 +414,15 @@ function HomeInner() {
         .filter(Boolean) as Product[],
     }));
   }, [showcases, products]);
+
+  if (loading) {
+    return (
+      <div className={styles.loadingScreen}>
+        <div className={styles.spinner} />
+        <span>Loading Shop...</span>
+      </div>
+    );
+  }
 
   return (
     <>
