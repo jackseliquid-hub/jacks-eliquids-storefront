@@ -1,45 +1,50 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@/utils/supabase/client';
 
 interface Review {
-  id?: number;
   author_name: string;
   rating: number;
   text: string;
-  relative_time?: string;
+  relative_time_description?: string;
   profile_photo_url?: string;
 }
 
 /**
  * Google Reviews section for the homepage.
- * Currently renders from a local `google_reviews` table for manual control.
- * Will be wired up to Google Places API when the key is available.
+ * Fetches real reviews from our /api/google-reviews endpoint (server-side proxy).
+ * Falls back to placeholder reviews if the API isn't configured yet.
  */
 export default function GoogleReviews() {
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [scrollIndex, setScrollIndex] = useState(0);
+  const [overallRating, setOverallRating] = useState<number | null>(null);
+  const [totalRatings, setTotalRatings] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from('google_reviews')
-        .select('*')
-        .order('id');
-      if (data && data.length > 0) {
-        setReviews(data);
-      } else {
-        // Fallback placeholder reviews until real data is connected
-        setReviews([
-          { author_name: 'Sarah M.', rating: 5, text: 'Absolutely love the range of e-liquids! Fast delivery and brilliant customer service. Will definitely be ordering again.', relative_time: '2 weeks ago' },
-          { author_name: 'James T.', rating: 5, text: 'Best prices I\'ve found online for nic salts. The 5 for £10 deal is unbeatable. Top quality products every time.', relative_time: '1 month ago' },
-          { author_name: 'Emma K.', rating: 5, text: 'Great selection of pod kits and really helpful advice on choosing the right one. Couldn\'t be happier with my purchase!', relative_time: '3 weeks ago' },
-          { author_name: 'David R.', rating: 5, text: 'Switched to Jack\'s from another supplier and won\'t be going back. Much better flavours and the deals are fantastic.', relative_time: '2 months ago' },
-          { author_name: 'Lisa P.', rating: 4, text: 'Lovely range of products and the website is really easy to use. Delivery was quick too. Highly recommended!', relative_time: '1 month ago' },
-        ]);
+      try {
+        const res = await fetch('/api/google-reviews');
+        const data = await res.json();
+
+        if (data.reviews && data.reviews.length > 0) {
+          setReviews(data.reviews);
+          setOverallRating(data.rating);
+          setTotalRatings(data.total_ratings);
+        } else {
+          // Fallback placeholder reviews
+          setReviews([
+            { author_name: 'Sarah M.', rating: 5, text: 'Absolutely love the range of e-liquids! Fast delivery and brilliant customer service. Will definitely be ordering again.', relative_time_description: '2 weeks ago' },
+            { author_name: 'James T.', rating: 5, text: 'Best prices I\'ve found online for nic salts. The 5 for £10 deal is unbeatable. Top quality products every time.', relative_time_description: '1 month ago' },
+            { author_name: 'Emma K.', rating: 5, text: 'Great selection of pod kits and really helpful advice on choosing the right one. Couldn\'t be happier with my purchase!', relative_time_description: '3 weeks ago' },
+            { author_name: 'David R.', rating: 5, text: 'Switched to Jack\'s from another supplier and won\'t be going back. Much better flavours and the deals are fantastic.', relative_time_description: '2 months ago' },
+            { author_name: 'Lisa P.', rating: 4, text: 'Lovely range of products and the website is really easy to use. Delivery was quick too. Highly recommended!', relative_time_description: '1 month ago' },
+          ]);
+          setOverallRating(4.8);
+          setTotalRatings(5);
+        }
+      } catch {
+        // Silently fail — no reviews section if API is down
       }
     }
     load();
@@ -47,18 +52,17 @@ export default function GoogleReviews() {
 
   if (reviews.length === 0) return null;
 
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
-    : '5.0';
+  const avgRating = overallRating
+    ? overallRating.toFixed(1)
+    : (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1);
 
-  function scrollTo(dir: 'left' | 'right') {
+  const displayTotal = totalRatings || reviews.length;
+
+  function scrollCarousel(dir: 'left' | 'right') {
     if (!scrollRef.current) return;
     const cardWidth = 320;
-    const newIndex = dir === 'right'
-      ? Math.min(scrollIndex + 1, reviews.length - 1)
-      : Math.max(scrollIndex - 1, 0);
-    setScrollIndex(newIndex);
-    scrollRef.current.scrollTo({ left: newIndex * cardWidth, behavior: 'smooth' });
+    const offset = dir === 'right' ? cardWidth : -cardWidth;
+    scrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
   }
 
   return (
@@ -105,7 +109,7 @@ export default function GoogleReviews() {
               ))}
             </div>
             <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-              Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}
+              Based on {displayTotal} review{displayTotal !== 1 ? 's' : ''}
             </span>
           </div>
         </div>
@@ -116,7 +120,7 @@ export default function GoogleReviews() {
           {reviews.length > 3 && (
             <>
               <button
-                onClick={() => scrollTo('left')}
+                onClick={() => scrollCarousel('left')}
                 aria-label="Previous reviews"
                 style={{
                   position: 'absolute', left: -8, top: '50%', transform: 'translateY(-50%)',
@@ -131,7 +135,7 @@ export default function GoogleReviews() {
                 </svg>
               </button>
               <button
-                onClick={() => scrollTo('right')}
+                onClick={() => scrollCarousel('right')}
                 aria-label="Next reviews"
                 style={{
                   position: 'absolute', right: -8, top: '50%', transform: 'translateY(-50%)',
@@ -150,14 +154,17 @@ export default function GoogleReviews() {
 
           <div
             ref={scrollRef}
+            className="google-reviews-scroll"
             style={{
               display: 'flex', gap: '1rem',
               overflowX: 'auto', scrollSnapType: 'x mandatory',
-              scrollbarWidth: 'none', msOverflowStyle: 'none',
+              scrollbarWidth: 'none',
               padding: '0.25rem 0',
             }}
           >
-            <style>{`.google-reviews-scroll::-webkit-scrollbar { display: none; }`}</style>
+            <style>{`
+              .google-reviews-scroll::-webkit-scrollbar { display: none; }
+            `}</style>
 
             {reviews.map((review, i) => (
               <div
@@ -178,23 +185,36 @@ export default function GoogleReviews() {
               >
                 {/* Reviewer info */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  {/* Avatar */}
-                  <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #0f766e, #0d9488)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 700, fontSize: '0.95rem',
-                    flexShrink: 0,
-                  }}>
-                    {review.author_name.charAt(0).toUpperCase()}
-                  </div>
+                  {/* Avatar — use profile photo if available, otherwise initial */}
+                  {review.profile_photo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={review.profile_photo_url}
+                      alt={review.author_name}
+                      style={{
+                        width: 40, height: 40, borderRadius: '50%',
+                        objectFit: 'cover', flexShrink: 0,
+                        border: '2px solid #e5e7eb',
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #0f766e, #0d9488)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontWeight: 700, fontSize: '0.95rem',
+                      flexShrink: 0,
+                    }}>
+                      {review.author_name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111' }}>
                       {review.author_name}
                     </div>
-                    {review.relative_time && (
+                    {review.relative_time_description && (
                       <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>
-                        {review.relative_time}
+                        {review.relative_time_description}
                       </div>
                     )}
                   </div>
