@@ -48,3 +48,4 @@ cleaner.py
 
 # Security
 serviceAccountKey.json
+.env*.local
