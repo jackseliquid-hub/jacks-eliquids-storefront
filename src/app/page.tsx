@@ -8,7 +8,17 @@ import { useCart } from '@/context/CartContext';
 import { getAllProducts, getCategories, Product } from '@/lib/data';
 import HeroBanner from '@/components/HeroBanner';
 import PromoTiles from '@/components/PromoTiles';
+import ShowcaseRow from '@/components/ShowcaseRow';
+import GoogleReviews from '@/components/GoogleReviews';
 import { createClient } from '@/utils/supabase/client';
+
+interface ShowcaseSection {
+  id: number;
+  title: string;
+  product_ids: string[];
+  sort_order: number;
+  active: boolean;
+}
 
 // ─── Notify Me Modal ──────────────────────────────────────────────────────────
 
@@ -220,7 +230,9 @@ function HomeInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [banners, setBanners] = useState<any[]>([]);
-  const [promoTiles, setPromoTiles] = useState<any[]>([]);
+  const [promoTilesTop, setPromoTilesTop] = useState<any[]>([]);
+  const [promoTilesBottom, setPromoTilesBottom] = useState<any[]>([]);
+  const [showcases, setShowcases] = useState<ShowcaseSection[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Logged-in user session (for Notify Me auto-submit)
@@ -234,17 +246,24 @@ function HomeInner() {
     async function fetchData() {
       try {
         const supabase = createClient();
-        const [prodData, catData, bannerRes, tilesRes, sessionRes] = await Promise.all([
+        const [prodData, catData, bannerRes, tilesRes, showcaseRes, sessionRes] = await Promise.all([
           getAllProducts(),
           getCategories(),
           supabase.from('banners').select('*').eq('active', true).order('sort_order'),
           supabase.from('promo_tiles').select('*').eq('active', true).order('sort_order'),
+          supabase.from('homepage_showcases').select('*').eq('active', true).order('sort_order'),
           supabase.auth.getUser(),
         ]);
         setProducts(prodData.filter(p => p.status === 'published'));
         setCategories(catData);
         setBanners(bannerRes.data || []);
-        setPromoTiles(tilesRes.data || []);
+
+        // Split promo tiles by position
+        const allTiles = tilesRes.data || [];
+        setPromoTilesTop(allTiles.filter((t: any) => t.position !== 'bottom'));
+        setPromoTilesBottom(allTiles.filter((t: any) => t.position === 'bottom'));
+
+        setShowcases(showcaseRes.data || []);
 
         // Resolve logged-in user details for Notify Me
         const user = sessionRes.data?.user;
@@ -392,18 +411,31 @@ function HomeInner() {
     );
   }
 
+  // Determine if this is the curated homepage (no filters active)
+  const isHome = !tagParam && !brandParam && activeCategory === 'All' && !searchQuery;
+
+  // Resolve showcase products from product_ids for each showcase section
+  const showcaseProducts = useMemo(() => {
+    return showcases.map(sc => ({
+      ...sc,
+      products: (sc.product_ids || [])
+        .map(id => products.find(p => p.id === id))
+        .filter(Boolean) as Product[],
+    }));
+  }, [showcases, products]);
+
   return (
     <>
       <main className={styles.main}>
         {/* Hero Banner — only when not filtering */}
-        {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && (
+        {isHome && (
           <div style={{ paddingTop: '1.25rem' }}>
             <HeroBanner banners={banners} />
           </div>
         )}
 
         {/* Static hero fallback when no banners configured */}
-        {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && banners.filter(b => b.active).length === 0 && (
+        {isHome && banners.filter(b => b.active).length === 0 && (
           <section className={styles.hero}>
             <h1 className={styles.heroTitle}>Premium E-Liquids. Unmatched Quality.</h1>
             <p className={styles.heroSubtitle}>
@@ -412,144 +444,171 @@ function HomeInner() {
             <button className={styles.ctaButton} onClick={openCart}>Shop the Collection</button>
           </section>
         )}
-        {/* Promo tiles — 6 category/offer boxes below banner */}
-        {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && (
-          <PromoTiles tiles={promoTiles} />
-        )}
 
-        {/* Products Grid */}
-        <section className={`container ${styles.productsSection}`}>
-          <div className={styles.sectionHeader} style={{ marginBottom: '0.25rem' }}>
-            <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>{filterTitle}</h2>
-            <span className={styles.viewAll} style={{ cursor: 'default' }}>
-              {featuredProducts.length} Product{featuredProducts.length !== 1 ? 's' : ''}
-            </span>
-          </div>
+        {/* ── CURATED HOMEPAGE ── */}
+        {isHome && (
+          <>
+            {/* Top promo tiles */}
+            <PromoTiles tiles={promoTilesTop} />
 
-          {/* Tag Sub-filter Pills — only when a category is selected and has tags */}
-          {activeCategory !== 'All' && !brandParam && !(tagParam && !catParam) && categoryTags.length > 0 && (
-            <div className={`${styles.tagFilterWrap}`} style={{ marginBottom: '0.75rem' }}>
-              <button
-                className={`${styles.tagPill} ${!activeTag ? styles.active : ''}`}
-                onClick={() => { setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}`); }}
-              >
-                All {activeCategory}
-              </button>
-              {categoryTags.map(tag => (
-                <button
-                  key={tag}
-                  className={`${styles.tagPill} ${activeTag === tag ? styles.active : ''}`}
-                  onClick={() => { setActiveTag(tag); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}&tag=${encodeURIComponent(tag)}`); }}
-                >
-                  {tag}
-                </button>
+            {/* Showcase rows */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem 0 0.75rem' }}>
+              {showcaseProducts.map(sc => (
+                <ShowcaseRow
+                  key={sc.id}
+                  title={sc.title}
+                  products={sc.products}
+                  onNotify={(product) => setNotifyTarget({
+                    productId: product.id,
+                    productName: product.name,
+                    variationId: product.variations?.[0]?.id || null,
+                  })}
+                />
               ))}
             </div>
-          )}
 
-          {featuredProducts.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '4rem', color: '#9ca3af', fontSize: '1.1rem' }}>
-              No products found for this filter.
-              <br />
-              <Link href="/" style={{ color: '#0d9488', fontWeight: 600, marginTop: '0.5rem', display: 'inline-block' }}>
-                ← Back to all products
-              </Link>
+            {/* Bottom promo tiles */}
+            <PromoTiles tiles={promoTilesBottom} />
+
+            {/* Google Reviews */}
+            <GoogleReviews />
+          </>
+        )}
+
+        {/* ── FILTERED PRODUCT GRID (category / tag / brand / search) ── */}
+        {!isHome && (
+          <section className={`container ${styles.productsSection}`}>
+            <div className={styles.sectionHeader} style={{ marginBottom: '0.25rem' }}>
+              <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>{filterTitle}</h2>
+              <span className={styles.viewAll} style={{ cursor: 'default' }}>
+                {featuredProducts.length} Product{featuredProducts.length !== 1 ? 's' : ''}
+              </span>
             </div>
-          )}
 
-          <div className={styles.grid}>
-            {featuredProducts.map((product, index) => {
-              // Detect whole-product OOS
-              const vars = product.variations || [];
-              const allOOS = vars.length > 0
-                ? vars.every(v => !v.inStock)
-                : (product.trackStock ? (product.stockQty ?? 1) <= 0 : false);
+            {/* Tag Sub-filter Pills — only when a category is selected and has tags */}
+            {activeCategory !== 'All' && !brandParam && !(tagParam && !catParam) && categoryTags.length > 0 && (
+              <div className={`${styles.tagFilterWrap}`} style={{ marginBottom: '0.75rem' }}>
+                <button
+                  className={`${styles.tagPill} ${!activeTag ? styles.active : ''}`}
+                  onClick={() => { setActiveTag(null); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}`); }}
+                >
+                  All {activeCategory}
+                </button>
+                {categoryTags.map(tag => (
+                  <button
+                    key={tag}
+                    className={`${styles.tagPill} ${activeTag === tag ? styles.active : ''}`}
+                    onClick={() => { setActiveTag(tag); window.history.replaceState(null, '', `/?cat=${encodeURIComponent(activeCategory)}&tag=${encodeURIComponent(tag)}`); }}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
 
-              return (
-                <Link key={product.id || `prod-${index}`} href={`/product/${product.slug}`} className={styles.cardLink}>
-                  <div className={styles.card}>
-                    <div className={styles.cardImageWrapper} style={{ position: 'relative' }}>
-                      {product.image && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className={styles.productImage}
-                          loading="lazy"
-                          style={allOOS ? { filter: 'grayscale(55%) opacity(0.7)' } : undefined}
-                        />
-                      )}
-                      {allOOS && (
-                        <div style={{
-                          position: 'absolute', inset: 0,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          pointerEvents: 'none',
-                        }}>
-                          <span style={{
-                            background: 'rgba(0,0,0,0.62)', color: '#fff',
-                            fontSize: '0.82rem', fontWeight: 800,
-                            padding: '0.3rem 1rem', borderRadius: 6,
-                            letterSpacing: '0.07em', textTransform: 'uppercase',
-                          }}>Out of Stock</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className={styles.cardContent}>
-                      <h3 className={styles.productName}>{product.name}</h3>
-                      <div className={styles.productFooter}>
-                        <div className={styles.priceWrapper}>
-                          {product.salePrice ? (
-                            <>
-                              <span className={styles.productPriceSlashed}>
-                                {product.price !== 'N/A' ? `From ${product.price}` : ''}
-                              </span>
-                              <span className={styles.productPriceSale}>{product.salePrice}</span>
-                              <span className={styles.saleTag}>Sale</span>
-                            </>
-                          ) : (
-                            <span className={styles.productPrice}>
-                              {product.price && product.price !== 'N/A' ? `From ${product.price}` : 'See Options'}
-                            </span>
-                          )}
-                        </div>
-                        {allOOS ? (
-                          <button
-                            className={styles.addToCartBtn}
-                            style={{ background: 'var(--deep-teal)', opacity: 0.85 }}
-                            aria-label="Notify me when back in stock"
-                            onClick={e => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setNotifyTarget({
-                                productId: product.id,
-                                productName: product.name,
-                                variationId: product.variations?.[0]?.id || null,
-                              });
-                            }}
-                          >
-                            🔔 Notify Me
-                          </button>
-                        ) : product.variations && product.variations.length > 0 ? (
-                          <button className={styles.addToCartBtn} aria-label="Select options">
-                            Select Options
-                          </button>
-                        ) : (
-                          <button
-                            className={styles.addToCartBtn}
-                            aria-label="Add to cart"
-                            onClick={e => handleAddToCart(e, product)}
-                          >
-                            Add to Cart
-                          </button>
+            {featuredProducts.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '4rem', color: '#9ca3af', fontSize: '1.1rem' }}>
+                No products found for this filter.
+                <br />
+                <Link href="/" style={{ color: '#0d9488', fontWeight: 600, marginTop: '0.5rem', display: 'inline-block' }}>
+                  ← Back to all products
+                </Link>
+              </div>
+            )}
+
+            <div className={styles.grid}>
+              {featuredProducts.map((product, index) => {
+                const vars = product.variations || [];
+                const allOOS = vars.length > 0
+                  ? vars.every(v => !v.inStock)
+                  : (product.trackStock ? (product.stockQty ?? 1) <= 0 : false);
+
+                return (
+                  <Link key={product.id || `prod-${index}`} href={`/product/${product.slug}`} className={styles.cardLink}>
+                    <div className={styles.card}>
+                      <div className={styles.cardImageWrapper} style={{ position: 'relative' }}>
+                        {product.image && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className={styles.productImage}
+                            loading="lazy"
+                            style={allOOS ? { filter: 'grayscale(55%) opacity(0.7)' } : undefined}
+                          />
+                        )}
+                        {allOOS && (
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            pointerEvents: 'none',
+                          }}>
+                            <span style={{
+                              background: 'rgba(0,0,0,0.62)', color: '#fff',
+                              fontSize: '0.82rem', fontWeight: 800,
+                              padding: '0.3rem 1rem', borderRadius: 6,
+                              letterSpacing: '0.07em', textTransform: 'uppercase',
+                            }}>Out of Stock</span>
+                          </div>
                         )}
                       </div>
+                      <div className={styles.cardContent}>
+                        <h3 className={styles.productName}>{product.name}</h3>
+                        <div className={styles.productFooter}>
+                          <div className={styles.priceWrapper}>
+                            {product.salePrice ? (
+                              <>
+                                <span className={styles.productPriceSlashed}>
+                                  {product.price !== 'N/A' ? `From ${product.price}` : ''}
+                                </span>
+                                <span className={styles.productPriceSale}>{product.salePrice}</span>
+                                <span className={styles.saleTag}>Sale</span>
+                              </>
+                            ) : (
+                              <span className={styles.productPrice}>
+                                {product.price && product.price !== 'N/A' ? `From ${product.price}` : 'See Options'}
+                              </span>
+                            )}
+                          </div>
+                          {allOOS ? (
+                            <button
+                              className={styles.addToCartBtn}
+                              style={{ background: 'var(--deep-teal)', opacity: 0.85 }}
+                              aria-label="Notify me when back in stock"
+                              onClick={e => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setNotifyTarget({
+                                  productId: product.id,
+                                  productName: product.name,
+                                  variationId: product.variations?.[0]?.id || null,
+                                });
+                              }}
+                            >
+                              🔔 Notify Me
+                            </button>
+                          ) : product.variations && product.variations.length > 0 ? (
+                            <button className={styles.addToCartBtn} aria-label="Select options">
+                              Select Options
+                            </button>
+                          ) : (
+                            <button
+                              className={styles.addToCartBtn}
+                              aria-label="Add to cart"
+                              onClick={e => handleAddToCart(e, product)}
+                            >
+                              Add to Cart
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Notify Me Modal — rendered outside main to avoid z-index / link issues */}

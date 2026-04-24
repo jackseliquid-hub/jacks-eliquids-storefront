@@ -13,36 +13,31 @@ interface Tile {
   badge_text: string;
   sort_order: number;
   active: boolean;
+  shape?: string;     // 'rectangle' | 'circle'
+  position?: string;  // 'top' | 'bottom'
 }
 
 export default function PromoTiles({ tiles }: { tiles: Tile[] }) {
-  // Max 15 active tiles, sorted by sort_order
+  // No maximum — show all active tiles, sorted by sort_order
   const active = tiles
     .filter(t => t.active)
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .slice(0, 15);
+    .sort((a, b) => a.sort_order - b.sort_order);
 
   if (active.length === 0) return null;
 
   return (
     <div className="container" style={{ padding: '1.25rem 1rem 0.5rem' }}>
-      {/*
-        Flexbox approach:
-        - justify-content: center  → partial rows are always centred
-        - Each tile is 1/6 wide on desktop (with gap), 1/2 wide on mobile
-        - Gap handled via padding on each tile wrapper
-      */}
       <div
         className="promo-tiles-wrap"
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'center',
-          margin: '-0.375rem', // negative half-gap to compensate tile padding
+          margin: '-0.375rem',
         }}
       >
         <style>{`
-          /* Desktop: 5 per row max */
+          /* Desktop: 5 per row */
           .promo-tile-item {
             width: calc(100% / 5 - 0.75rem);
             min-width: 150px;
@@ -61,6 +56,110 @@ export default function PromoTiles({ tiles }: { tiles: Tile[] }) {
 
         {active.map(tile => {
           const isDark = tile.text_color === 'dark';
+          const isCircle = tile.shape === 'circle';
+
+          if (isCircle) {
+            return (
+              <div key={tile.id} className="promo-tile-item">
+                <Link
+                  href={tile.link_url || '/'}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textDecoration: 'none',
+                    transition: 'transform 0.18s',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(-3px)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+                  }}
+                >
+                  {/* Circle image */}
+                  <div style={{
+                    width: '100%',
+                    paddingBottom: '100%', // 1:1 aspect ratio
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    position: 'relative',
+                    background: tile.bg_color,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                    border: '3px solid #fff',
+                  }}>
+                    {tile.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={tile.image_url}
+                        alt={tile.title}
+                        style={{
+                          position: 'absolute', inset: 0,
+                          width: '100%', height: '100%',
+                          objectFit: 'cover', objectPosition: 'center',
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: tile.bg_color,
+                      }}>
+                        <span style={{
+                          fontWeight: 800,
+                          fontSize: 'clamp(1rem, 2vw, 1.4rem)',
+                          color: isDark ? '#111' : '#fff',
+                        }}>
+                          {tile.title.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Badge */}
+                    {tile.badge_text && (
+                      <span style={{
+                        position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+                        background: '#0f766e', color: '#fff',
+                        borderRadius: 9999, padding: '0.1rem 0.5rem',
+                        fontSize: '0.6rem', fontWeight: 800,
+                        letterSpacing: '0.07em', textTransform: 'uppercase',
+                        zIndex: 2, whiteSpace: 'nowrap',
+                      }}>
+                        {tile.badge_text}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Title below circle */}
+                  <div style={{
+                    textAlign: 'center',
+                    marginTop: '0.5rem',
+                    padding: '0 0.25rem',
+                  }}>
+                    <div style={{
+                      fontWeight: 700,
+                      fontSize: 'clamp(0.72rem, 1.2vw, 0.85rem)',
+                      color: '#111827',
+                      lineHeight: 1.25,
+                    }}>
+                      {tile.title}
+                    </div>
+                    {tile.subtitle && (
+                      <div style={{
+                        fontSize: 'clamp(0.62rem, 1vw, 0.72rem)',
+                        color: '#6b7280',
+                        marginTop: 2, lineHeight: 1.3,
+                      }}>
+                        {tile.subtitle}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              </div>
+            );
+          }
+
+          // ── Rectangle tile (default) ──
           return (
             <div key={tile.id} className="promo-tile-item">
               <Link

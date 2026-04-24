@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import MediaModal from '@/components/MediaModal';
 import styles from '../admin.module.css';
@@ -32,6 +32,8 @@ interface PromoTile {
   badge_text: string;
   sort_order: number;
   active: boolean;
+  position: string;
+  shape: string;
 }
 
 const BANNER_BLANK: Omit<Banner, 'id'> = {
@@ -45,6 +47,7 @@ const TILE_BLANK: Omit<PromoTile, 'id'> = {
   title: '', subtitle: '', image_url: '',
   link_url: '/', bg_color: '#f0fdfa', text_color: 'dark',
   badge_text: '', sort_order: 0, active: true,
+  position: 'top', shape: 'rectangle',
 };
 
 const PRESET_COLORS = [
@@ -439,7 +442,7 @@ function PromoTilesSection() {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
         <div>
           <div style={{fontWeight:700,color:'#111',fontSize:'1rem'}}>Promo Tiles</div>
-          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Up to 12 tiles shown below the hero banner — max 6 per row on desktop, 2 per row on mobile. Partial rows are always centred.</div>
+          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Unlimited tiles — 5 per row on desktop, 2 on mobile. Assign each tile to Top or Bottom strip. Choose rectangle or circle shape.</div>
         </div>
         <button onClick={startNew} style={{
           background:'linear-gradient(135deg,#0f766e,#0d9488)',color:'#fff',
@@ -497,6 +500,32 @@ function PromoTilesSection() {
                 ))}
               </div>
             </div>
+            <div>
+              <label className={styles.label}>Position</label>
+              <div style={{display:'flex',gap:'0.5rem',marginTop:4}}>
+                {['top','bottom'].map(v=>(
+                  <button key={v} onClick={()=>setForm(f=>({...f,position:v}))} style={{
+                    padding:'0.35rem 0.85rem',borderRadius:6,cursor:'pointer',
+                    border:`2px solid ${form.position===v?'#0f766e':'#e5e7eb'}`,
+                    background:form.position===v?'#e0f2fe':'#f3f4f6',
+                    color:'#111',fontWeight:600,fontSize:'0.78rem',
+                  }}>{v==='top'?'⬆️ Top Strip':'⬇️ Bottom Strip'}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={styles.label}>Shape</label>
+              <div style={{display:'flex',gap:'0.5rem',marginTop:4}}>
+                {['rectangle','circle'].map(v=>(
+                  <button key={v} onClick={()=>setForm(f=>({...f,shape:v}))} style={{
+                    padding:'0.35rem 0.85rem',borderRadius:6,cursor:'pointer',
+                    border:`2px solid ${form.shape===v?'#0f766e':'#e5e7eb'}`,
+                    background:form.shape===v?'#e0f2fe':'#f3f4f6',
+                    color:'#111',fontWeight:600,fontSize:'0.78rem',
+                  }}>{v==='rectangle'?'📐 Rectangle':'⭕ Circle'}</button>
+                ))}
+              </div>
+            </div>
             <div><label className={styles.label}>Order</label><input type="number" className={styles.input} value={form.sort_order} onChange={e=>setForm(f=>({...f,sort_order:parseInt(e.target.value)||0}))}/></div>
           </div>
           <div style={{display:'flex',gap:'0.75rem',marginTop:'1.25rem'}}>
@@ -536,9 +565,221 @@ function PromoTilesSection() {
   );
 }
 
+/* ═══ SHOWCASES SECTION ═════════════════ */
+interface Showcase {
+  id: number;
+  title: string;
+  product_ids: string[];
+  sort_order: number;
+  active: boolean;
+}
+
+interface SimpleProduct {
+  id: string;
+  name: string;
+  image?: string;
+}
+
+function ShowcasesSection() {
+  const [showcases, setShowcases] = useState<Showcase[]>([]);
+  const [allProducts, setAllProducts] = useState<SimpleProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Showcase|null>(null);
+  const [form, setForm] = useState<{title:string;product_ids:string[];sort_order:number;active:boolean}>({
+    title:'', product_ids:[], sort_order:0, active:true,
+  });
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<{text:string;type:'ok'|'err'}|null>(null);
+  const [search, setSearch] = useState('');
+  const supabase = createClient();
+
+  async function load() {
+    const [{ data: sc }, { data: prods }] = await Promise.all([
+      supabase.from('homepage_showcases').select('*').order('sort_order'),
+      supabase.from('products').select('id, name, image').eq('status', 'published').order('name'),
+    ]);
+    setShowcases(sc || []);
+    setAllProducts((prods || []).map((p: any) => ({ id: p.id, name: p.name, image: p.image })));
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  function notify(text:string, type:'ok'|'err'='ok') { setMsg({text,type}); setTimeout(()=>setMsg(null),3500); }
+
+  function startEdit(sc: Showcase) {
+    setEditing(sc);
+    setForm({ title:sc.title, product_ids:sc.product_ids||[], sort_order:sc.sort_order, active:sc.active });
+    setSearch('');
+    setTimeout(()=>document.getElementById('showcase-editor')?.scrollIntoView({behavior:'smooth'}),50);
+  }
+
+  async function save() {
+    if (!form.title.trim()) { notify('Title is required','err'); return; }
+    setSaving(true);
+    const payload = { title:form.title, product_ids:form.product_ids, sort_order:form.sort_order, active:form.active };
+    const { error } = await supabase.from('homepage_showcases').update(payload).eq('id', editing!.id);
+    if (error) notify(error.message,'err'); else { notify('Saved ✓'); setEditing(null); load(); }
+    setSaving(false);
+  }
+
+  function addProduct(id: string) {
+    if (form.product_ids.length >= 4) { notify('Max 4 products per row','err'); return; }
+    if (form.product_ids.includes(id)) return;
+    setForm(f => ({ ...f, product_ids: [...f.product_ids, id] }));
+  }
+
+  function removeProduct(id: string) {
+    setForm(f => ({ ...f, product_ids: f.product_ids.filter(pid => pid !== id) }));
+  }
+
+  const searchResults = useMemo(() => {
+    if (!search.trim()) return [];
+    const low = search.toLowerCase();
+    return allProducts
+      .filter(p => p.name.toLowerCase().includes(low) && !form.product_ids.includes(p.id))
+      .slice(0, 8);
+  }, [search, allProducts, form.product_ids]);
+
+  const selectedProducts = form.product_ids
+    .map(id => allProducts.find(p => p.id === id))
+    .filter(Boolean) as SimpleProduct[];
+
+  return (
+    <div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
+        <div>
+          <div style={{fontWeight:700,color:'#111',fontSize:'1rem'}}>Product Showcases</div>
+          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Curated product rows on the homepage. Pick up to 4 products per row.</div>
+        </div>
+      </div>
+
+      {msg&&<div style={{padding:'0.7rem 1rem',borderRadius:8,marginBottom:'1rem',background:msg.type==='ok'?'#d1fae5':'#fee2e2',color:msg.type==='ok'?'#065f46':'#991b1b',fontWeight:600,fontSize:'0.88rem'}}>{msg.text}</div>}
+
+      {/* Editor */}
+      {editing && (
+        <div id="showcase-editor" style={{background:'#fff',border:'1px solid #e5e7eb',borderRadius:14,padding:'1.5rem',marginBottom:'2rem',boxShadow:'0 4px 24px rgba(0,0,0,0.07)'}}>
+          <h3 style={{fontSize:'0.95rem',fontWeight:700,marginBottom:'1.25rem',color:'#111'}}>Edit: {editing.title}</h3>
+
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem',marginBottom:'1rem'}}>
+            <div>
+              <label className={styles.label}>Section Title</label>
+              <input className={styles.input} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} />
+            </div>
+            <div>
+              <label className={styles.label}>Display Order</label>
+              <input type="number" className={styles.input} value={form.sort_order} onChange={e=>setForm(f=>({...f,sort_order:parseInt(e.target.value)||0}))} />
+            </div>
+          </div>
+
+          {/* Selected products */}
+          <label className={styles.label}>Selected Products ({form.product_ids.length}/4)</label>
+          <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',marginBottom:'0.75rem',minHeight:40}}>
+            {selectedProducts.length === 0 && (
+              <span style={{fontSize:'0.82rem',color:'#9ca3af',padding:'0.5rem 0'}}>No products selected — use the search below to add up to 4.</span>
+            )}
+            {selectedProducts.map((p, i) => (
+              <div key={p.id} style={{
+                display:'flex',alignItems:'center',gap:'0.4rem',
+                background:'#f0fdfa',border:'1px solid #99f6e4',borderRadius:8,
+                padding:'0.35rem 0.65rem',fontSize:'0.82rem',fontWeight:600,color:'#0f766e',
+              }}>
+                {p.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.image} alt="" style={{width:24,height:24,borderRadius:4,objectFit:'cover'}} />
+                )}
+                <span style={{maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                  {i+1}. {p.name}
+                </span>
+                <button onClick={()=>removeProduct(p.id)} style={{
+                  background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontWeight:700,fontSize:'0.9rem',padding:'0 2px',
+                }}>✕</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Product search */}
+          {form.product_ids.length < 4 && (
+            <div style={{position:'relative',marginBottom:'1rem'}}>
+              <input
+                className={styles.input}
+                value={search}
+                onChange={e=>setSearch(e.target.value)}
+                placeholder="🔍 Search products to add..."
+                style={{margin:0}}
+              />
+              {searchResults.length > 0 && (
+                <div style={{
+                  position:'absolute',top:'100%',left:0,right:0,zIndex:50,
+                  background:'#fff',border:'1px solid #e5e7eb',borderRadius:10,
+                  boxShadow:'0 8px 24px rgba(0,0,0,0.12)',maxHeight:280,overflowY:'auto',
+                }}>
+                  {searchResults.map(p => (
+                    <button key={p.id} onClick={()=>{addProduct(p.id);setSearch('')}} style={{
+                      display:'flex',alignItems:'center',gap:'0.6rem',width:'100%',
+                      padding:'0.6rem 0.85rem',border:'none',background:'none',
+                      cursor:'pointer',textAlign:'left',fontSize:'0.85rem',
+                      borderBottom:'1px solid #f3f4f6',
+                    }}
+                    onMouseEnter={e=>(e.currentTarget.style.background='#f0fdfa')}
+                    onMouseLeave={e=>(e.currentTarget.style.background='transparent')}
+                    >
+                      {p.image && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.image} alt="" style={{width:32,height:32,borderRadius:6,objectFit:'cover',flexShrink:0}} />
+                      )}
+                      <span style={{fontWeight:600,color:'#111'}}>{p.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{display:'flex',gap:'0.75rem',marginTop:'0.5rem'}}>
+            <button className={styles.saveBtn} onClick={save} disabled={saving}>{saving?'Saving…':'Save Changes'}</button>
+            <button className={styles.cancelBtn} onClick={()=>setEditing(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* List */}
+      {loading ? <p style={{color:'#6b7280'}}>Loading…</p>
+        : showcases.length === 0
+          ? <div style={{textAlign:'center',padding:'3rem',color:'#9ca3af'}}>No showcase rows configured.</div>
+          : (
+            <div style={{display:'flex',flexDirection:'column',gap:'0.6rem'}}>
+              {[...showcases].sort((a,b)=>a.sort_order-b.sort_order).map(sc => {
+                const prods = (sc.product_ids||[]).map(id => allProducts.find(p=>p.id===id)).filter(Boolean) as SimpleProduct[];
+                return (
+                  <div key={sc.id} style={{
+                    display:'flex',alignItems:'center',gap:'0.85rem',
+                    background:'#fff',border:'1px solid #e5e7eb',borderRadius:10,
+                    padding:'0.75rem 0.85rem',opacity:sc.active?1:0.55,
+                  }}>
+                    <div style={{width:42,height:42,borderRadius:8,background:'linear-gradient(135deg,#0f766e,#0d9488)',flexShrink:0,
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      color:'#fff',fontSize:'1rem',fontWeight:700}}>{sc.sort_order}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,color:'#111',fontSize:'0.9rem'}}>{sc.title}</div>
+                      <div style={{fontSize:'0.78rem',color:'#6b7280',marginTop:1}}>
+                        {prods.length === 0 ? 'No products selected' : prods.map(p => p.name).join(' • ')}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:'0.35rem',flexShrink:0}}>
+                      <button onClick={()=>startEdit(sc)} className={styles.editBtn} style={{margin:0}}>Edit</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+    </div>
+  );
+}
+
 /* ═══ MAIN PAGE ═════════════════════════ */
 export default function BannersAdminPage() {
-  const [tab, setTab] = useState<'banners'|'tiles'>('banners');
+  const [tab, setTab] = useState<'banners'|'tiles'|'showcases'>('banners');
 
   return (
     <div>
@@ -548,7 +789,7 @@ export default function BannersAdminPage() {
 
       {/* Tab strip */}
       <div style={{display:'flex',gap:0,borderBottom:'2px solid #e5e7eb',marginBottom:'1.5rem'}}>
-        {([['banners','Hero Banners'],['tiles','Promo Tiles']] as const).map(([id,label])=>(
+        {([['banners','Hero Banners'],['tiles','Promo Tiles'],['showcases','Showcases']] as const).map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{
             padding:'0.65rem 1.25rem',fontWeight:700,fontSize:'0.88rem',
             border:'none',background:'none',cursor:'pointer',
@@ -559,7 +800,7 @@ export default function BannersAdminPage() {
         ))}
       </div>
 
-      {tab==='banners' ? <BannerSection/> : <PromoTilesSection/>}
+      {tab==='banners' ? <BannerSection/> : tab==='tiles' ? <PromoTilesSection/> : <ShowcasesSection/>}
     </div>
   );
 }
