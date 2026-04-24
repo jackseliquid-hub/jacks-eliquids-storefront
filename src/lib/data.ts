@@ -372,10 +372,14 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
         .map(v => v.id);
 
       if (restockedVarIds.length > 0) {
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquids.co.uk';
-        console.log(`[updateProduct] 🔔 Triggering notifications for ${restockedVarIds.length} restocked variations via ${siteUrl}`);
+        // Use relative URL in browser (admin page), absolute URL on server (feed import)
+        const isBrowser = typeof window !== 'undefined';
+        const notifyUrl = isBrowser
+          ? '/api/send-stock-notifications'
+          : `${process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquids.co.uk'}/api/send-stock-notifications`;
+        console.log(`[updateProduct] 🔔 Triggering notifications for ${restockedVarIds.length} restocked variations via ${notifyUrl}`);
         // Fire and forget — don't block the save
-        fetch(`${siteUrl}/api/send-stock-notifications`, {
+        fetch(notifyUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variationIds: restockedVarIds, productIds: [id] }),
