@@ -140,7 +140,9 @@ function extractSplitAttributes(item: FeedItem): Record<string, string> {
     const group = item[`attr${i}_group`];
     const value = item[`attr${i}_value`];
     if (group && value && String(value).trim()) {
-      attrs[String(group)] = String(value);
+      // Decode HTML entities (e.g. &amp; → &) at the point of extraction
+      // so product-level and variation-level attributes are always consistent
+      attrs[decodeEntities(String(group))] = decodeEntities(String(value));
     }
   }
 
@@ -322,12 +324,12 @@ function buildAttributes(parent: ParentProduct): Record<string, string[]> {
   }
 
   // Legacy fallback: use old var_group + splitVarName
-  const varGroup = parent.var_group || 'Option';
+  const varGroup = decodeEntities(parent.var_group || 'Option');
   const parts = varGroup.split('/').map(s => s.trim());
   const isComposite = parts.length === 2;
 
   if (!isComposite) {
-    const values = parent.variations.map(v => v.var_name).filter(Boolean);
+    const values = parent.variations.map(v => decodeEntities(v.var_name)).filter(Boolean);
     const unique = [...new Set(values)];
     return unique.length > 0 ? { [varGroup]: unique } : {};
   }
@@ -336,7 +338,7 @@ function buildAttributes(parent: ParentProduct): Record<string, string[]> {
   const attrB: Set<string> = new Set();
   for (const v of parent.variations) {
     if (!v.var_name) continue;
-    const split = splitVarName(v.var_name, varGroup);
+    const split = splitVarName(decodeEntities(v.var_name), varGroup);
     if (split[parts[0]]) attrA.add(split[parts[0]]);
     if (split[parts[1]]) attrB.add(split[parts[1]]);
   }

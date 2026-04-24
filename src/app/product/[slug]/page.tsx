@@ -10,6 +10,17 @@ import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discou
 import { createClient } from '@/utils/supabase/client';
 import RelatedProducts from '@/components/RelatedProducts';
 
+// Decode common HTML entities for safe attribute matching
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
+
 export default function ProductPage({
   params,
 }: {
@@ -104,7 +115,7 @@ export default function ProductPage({
       return attributeKeys.every(key => {
         const vKey = Object.keys(vAttrs).find(k => k.toLowerCase() === key.toLowerCase());
         if (!vKey) return false;
-        const normalize = (val: string) => String(val).toLowerCase().replace(/\s+/g, '').replace(/(mg|ml)$/, '');
+        const normalize = (val: string) => decodeEntities(String(val)).toLowerCase().replace(/\s+/g, '').replace(/(mg|ml)$/, '');
         return normalize(vAttrs[vKey]) === normalize(selectedAttributes[key]);
       });
     });
@@ -136,7 +147,7 @@ export default function ProductPage({
           const vAttrs = v.attributes || {};
           const vKey = Object.keys(vAttrs).find(k => k.toLowerCase() === attrName.toLowerCase());
           if (!vKey) return false;
-          const normalize = (val: string) => String(val).toLowerCase().replace(/\s+/g, '').replace(/(mg|ml)$/, '');
+          const normalize = (val: string) => decodeEntities(String(val)).toLowerCase().replace(/\s+/g, '').replace(/(mg|ml)$/, '');
           if (normalize(vAttrs[vKey]) !== normalize(value)) return false;
           return otherSelectedKeys.every(ok => {
             const ovKey = Object.keys(vAttrs).find(k => k.toLowerCase() === ok.toLowerCase());
