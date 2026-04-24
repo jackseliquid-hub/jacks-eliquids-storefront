@@ -241,7 +241,7 @@ function HomeInner() {
           supabase.from('promo_tiles').select('*').eq('active', true).order('sort_order'),
           supabase.auth.getUser(),
         ]);
-        setProducts(prodData.filter(p => p.status !== 'draft'));
+        setProducts(prodData.filter(p => p.status === 'published'));
         setCategories(catData);
         setBanners(bannerRes.data || []);
         setPromoTiles(tilesRes.data || []);

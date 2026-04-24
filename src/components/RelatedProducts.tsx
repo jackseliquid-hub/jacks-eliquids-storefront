@@ -19,7 +19,7 @@ export default function RelatedProducts({ currentProduct, maxItems = 7 }: Relate
         const allProducts = await getAllProducts();
         // Only published, exclude current product
         const available = allProducts.filter(
-          p => p.id !== currentProduct.id && p.status !== 'draft' && p.image
+          p => p.id !== currentProduct.id && p.status === 'published' && p.image
         );
 
         const manualIds = currentProduct.relatedProducts || [];

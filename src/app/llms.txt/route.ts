@@ -10,7 +10,7 @@ export async function GET() {
   const products = await getAllProducts();
 
   // Only include published products
-  const published = products.filter(p => p.status !== 'draft' && !p.seo?.noIndex);
+  const published = products.filter(p => p.status === 'published' && !p.seo?.noIndex);
 
   // Group by category
   const grouped: Record<string, typeof published> = {};
