@@ -397,7 +397,9 @@ function HomeInner() {
       <main className={styles.main}>
         {/* Hero Banner — only when not filtering */}
         {!tagParam && !brandParam && activeCategory === 'All' && !searchQuery && (
-          <HeroBanner banners={banners} />
+          <div style={{ paddingTop: '1.25rem' }}>
+            <HeroBanner banners={banners} />
+          </div>
         )}
 
         {/* Static hero fallback when no banners configured */}

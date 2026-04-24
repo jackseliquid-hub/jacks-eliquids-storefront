@@ -123,12 +123,36 @@ export default function StorefrontHeader() {
             </Link>
           </div>
 
-          {/* Blog link — hidden on mobile */}
-          <div className={styles.topBarLinks} style={{ display: 'flex', fontSize: '0.82rem', flexShrink: 0 }}>
-            <Link href="/blog" style={{
+          {/* Search bar — grows to fill space, prominent green border */}
+          <button
+            onClick={openSearch}
+            aria-label="Search products"
+            className={styles.searchBar}
+            style={{
+              flex: '1 1 auto',
+              maxWidth: '460px',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              background: '#f5f5f7', border: '2px solid #0f766e',
+              borderRadius: '9999px', padding: '0.5rem 1rem',
+              cursor: 'pointer', transition: 'border-color 0.2s, box-shadow 0.2s',
+              color: '#6b7280', fontSize: '0.85rem',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 0 3px rgba(15,118,110,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0f766e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <span style={{ flex: 1, textAlign: 'left' }}>Search products...</span>
+          </button>
+
+          {/* Right: Blog | Any Questions | Mobile search | Account | Cart | Hamburger */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto', flexShrink: 0 }}>
+            {/* Blog link — hidden on mobile */}
+            <Link href="/blog" className={styles.topBarLinks} style={{
               color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500,
               opacity: 0.75, transition: 'opacity 0.2s',
-              display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap', fontSize: '0.82rem',
             }}
             onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
@@ -138,33 +162,7 @@ export default function StorefrontHeader() {
               </svg>
               Read Our Blog
             </Link>
-          </div>
 
-          {/* Search bar — grows to fill space */}
-          <button
-            onClick={openSearch}
-            aria-label="Search products"
-            className={styles.searchBar}
-            style={{
-              flex: '1 1 auto',
-              maxWidth: '420px',
-              display: 'flex', alignItems: 'center', gap: '0.5rem',
-              background: '#f5f5f7', border: '1px solid #e5e5e5',
-              borderRadius: '9999px', padding: '0.4rem 0.85rem',
-              cursor: 'pointer', transition: 'border-color 0.2s, box-shadow 0.2s',
-              color: '#86868b', fontSize: '0.82rem',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#0f766e'; e.currentTarget.style.boxShadow = '0 0 0 2px rgba(15,118,110,0.1)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e5e5'; e.currentTarget.style.boxShadow = 'none'; }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.5 }}>
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <span style={{ flex: 1, textAlign: 'left' }}>Search...</span>
-          </button>
-
-          {/* Right: Any Questions | Mobile search | Account | Cart | Hamburger */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto', flexShrink: 0 }}>
             {/* Any Questions — hidden on mobile */}
             <Link href="/contact" className={styles.topBarLinks} style={{
               color: 'var(--deep-teal)', textDecoration: 'none', fontWeight: 600,

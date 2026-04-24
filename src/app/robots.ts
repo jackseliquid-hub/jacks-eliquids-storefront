@@ -1,32 +1,20 @@
 import { MetadataRoute } from 'next';
 
+/**
+ * TEMPORARY: Site is currently blocked from search engines while products
+ * are being set up. Once moved to final domain, remove the Disallow: /
+ * and restore the allow list + sitemap reference.
+ *
+ * TODO: Re-enable when moving to production domain (jackseliquids.co.uk)
+ */
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://jackseliquid.co.uk';
-
   return {
     rules: [
       {
         userAgent: '*',
-        allow: [
-          '/',
-          '/product/',
-          '/blog/',
-          '/p/',
-          '/contact',
-        ],
-        disallow: [
-          '/admin/',
-          '/account/',
-          '/api/',
-          '/auth/',
-          '/checkout/',
-          '/login',
-          '/register',
-          '/forgot-password',
-          '/reset-password',
-        ],
+        disallow: ['/'],
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    // Sitemap deliberately omitted while site is under construction
   };
 }

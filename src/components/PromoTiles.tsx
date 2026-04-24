@@ -16,11 +16,11 @@ interface Tile {
 }
 
 export default function PromoTiles({ tiles }: { tiles: Tile[] }) {
-  // Max 12 active tiles, sorted by sort_order
+  // Max 15 active tiles, sorted by sort_order
   const active = tiles
     .filter(t => t.active)
     .sort((a, b) => a.sort_order - b.sort_order)
-    .slice(0, 12);
+    .slice(0, 15);
 
   if (active.length === 0) return null;
 
@@ -42,10 +42,10 @@ export default function PromoTiles({ tiles }: { tiles: Tile[] }) {
         }}
       >
         <style>{`
-          /* Desktop: 6 per row max */
+          /* Desktop: 5 per row max */
           .promo-tile-item {
-            width: calc(100% / 6 - 0.75rem);
-            min-width: 120px;
+            width: calc(100% / 5 - 0.75rem);
+            min-width: 150px;
             padding: 0.375rem;
             box-sizing: border-box;
           }

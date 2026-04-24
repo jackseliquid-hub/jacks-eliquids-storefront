@@ -61,12 +61,20 @@ export default function ProductPage({
           getProductBySlug(slug),
           getDiscountRules()
         ]);
-        // Archived products → redirect to category (preserves SEO equity via 301)
+        // TEMPORARILY DISABLED: Archived product redirects are paused while
+        // the product catalog is being set up. Re-enable when moving to
+        // production domain to preserve SEO equity.
+        // ──────────────────────────────────────────────────────────────────
+        // if (prod?.status === 'archived') {
+        //   const dest = prod.category
+        //     ? `/?cat=${encodeURIComponent(prod.category)}`
+        //     : '/';
+        //   router.replace(dest);
+        //   return;
+        // }
+        // For now, treat archived products as not found
         if (prod?.status === 'archived') {
-          const dest = prod.category
-            ? `/?cat=${encodeURIComponent(prod.category)}`
-            : '/';
-          router.replace(dest);
+          setProduct(null);
           return;
         }
         setProduct(prod && prod.status !== 'draft' ? prod : null);

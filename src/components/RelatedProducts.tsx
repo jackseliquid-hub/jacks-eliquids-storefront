@@ -17,10 +17,17 @@ export default function RelatedProducts({ currentProduct, maxItems = 7 }: Relate
     async function load() {
       try {
         const allProducts = await getAllProducts();
-        // Only published, exclude current product
-        const available = allProducts.filter(
-          p => p.id !== currentProduct.id && p.status === 'published' && p.image
-        );
+        // Only published, exclude current product and fully-OOS products
+        const available = allProducts.filter(p => {
+          if (p.id === currentProduct.id) return false;
+          if (p.status !== 'published') return false;
+          if (!p.image) return false;
+          // Exclude products where ALL variations are out of stock
+          if (p.variations && p.variations.length > 0) {
+            if (p.variations.every(v => !v.inStock)) return false;
+          }
+          return true;
+        });
 
         const manualIds = currentProduct.relatedProducts || [];
         const result: Product[] = [];

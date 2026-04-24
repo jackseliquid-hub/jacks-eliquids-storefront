@@ -16,7 +16,13 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: global?.defaultKeywords || undefined,
     icons: {
       icon: '/logo.png', // Use logo as Favicon
-    }
+    },
+    // TEMPORARY: Block search engines while site is under construction
+    // TODO: Remove when moving to production domain
+    robots: {
+      index: false,
+      follow: false,
+    },
   };
 }
 
