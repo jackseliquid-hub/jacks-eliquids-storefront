@@ -5,7 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST() {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY!
   );
 
   function decode(str: string): string {
@@ -17,6 +17,7 @@ export async function POST() {
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&apos;/g, "'")
+      .replace(/&#x([0-9A-Fa-f]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
       .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
   }
 
