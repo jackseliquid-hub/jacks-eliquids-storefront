@@ -418,7 +418,6 @@ function BannerSection() {
                 </div>
               ))}
             </div>
-            </div>
           )}
     </div>
   );
