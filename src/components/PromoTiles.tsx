@@ -115,15 +115,18 @@ export default function PromoTiles({ tiles }: { tiles: Tile[] }) {
                       </div>
                     )}
 
-                    {/* Badge */}
+                    {/* Badge — centered banner across circle */}
                     {tile.badge_text && (
                       <span style={{
-                        position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
-                        background: '#0f766e', color: '#fff',
-                        borderRadius: 9999, padding: '0.1rem 0.5rem',
-                        fontSize: '0.6rem', fontWeight: 800,
+                        position: 'absolute', top: '50%', left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: 'rgba(15,118,110,0.9)', color: '#fff',
+                        padding: '0.2rem 0.75rem',
+                        fontSize: 'clamp(0.58rem, 1vw, 0.72rem)', fontWeight: 800,
                         letterSpacing: '0.07em', textTransform: 'uppercase',
                         zIndex: 2, whiteSpace: 'nowrap',
+                        backdropFilter: 'blur(4px)',
+                        borderRadius: 4,
                       }}>
                         {tile.badge_text}
                       </span>

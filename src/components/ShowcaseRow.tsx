@@ -40,20 +40,23 @@ export default function ShowcaseRow({ title, products, onNotify }: Props) {
         {title}
       </h2>
 
-      <div style={{
+      <div className="showcase-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1rem',
-        maxWidth: 960,
+        gridTemplateColumns: 'repeat(5, 1fr)',
+        gap: '0.85rem',
+        maxWidth: 1100,
         margin: '0 auto',
       }}>
         <style>{`
-          @media (max-width: 768px) {
+          @media (max-width: 900px) {
+            .showcase-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          }
+          @media (max-width: 540px) {
             .showcase-grid { grid-template-columns: repeat(2, 1fr) !important; }
           }
         `}</style>
 
-        {products.slice(0, 4).map((product, index) => {
+        {products.slice(0, 5).map((product, index) => {
           const vars = product.variations || [];
           const allOOS = vars.length > 0
             ? vars.every(v => !v.inStock)

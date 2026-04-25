@@ -63,6 +63,29 @@ const iconBtn: React.CSSProperties = {
   display:'flex', alignItems:'center', justifyContent:'center', color:'#374151',
 };
 
+/* Shared button styles */
+const actionBtnStyle: React.CSSProperties = {
+  background: 'linear-gradient(135deg,#0f766e,#0d9488)', color: '#fff',
+  border: 'none', borderRadius: 8, padding: '0.5rem 1.25rem',
+  fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+  boxShadow: '0 2px 8px rgba(15,118,110,0.25)',
+};
+const cancelBtnStyle: React.CSSProperties = {
+  background: '#f3f4f6', color: '#374151',
+  border: '1px solid #e5e7eb', borderRadius: 8, padding: '0.5rem 1.25rem',
+  fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer',
+};
+const editBtnStyle: React.CSSProperties = {
+  background: '#0f766e', color: '#fff', border: 'none',
+  borderRadius: 7, padding: '0.4rem 1rem', fontWeight: 700,
+  fontSize: '0.8rem', cursor: 'pointer',
+};
+const deleteBtnStyle: React.CSSProperties = {
+  background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca',
+  borderRadius: 7, padding: '0.4rem 1rem', fontWeight: 700,
+  fontSize: '0.8rem', cursor: 'pointer',
+};
+
 /* ─── Colour picker helper ──────────────── */
 function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
@@ -347,10 +370,10 @@ function BannerSection() {
           </div>
 
           <div style={{display:'flex',gap:'0.75rem',marginTop:'1.25rem'}}>
-            <button className={styles.saveBtn} onClick={save} disabled={saving}>
-              {saving?'Saving…':editing.id===-1?'Create Banner':'Save Changes'}
+            <button style={{...actionBtnStyle, opacity: saving ? 0.6 : 1}} onClick={save} disabled={saving}>
+              {saving?'Saving…':editing.id===-1?'✚ Create Banner':'💾 Save Changes'}
             </button>
-            <button className={styles.cancelBtn} onClick={()=>setEditing(null)}>Cancel</button>
+            <button style={cancelBtnStyle} onClick={()=>setEditing(null)}>Cancel</button>
           </div>
         </div>
       )}
@@ -363,34 +386,38 @@ function BannerSection() {
             <div style={{display:'flex',flexDirection:'column',gap:'0.6rem'}}>
               {[...banners].sort((a,b)=>a.sort_order-b.sort_order).map(b=>(
                 <div key={b.id} style={{
-                  display:'flex',alignItems:'center',gap:'0.85rem',
                   background:'#fff',border:'1px solid #e5e7eb',borderRadius:10,
                   padding:'0.75rem 0.85rem',opacity:b.active?1:0.55,
                 }}>
-                  <div style={{width:42,height:42,borderRadius:8,background:b.bg_color,flexShrink:0,
-                    display:'flex',alignItems:'center',justifyContent:'center',
-                    color:'#fff',fontSize:'0.65rem',fontWeight:700}}>{b.active?'●':'○'}</div>
-                  {b.image_url&&(
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={b.image_url} alt="" style={{width:52,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}}/>
-                  )}
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:700,color:'#111',fontSize:'0.9rem'}}>
-                      {b.badge_text&&<span style={{fontSize:'0.65rem',fontWeight:800,color:'#0f766e',marginRight:5,textTransform:'uppercase'}}>{b.badge_text}</span>}
-                      {b.title}
+                  <div style={{display:'flex',alignItems:'center',gap:'0.85rem'}}>
+                    <div style={{width:42,height:42,borderRadius:8,background:b.bg_color,flexShrink:0,
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      color:'#fff',fontSize:'0.65rem',fontWeight:700}}>{b.active?'●':'○'}</div>
+                    {b.image_url&&(
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={b.image_url} alt="" style={{width:52,height:42,objectFit:'cover',borderRadius:6,flexShrink:0}}/>
+                    )}
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,color:'#111',fontSize:'0.9rem'}}>
+                        {b.badge_text&&<span style={{fontSize:'0.65rem',fontWeight:800,color:'#0f766e',marginRight:5,textTransform:'uppercase'}}>{b.badge_text}</span>}
+                        {b.title}
+                      </div>
+                      {b.subtitle&&<div style={{fontSize:'0.78rem',color:'#6b7280',marginTop:1}}>{b.subtitle}</div>}
+                      <div style={{fontSize:'0.72rem',color:'#9ca3af',marginTop:1}}>Order:{b.sort_order} · Height:{b.height_px||380}px · {b.cta_text}→{b.cta_url}</div>
                     </div>
-                    {b.subtitle&&<div style={{fontSize:'0.78rem',color:'#6b7280',marginTop:1}}>{b.subtitle}</div>}
-                    <div style={{fontSize:'0.72rem',color:'#9ca3af',marginTop:1}}>Order:{b.sort_order} · Height:{b.height_px||380}px · {b.cta_text}→{b.cta_url}</div>
                   </div>
-                  <div style={{display:'flex',gap:'0.35rem',flexShrink:0}}>
-                    <button onClick={()=>moveOrder(b,-1)} title="Up" style={iconBtn}>↑</button>
-                    <button onClick={()=>moveOrder(b,1)} title="Down" style={iconBtn}>↓</button>
+                  {/* Action buttons — full row below content */}
+                  <div style={{display:'flex',gap:'0.5rem',marginTop:'0.65rem',paddingTop:'0.55rem',borderTop:'1px solid #f3f4f6',alignItems:'center'}}>
+                    <button onClick={()=>moveOrder(b,-1)} title="Move left" style={iconBtn}>←</button>
+                    <button onClick={()=>moveOrder(b,1)} title="Move right" style={iconBtn}>→</button>
                     <button onClick={()=>toggleActive(b)} style={{...iconBtn,color:b.active?'#0f766e':'#9ca3af',fontWeight:700,fontSize:'0.72rem',minWidth:50}}>{b.active?'Live ✓':'Off'}</button>
-                    <button onClick={()=>startEdit(b)} className={styles.editBtn} style={{margin:0}}>Edit</button>
-                    <button onClick={()=>del(b)} className={styles.deleteBtn} style={{margin:0}}>Delete</button>
+                    <div style={{flex:1}}/>
+                    <button onClick={()=>startEdit(b)} style={editBtnStyle}>✏️ Edit</button>
+                    <button onClick={()=>del(b)} style={deleteBtnStyle}>🗑 Delete</button>
                   </div>
                 </div>
               ))}
+            </div>
             </div>
           )}
     </div>
@@ -529,37 +556,62 @@ function PromoTilesSection() {
             <div><label className={styles.label}>Order</label><input type="number" className={styles.input} value={form.sort_order} onChange={e=>setForm(f=>({...f,sort_order:parseInt(e.target.value)||0}))}/></div>
           </div>
           <div style={{display:'flex',gap:'0.75rem',marginTop:'1.25rem'}}>
-            <button className={styles.saveBtn} onClick={save} disabled={saving}>{saving?'Saving…':editing.id===-1?'Create Tile':'Save Changes'}</button>
-            <button className={styles.cancelBtn} onClick={()=>setEditing(null)}>Cancel</button>
+            <button style={{...actionBtnStyle, opacity: saving ? 0.6 : 1}} onClick={save} disabled={saving}>{saving?'Saving…':editing.id===-1?'✚ Create Tile':'💾 Save Changes'}</button>
+            <button style={cancelBtnStyle} onClick={()=>setEditing(null)}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* List */}
+      {/* List — grouped by position */}
       {loading?<p style={{color:'#6b7280'}}>Loading…</p>
         :tiles.length===0
           ?<div style={{textAlign:'center',padding:'3rem',color:'#9ca3af'}}>No tiles yet. Click <strong>＋ New Tile</strong> to create one.</div>
           :(
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'0.75rem'}}>
-              {[...tiles].sort((a,b)=>a.sort_order-b.sort_order).map(t=>(
-                <div key={t.id} style={{background:'#fff',border:'1px solid #e5e7eb',borderRadius:10,overflow:'hidden',opacity:t.active?1:0.55}}>
-                  <div style={{height:70,background:t.bg_color,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    {t.image_url&&(
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={t.image_url} alt="" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
+            <>
+              {['top','bottom'].map(pos => {
+                const positionTiles = [...tiles].filter(t => (t.position || 'top') === pos).sort((a,b) => a.sort_order - b.sort_order);
+                if (positionTiles.length === 0 && pos === 'bottom') return null;
+                return (
+                  <div key={pos} style={{marginBottom:'1.5rem'}}>
+                    <h3 style={{
+                      fontSize:'0.88rem',fontWeight:700,color:'#374151',
+                      marginBottom:'0.65rem',paddingBottom:'0.35rem',
+                      borderBottom:'2px solid #e5e7eb',
+                      display:'flex',alignItems:'center',gap:'0.4rem',
+                    }}>
+                      {pos==='top'?'⬆️ Top Strip':'⬇️ Bottom Strip'}
+                      <span style={{fontSize:'0.72rem',fontWeight:500,color:'#9ca3af'}}>({positionTiles.length} tile{positionTiles.length!==1?'s':''})</span>
+                    </h3>
+                    {positionTiles.length === 0 ? (
+                      <div style={{textAlign:'center',padding:'1.5rem',color:'#9ca3af',fontSize:'0.85rem',background:'#f9fafb',borderRadius:8}}>No tiles in this strip yet.</div>
+                    ) : (
+                      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'0.75rem'}}>
+                        {positionTiles.map(t=>(
+                          <div key={t.id} style={{background:'#fff',border:'1px solid #e5e7eb',borderRadius:10,overflow:'hidden',opacity:t.active?1:0.55}}>
+                            <div style={{height:70,background:t.bg_color,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              {t.image_url&&(
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={t.image_url} alt="" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>
+                              )}
+                              <span style={{position:'relative',fontWeight:700,color:t.text_color==='dark'?'#111':'#fff',fontSize:'0.85rem',zIndex:1,padding:'0 0.5rem',textAlign:'center'}}>{t.title}</span>
+                              {t.shape==='circle'&&<span style={{position:'absolute',top:4,right:6,fontSize:'0.6rem',background:'rgba(0,0,0,0.5)',color:'#fff',padding:'1px 5px',borderRadius:4}}>⭕</span>}
+                            </div>
+                            <div style={{padding:'0.5rem 0.65rem',display:'flex',gap:'0.35rem',flexWrap:'wrap',alignItems:'center'}}>
+                              <button onClick={()=>moveOrder(t,-1)} title="Move left" style={{...iconBtn,width:26,height:26,fontSize:'0.75rem'}}>←</button>
+                              <button onClick={()=>moveOrder(t,1)} title="Move right" style={{...iconBtn,width:26,height:26,fontSize:'0.75rem'}}>→</button>
+                              <button onClick={()=>toggleActive(t)} style={{...iconBtn,color:t.active?'#0f766e':'#9ca3af',fontWeight:700,fontSize:'0.68rem',width:'auto',padding:'0 8px'}}>{t.active?'Live':'Off'}</button>
+                              <div style={{flex:1}}/>
+                              <button onClick={()=>startEdit(t)} style={{...editBtnStyle,padding:'3px 10px',fontSize:'0.78rem'}}>Edit</button>
+                              <button onClick={()=>del(t)} style={{...deleteBtnStyle,padding:'3px 8px',fontSize:'0.78rem'}}>✕</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                    <span style={{position:'relative',fontWeight:700,color:t.text_color==='dark'?'#111':'#fff',fontSize:'0.85rem',zIndex:1,padding:'0 0.5rem',textAlign:'center'}}>{t.title}</span>
                   </div>
-                  <div style={{padding:'0.5rem 0.65rem',display:'flex',gap:'0.3rem',flexWrap:'wrap',alignItems:'center'}}>
-                    <button onClick={()=>moveOrder(t,-1)} title="Up" style={{...iconBtn,width:26,height:26,fontSize:'0.75rem'}}>↑</button>
-                    <button onClick={()=>moveOrder(t,1)} title="Down" style={{...iconBtn,width:26,height:26,fontSize:'0.75rem'}}>↓</button>
-                    <button onClick={()=>toggleActive(t)} style={{...iconBtn,color:t.active?'#0f766e':'#9ca3af',fontWeight:700,fontSize:'0.68rem',width:'auto',padding:'0 8px'}}>{t.active?'Live':'Off'}</button>
-                    <button onClick={()=>startEdit(t)} className={styles.editBtn} style={{margin:0,padding:'3px 10px',fontSize:'0.78rem'}}>Edit</button>
-                    <button onClick={()=>del(t)} className={styles.deleteBtn} style={{margin:0,padding:'3px 8px',fontSize:'0.78rem'}}>✕</button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                );
+              })}
+            </>
           )}
     </div>
   );
@@ -623,7 +675,7 @@ function ShowcasesSection() {
   }
 
   function addProduct(id: string) {
-    if (form.product_ids.length >= 4) { notify('Max 4 products per row','err'); return; }
+    if (form.product_ids.length >= 5) { notify('Max 5 products per row','err'); return; }
     if (form.product_ids.includes(id)) return;
     setForm(f => ({ ...f, product_ids: [...f.product_ids, id] }));
   }
@@ -649,7 +701,7 @@ function ShowcasesSection() {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
         <div>
           <div style={{fontWeight:700,color:'#111',fontSize:'1rem'}}>Product Showcases</div>
-          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Curated product rows on the homepage. Pick up to 4 products per row.</div>
+          <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Curated product rows on the homepage. Pick up to 5 products per row.</div>
         </div>
       </div>
 
@@ -672,10 +724,10 @@ function ShowcasesSection() {
           </div>
 
           {/* Selected products */}
-          <label className={styles.label}>Selected Products ({form.product_ids.length}/4)</label>
+          <label className={styles.label}>Selected Products ({form.product_ids.length}/5)</label>
           <div style={{display:'flex',gap:'0.5rem',flexWrap:'wrap',marginBottom:'0.75rem',minHeight:40}}>
             {selectedProducts.length === 0 && (
-              <span style={{fontSize:'0.82rem',color:'#9ca3af',padding:'0.5rem 0'}}>No products selected — use the search below to add up to 4.</span>
+              <span style={{fontSize:'0.82rem',color:'#9ca3af',padding:'0.5rem 0'}}>No products selected — use the search below to add up to 5.</span>
             )}
             {selectedProducts.map((p, i) => (
               <div key={p.id} style={{
@@ -698,7 +750,7 @@ function ShowcasesSection() {
           </div>
 
           {/* Product search */}
-          {form.product_ids.length < 4 && (
+          {form.product_ids.length < 5 && (
             <div style={{position:'relative',marginBottom:'1rem'}}>
               <input
                 className={styles.input}
@@ -736,8 +788,8 @@ function ShowcasesSection() {
           )}
 
           <div style={{display:'flex',gap:'0.75rem',marginTop:'0.5rem'}}>
-            <button className={styles.saveBtn} onClick={save} disabled={saving}>{saving?'Saving…':'Save Changes'}</button>
-            <button className={styles.cancelBtn} onClick={()=>setEditing(null)}>Cancel</button>
+            <button style={{...actionBtnStyle, opacity: saving ? 0.6 : 1}} onClick={save} disabled={saving}>{saving?'Saving…':'💾 Save Changes'}</button>
+            <button style={cancelBtnStyle} onClick={()=>setEditing(null)}>Cancel</button>
           </div>
         </div>
       )}
