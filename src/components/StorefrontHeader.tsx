@@ -190,20 +190,118 @@ export default function StorefrontHeader() {
               </svg>
             </button>
 
-            <Link href="/account" className={styles.topBarLinks} style={{
-              display: 'flex', alignItems: 'center', gap: '0.3rem',
-              color: 'var(--text-primary)', textDecoration: 'none',
-              fontWeight: 500, opacity: 0.8, transition: 'opacity 0.2s',
-              fontSize: '0.82rem', whiteSpace: 'nowrap',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-              </svg>
-              {isLoggedIn ? 'My Account' : 'Login'}
-            </Link>
+            {isLoggedIn ? (
+              <div
+                style={{ position: 'relative' }}
+                onMouseEnter={e => {
+                  const dd = e.currentTarget.querySelector('[data-account-dropdown]') as HTMLElement;
+                  if (dd) dd.style.display = 'block';
+                }}
+                onMouseLeave={e => {
+                  const dd = e.currentTarget.querySelector('[data-account-dropdown]') as HTMLElement;
+                  if (dd) dd.style.display = 'none';
+                }}
+              >
+                <button
+                  className={styles.topBarLinks}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                    color: 'var(--text-primary)', background: 'none', border: 'none',
+                    fontWeight: 500, opacity: 0.8, transition: 'opacity 0.2s',
+                    fontSize: '0.82rem', whiteSpace: 'nowrap', cursor: 'pointer',
+                    padding: 0,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                  My Account
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 2 }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                {/* Dropdown */}
+                <div
+                  data-account-dropdown
+                  style={{
+                    display: 'none',
+                    position: 'absolute', top: '100%', right: 0,
+                    paddingTop: 6,
+                    zIndex: 1000,
+                  }}
+                >
+                  <div style={{
+                    background: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 12,
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                    minWidth: 190,
+                    overflow: 'hidden',
+                  }}>
+                    {[
+                      { href: '/account', label: '👤 Profile', desc: 'Your account details' },
+                      { href: '/account/orders', label: '📦 Order History', desc: 'View past orders' },
+                      { href: '/account/addresses', label: '📍 Addresses', desc: 'Manage addresses' },
+                    ].map(item => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        style={{
+                          display: 'block',
+                          padding: '0.65rem 1rem',
+                          textDecoration: 'none',
+                          borderBottom: '1px solid #f3f4f6',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#f0fdfa')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <div style={{ fontWeight: 600, fontSize: '0.84rem', color: '#111827' }}>{item.label}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: 1 }}>{item.desc}</div>
+                      </Link>
+                    ))}
+                    <form action="/api/auth/signout" method="POST" style={{ margin: 0 }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const { signout } = await import('@/app/login/actions');
+                          await signout();
+                        }}
+                        style={{
+                          display: 'block', width: '100%',
+                          padding: '0.65rem 1rem', textAlign: 'left',
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontWeight: 600, fontSize: '0.84rem', color: '#ef4444',
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#fef2f2')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        🚪 Sign Out
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Link href="/login" className={styles.topBarLinks} style={{
+                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                color: 'var(--text-primary)', textDecoration: 'none',
+                fontWeight: 500, opacity: 0.8, transition: 'opacity 0.2s',
+                fontSize: '0.82rem', whiteSpace: 'nowrap',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '0.8')}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                </svg>
+                Login
+              </Link>
+            )}
 
             <button className={styles.cartBtn} onClick={openCart} aria-label="Open cart">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
