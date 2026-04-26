@@ -623,6 +623,8 @@ interface Showcase {
   product_ids: string[];
   sort_order: number;
   active: boolean;
+  link_text: string;
+  link_category: string;
 }
 
 interface SimpleProduct {
@@ -634,10 +636,11 @@ interface SimpleProduct {
 function ShowcasesSection() {
   const [showcases, setShowcases] = useState<Showcase[]>([]);
   const [allProducts, setAllProducts] = useState<SimpleProduct[]>([]);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Showcase|null>(null);
-  const [form, setForm] = useState<{title:string;product_ids:string[];sort_order:number;active:boolean}>({
-    title:'', product_ids:[], sort_order:0, active:true,
+  const [form, setForm] = useState<{title:string;product_ids:string[];sort_order:number;active:boolean;link_text:string;link_category:string}>({
+    title:'', product_ids:[], sort_order:0, active:true, link_text:'', link_category:'',
   });
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{text:string;type:'ok'|'err'}|null>(null);
@@ -647,10 +650,13 @@ function ShowcasesSection() {
   async function load() {
     const [{ data: sc }, { data: prods }] = await Promise.all([
       supabase.from('homepage_showcases').select('*').order('sort_order'),
-      supabase.from('products').select('id, name, image').eq('status', 'published').order('name'),
+      supabase.from('products').select('id, name, image, category').eq('status', 'published').order('name'),
     ]);
     setShowcases(sc || []);
     setAllProducts((prods || []).map((p: any) => ({ id: p.id, name: p.name, image: p.image })));
+    // Extract unique categories
+    const cats = [...new Set((prods || []).map((p: any) => p.category).filter(Boolean))].sort() as string[];
+    setAllCategories(cats);
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
@@ -659,7 +665,7 @@ function ShowcasesSection() {
 
   function startEdit(sc: Showcase) {
     setEditing(sc);
-    setForm({ title:sc.title, product_ids:sc.product_ids||[], sort_order:sc.sort_order, active:sc.active });
+    setForm({ title:sc.title, product_ids:sc.product_ids||[], sort_order:sc.sort_order, active:sc.active, link_text:sc.link_text||'', link_category:sc.link_category||'' });
     setSearch('');
     setTimeout(()=>document.getElementById('showcase-editor')?.scrollIntoView({behavior:'smooth'}),50);
   }
@@ -667,7 +673,7 @@ function ShowcasesSection() {
   async function save() {
     if (!form.title.trim()) { notify('Title is required','err'); return; }
     setSaving(true);
-    const payload = { title:form.title, product_ids:form.product_ids, sort_order:form.sort_order, active:form.active };
+    const payload = { title:form.title, product_ids:form.product_ids, sort_order:form.sort_order, active:form.active, link_text:form.link_text, link_category:form.link_category };
     const { error } = await supabase.from('homepage_showcases').update(payload).eq('id', editing!.id);
     if (error) notify(error.message,'err'); else { notify('Saved ✓'); setEditing(null); load(); }
     setSaving(false);
@@ -721,6 +727,27 @@ function ShowcasesSection() {
               <input type="number" className={styles.input} value={form.sort_order} onChange={e=>setForm(f=>({...f,sort_order:parseInt(e.target.value)||0}))} />
             </div>
           </div>
+
+          {/* Category link row */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem',marginBottom:'1rem'}}>
+            <div>
+              <label className={styles.label}>Link Text <span style={{fontSize:'0.72rem',color:'#9ca3af',fontWeight:400}}>(shows after title, e.g. &quot;Check Out All Our E-Liquids&quot;)</span></label>
+              <input className={styles.input} value={form.link_text} onChange={e=>setForm(f=>({...f,link_text:e.target.value}))} placeholder="Check Out All Our E-Liquids" />
+            </div>
+            <div>
+              <label className={styles.label}>Link Category <span style={{fontSize:'0.72rem',color:'#9ca3af',fontWeight:400}}>(where the link goes)</span></label>
+              <select className={styles.input} value={form.link_category} onChange={e=>setForm(f=>({...f,link_category:e.target.value}))} style={{padding:'0.5rem 0.65rem'}}>
+                <option value="">— No link —</option>
+                {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          {form.link_text && form.link_category && (
+            <div style={{fontSize:'0.82rem',color:'#6b7280',marginBottom:'0.75rem',padding:'0.5rem 0.75rem',background:'#f0fdfa',borderRadius:8,border:'1px solid #ccfbf1'}}>
+              <strong>Preview:</strong> {form.title} <span style={{color:'#9ca3af'}}>…</span> <span style={{color:'#0f766e',fontWeight:600}}>{form.link_text} →</span>
+              <br/><span style={{fontSize:'0.72rem',color:'#9ca3af'}}>Logged-in users will see: &quot;Nick, {form.link_text} →&quot;</span>
+            </div>
+          )}
 
           {/* Selected products */}
           <label className={styles.label}>Selected Products ({form.product_ids.length}/5)</label>

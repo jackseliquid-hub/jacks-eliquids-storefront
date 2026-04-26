@@ -9,9 +9,12 @@ interface Props {
   title: string;
   products: Product[];
   onNotify?: (product: Product) => void;
+  linkText?: string;       // e.g. "Check Out All Our E-Liquids"
+  linkCategory?: string;   // category name for the URL
+  firstName?: string | null; // logged-in user's first name
 }
 
-export default function ShowcaseRow({ title, products, onNotify }: Props) {
+export default function ShowcaseRow({ title, products, onNotify, linkText, linkCategory, firstName }: Props) {
   const { addToCart } = useCart();
 
   if (products.length === 0) return null;
@@ -27,18 +30,52 @@ export default function ShowcaseRow({ title, products, onNotify }: Props) {
     });
   }
 
+  // Build the personalised link label
+  const hasLink = linkText && linkCategory;
+  const linkLabel = hasLink
+    ? (firstName ? `${firstName}, ${linkText}` : linkText)
+    : null;
+
   return (
     <section className="container" style={{ padding: '0 1rem' }}>
-      <h2 style={{
-        fontSize: 'clamp(1.25rem, 2.5vw, 1.6rem)',
-        fontWeight: 800,
-        color: '#111827',
-        textAlign: 'center',
+      {/* Title row */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'baseline',
+        justifyContent: 'center',
+        gap: '0.35rem 0.75rem',
         margin: '0 0 0.75rem',
-        letterSpacing: '-0.02em',
       }}>
-        {title}
-      </h2>
+        <h2 style={{
+          fontSize: 'clamp(1.25rem, 2.5vw, 1.6rem)',
+          fontWeight: 800,
+          color: '#111827',
+          margin: 0,
+          letterSpacing: '-0.02em',
+        }}>
+          {title}
+        </h2>
+        {linkLabel && (
+          <Link
+            href={`/?cat=${encodeURIComponent(linkCategory!)}`}
+            style={{
+              fontSize: 'clamp(0.78rem, 1.3vw, 0.88rem)',
+              fontWeight: 600,
+              color: '#0f766e',
+              textDecoration: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#0d9488')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#0f766e')}
+          >
+            <span style={{ color: '#9ca3af' }}>…</span> {linkLabel} →
+          </Link>
+        )}
+      </div>
 
       <div className="showcase-grid" style={{
         display: 'grid',

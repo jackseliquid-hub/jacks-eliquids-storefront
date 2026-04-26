@@ -18,6 +18,8 @@ interface ShowcaseSection {
   product_ids: string[];
   sort_order: number;
   active: boolean;
+  link_text?: string;
+  link_category?: string;
 }
 
 // ─── Notify Me Modal ──────────────────────────────────────────────────────────
@@ -235,9 +237,10 @@ function HomeInner() {
   const [showcases, setShowcases] = useState<ShowcaseSection[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Logged-in user session (for Notify Me auto-submit)
+  // Logged-in user session (for Notify Me auto-submit + personalisation)
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userFirstName, setUserFirstName] = useState<string | null>(null);
 
   // Notify Me modal state
   const [notifyTarget, setNotifyTarget] = useState<NotifyTarget | null>(null);
@@ -276,6 +279,7 @@ function HomeInner() {
             .single();
           if (customer) {
             setUserName(`${customer.first_name || ''} ${customer.last_name || ''}`.trim() || null);
+            setUserFirstName(customer.first_name || null);
           }
         }
       } catch (err) {
@@ -458,6 +462,9 @@ function HomeInner() {
                   key={sc.id}
                   title={sc.title}
                   products={sc.products}
+                  linkText={sc.link_text || undefined}
+                  linkCategory={sc.link_category || undefined}
+                  firstName={userFirstName}
                   onNotify={(product) => setNotifyTarget({
                     productId: product.id,
                     productName: product.name,
