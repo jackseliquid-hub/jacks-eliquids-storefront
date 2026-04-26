@@ -10,6 +10,7 @@ import HeroBanner from '@/components/HeroBanner';
 import PromoTiles from '@/components/PromoTiles';
 import ShowcaseRow from '@/components/ShowcaseRow';
 import GoogleReviews from '@/components/GoogleReviews';
+import WelcomeBackModal from '@/components/WelcomeBackModal';
 import { createClient } from '@/utils/supabase/client';
 
 interface ShowcaseSection {
@@ -625,6 +626,9 @@ function HomeInner() {
         userName={userName}
         onClose={() => setNotifyTarget(null)}
       />
+
+      {/* Welcome Back popup — shows once per session for logged-in users */}
+      <WelcomeBackModal />
     </>
   );
 }

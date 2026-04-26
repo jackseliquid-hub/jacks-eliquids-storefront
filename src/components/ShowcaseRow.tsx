@@ -60,7 +60,7 @@ export default function ShowcaseRow({ title, products, onNotify, linkText, linkC
           <Link
             href={`/?cat=${encodeURIComponent(linkCategory!)}`}
             style={{
-              fontSize: 'clamp(0.78rem, 1.3vw, 0.88rem)',
+              fontSize: 'clamp(1.25rem, 2.5vw, 1.6rem)',
               fontWeight: 600,
               color: '#0f766e',
               textDecoration: 'none',
