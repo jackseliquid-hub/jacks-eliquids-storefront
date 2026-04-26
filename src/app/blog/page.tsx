@@ -27,10 +27,17 @@ export default function BlogIndexPage() {
   return (
     <>
       <main className={styles.main}>
-        <section className={styles.hero} style={{ background: 'linear-gradient(to right, #004b50, #001f3f)', minHeight: '30vh' }}>
-          <h1 className={styles.heroTitle}>The Base</h1>
+        <section className={styles.hero} style={{
+          background: 'linear-gradient(to right, rgba(0,30,40,0.82), rgba(0,75,80,0.75)), url(/vape-base-hero.png) center/cover no-repeat',
+          minHeight: '32vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <h1 className={styles.heroTitle}>Vape Base</h1>
           <p className={styles.heroSubtitle}>
-            Vaping guides, news, and our latest updates directly from The Kitchen.
+            Vaping guides, news, and our latest updates — straight from The Kitchen.
           </p>
         </section>
 

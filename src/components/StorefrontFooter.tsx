@@ -63,7 +63,7 @@ export default function StorefrontFooter() {
             ))
           ) : (
             <>
-              <Link href="/blog" className={styles.link}>The Base (Blog)</Link>
+              <Link href="/blog" className={styles.link}>Vape Base</Link>
               <Link href="/contact" className={styles.link}>Contact</Link>
             </>
           )}
