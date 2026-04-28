@@ -51,6 +51,7 @@ const TILE_BLANK: Omit<PromoTile, 'id'> = {
 };
 
 const PRESET_COLORS = [
+  'transparent',
   '#0f766e','#0e7490','#1e1b4b','#7c3aed',
   '#be123c','#b45309','#166534','#1e293b',
   '#f97316','#ec4899','#6366f1','#064e3b',
@@ -91,12 +92,16 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
   return (
     <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', alignItems:'center', marginTop:4 }}>
       {PRESET_COLORS.map(c => (
-        <button key={c} onClick={() => onChange(c)} title={c} style={{
-          width:28, height:28, borderRadius:6, background:c, border:'none', cursor:'pointer',
+        <button key={c} onClick={() => onChange(c)} title={c === 'transparent' ? 'Transparent' : c} style={{
+          width:28, height:28, borderRadius:6,
+          background: c === 'transparent'
+            ? 'repeating-conic-gradient(#d1d5db 0% 25%, #fff 0% 50%) 50%/12px 12px'
+            : c,
+          border:'none', cursor:'pointer',
           outline: value === c ? '3px solid #0f766e' : '1px solid #e5e7eb', outlineOffset:2,
         }} />
       ))}
-      <input type="color" value={value} onChange={e => onChange(e.target.value)}
+      <input type="color" value={value === 'transparent' ? '#ffffff' : value} onChange={e => onChange(e.target.value)}
         style={{ width:28, height:28, border:'1px solid #d1d5db', borderRadius:6, padding:2, cursor:'pointer' }} />
       <span style={{ fontSize:'0.78rem', color:'#6b7280' }}>{value}</span>
     </div>
@@ -228,6 +233,9 @@ function BannerSection() {
         <div>
           <div style={{ fontWeight:700, color:'#111', fontSize:'1rem' }}>Hero Banners</div>
           <div style={{ fontSize:'0.82rem', color:'#6b7280' }}>Full-width rotating banners at the top of the homepage</div>
+          <div style={{ marginTop:6, padding:'0.4rem 0.7rem', background:'#eff6ff', borderRadius:6, border:'1px solid #dbeafe', display:'inline-flex', alignItems:'center', gap:'0.35rem', fontSize:'0.75rem', color:'#1e40af', fontWeight:600 }}>
+            📐 Recommended image size: <strong>1920 × 600px</strong> (wide landscape)
+          </div>
         </div>
         <button
           onClick={startNew}
@@ -463,12 +471,35 @@ function PromoTilesSection() {
     load();
   }
 
+  // ─── Drag-and-drop state ───
+  const [dragId, setDragId] = useState<number|null>(null);
+  async function handleDrop(targetId: number) {
+    if (dragId === null || dragId === targetId) return;
+    const sorted = [...tiles].sort((a,c)=>a.sort_order-c.sort_order);
+    const dragItem = sorted.find(t=>t.id===dragId);
+    const dropItem = sorted.find(t=>t.id===targetId);
+    if (!dragItem || !dropItem) return;
+    // Swap sort_order
+    await supabase.from('promo_tiles').update({sort_order:dropItem.sort_order}).eq('id',dragItem.id);
+    await supabase.from('promo_tiles').update({sort_order:dragItem.sort_order}).eq('id',dropItem.id);
+    setDragId(null);
+    load();
+  }
+
   return (
     <div>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1.25rem'}}>
         <div>
           <div style={{fontWeight:700,color:'#111',fontSize:'1rem'}}>Promo Tiles</div>
           <div style={{fontSize:'0.82rem',color:'#6b7280'}}>Unlimited tiles — 5 per row on desktop, 2 on mobile. Assign each tile to Top or Bottom strip. Choose rectangle or circle shape.</div>
+          <div style={{ marginTop:6, display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
+            <span style={{ padding:'0.35rem 0.65rem', background:'#eff6ff', borderRadius:6, border:'1px solid #dbeafe', fontSize:'0.73rem', color:'#1e40af', fontWeight:600 }}>
+              📐 Rectangle: <strong>400 × 200px</strong>
+            </span>
+            <span style={{ padding:'0.35rem 0.65rem', background:'#faf5ff', borderRadius:6, border:'1px solid #e9d5ff', fontSize:'0.73rem', color:'#6b21a8', fontWeight:600 }}>
+              ⭕ Circle: <strong>400 × 400px</strong>
+            </span>
+          </div>
         </div>
         <button onClick={startNew} style={{
           background:'linear-gradient(135deg,#0f766e,#0d9488)',color:'#fff',
@@ -586,7 +617,18 @@ function PromoTilesSection() {
                     ) : (
                       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:'0.75rem'}}>
                         {positionTiles.map(t=>(
-                          <div key={t.id} style={{background:'#fff',border:'1px solid #e5e7eb',borderRadius:10,overflow:'hidden',opacity:t.active?1:0.55}}>
+                          <div key={t.id}
+                            draggable
+                            onDragStart={()=>setDragId(t.id)}
+                            onDragOver={e=>e.preventDefault()}
+                            onDrop={()=>handleDrop(t.id)}
+                            style={{
+                              background: dragId === t.id ? '#f0fdfa' : '#fff',
+                              border: dragId === t.id ? '2px dashed #0f766e' : '1px solid #e5e7eb',
+                              borderRadius:10, overflow:'hidden', opacity:t.active?1:0.55,
+                              cursor:'grab', transition:'border 0.15s, background 0.15s',
+                            }}
+                          >
                             <div style={{height:70,background:t.bg_color,position:'relative',display:'flex',alignItems:'center',justifyContent:'center'}}>
                               {t.image_url&&(
                                 // eslint-disable-next-line @next/next/no-img-element
@@ -596,8 +638,7 @@ function PromoTilesSection() {
                               {t.shape==='circle'&&<span style={{position:'absolute',top:4,right:6,fontSize:'0.6rem',background:'rgba(0,0,0,0.5)',color:'#fff',padding:'1px 5px',borderRadius:4}}>⭕</span>}
                             </div>
                             <div style={{padding:'0.5rem 0.65rem',display:'flex',gap:'0.35rem',flexWrap:'wrap',alignItems:'center'}}>
-                              <button onClick={()=>moveOrder(t,-1)} title="Move left" style={{...iconBtn,width:26,height:26,fontSize:'0.75rem'}}>←</button>
-                              <button onClick={()=>moveOrder(t,1)} title="Move right" style={{...iconBtn,width:26,height:26,fontSize:'0.75rem'}}>→</button>
+                              <span title="Drag to reorder" style={{fontSize:'0.85rem',cursor:'grab',opacity:0.4,userSelect:'none'}}>⠿</span>
                               <button onClick={()=>toggleActive(t)} style={{...iconBtn,color:t.active?'#0f766e':'#9ca3af',fontWeight:700,fontSize:'0.68rem',width:'auto',padding:'0 8px'}}>{t.active?'Live':'Off'}</button>
                               <div style={{flex:1}}/>
                               <button onClick={()=>startEdit(t)} style={{...editBtnStyle,padding:'3px 10px',fontSize:'0.78rem'}}>Edit</button>
@@ -844,7 +885,7 @@ function ShowcasesSection() {
                       </div>
                     </div>
                     <div style={{display:'flex',gap:'0.35rem',flexShrink:0}}>
-                      <button onClick={()=>startEdit(sc)} className={styles.editBtn} style={{margin:0}}>Edit</button>
+                      <button onClick={()=>startEdit(sc)} style={editBtnStyle}>✏️ Edit</button>
                     </div>
                   </div>
                 );
