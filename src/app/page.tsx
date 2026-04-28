@@ -9,7 +9,7 @@ import { getAllProducts, getCategories, Product } from '@/lib/data';
 import HeroBanner from '@/components/HeroBanner';
 import PromoTiles from '@/components/PromoTiles';
 import ShowcaseRow from '@/components/ShowcaseRow';
-import GoogleReviews from '@/components/GoogleReviews';
+import CustomerReviews from '@/components/CustomerReviews';
 import WelcomeBackModal from '@/components/WelcomeBackModal';
 import { createClient } from '@/utils/supabase/client';
 
@@ -479,7 +479,7 @@ function HomeInner() {
             <PromoTiles tiles={promoTilesBottom} />
 
             {/* Google Reviews */}
-            <GoogleReviews />
+            <CustomerReviews />
           </>
         )}
 

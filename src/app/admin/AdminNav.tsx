@@ -53,6 +53,7 @@ const allNavEntries: NavEntry[] = [
   },
 
   { href: '/admin/blogs',        label: 'Blogs',         icon: '📝' },
+  { href: '/admin/reviews',      label: 'Reviews',       icon: '⭐' },
   { href: '/admin/pages',        label: 'Pages',         icon: '📄' },
   { href: '/admin/discounts',    label: 'Discounts',     icon: '💰' },
   { href: '/admin/discount-codes', label: 'Coupon Codes', icon: '🏷️' },

@@ -215,6 +215,20 @@ export const OrderConfirmationEmail = ({
             </Row>
           </Section>
 
+          {/* Review CTA Section */}
+          <Section style={reviewBlock}>
+            <div style={reviewInner}>
+              <Text style={reviewHeading}>⭐ Enjoying Your Experience?</Text>
+              <Text style={reviewBody}>
+                We&apos;d love to hear from you! Your reviews help other vapers discover quality products
+                and help us keep improving. It only takes a minute and means the world to a small business like ours.
+              </Text>
+              <Button style={reviewBtn} href={`${siteUrl}/review`}>
+                LEAVE A REVIEW ⭐
+              </Button>
+            </div>
+          </Section>
+
           {/* Footer Section */}
           <Section style={footerBlock}>
             <Text style={footerHead}>Get in Touch</Text>
@@ -485,3 +499,42 @@ const savingsTotalValue = {
   textAlign: 'right' as const,
 };
 
+// Review CTA block styles
+const reviewBlock = {
+  padding: '0 35px 10px',
+  backgroundColor: '#ffffff',
+};
+
+const reviewInner = {
+  backgroundColor: '#f0fdfa',
+  border: '1px solid #ccfbf1',
+  borderRadius: '8px',
+  padding: '22px 24px',
+  textAlign: 'center' as const,
+};
+
+const reviewHeading = {
+  fontSize: '17px',
+  fontWeight: 'bold' as const,
+  color: '#0f766e',
+  margin: '0 0 10px',
+};
+
+const reviewBody = {
+  fontSize: '14px',
+  color: '#4b5563',
+  lineHeight: '22px',
+  margin: '0 0 18px',
+};
+
+const reviewBtn = {
+  backgroundColor: '#0d9488',
+  borderRadius: '6px',
+  color: '#fff',
+  fontSize: '14px',
+  fontWeight: 'bold',
+  textDecoration: 'none',
+  textAlign: 'center' as const,
+  display: 'inline-block',
+  padding: '12px 24px',
+};

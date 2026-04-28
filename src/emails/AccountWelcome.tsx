@@ -61,6 +61,20 @@ export const AccountWelcomeEmail = ({
             </Button>
           </Section>
 
+          {/* Review CTA Section */}
+          <Section style={{ padding: '0 35px 10px', backgroundColor: '#ffffff' }}>
+            <div style={{ backgroundColor: '#f0fdfa', border: '1px solid #ccfbf1', borderRadius: '8px', padding: '22px 24px', textAlign: 'center' as const }}>
+              <Text style={{ fontSize: '17px', fontWeight: 'bold' as const, color: '#0f766e', margin: '0 0 10px' }}>⭐ Share Your Experience</Text>
+              <Text style={{ fontSize: '14px', color: '#4b5563', lineHeight: '22px', margin: '0 0 18px' }}>
+                Had a great experience with us? Your reviews help other vapers discover quality products
+                and help us keep improving. It only takes a minute!
+              </Text>
+              <Button style={{ backgroundColor: '#0d9488', borderRadius: '6px', color: '#fff', fontSize: '14px', fontWeight: 'bold', textDecoration: 'none', textAlign: 'center' as const, display: 'inline-block', padding: '12px 24px' }} href={`${siteUrl}/review`}>
+                LEAVE A REVIEW ⭐
+              </Button>
+            </div>
+          </Section>
+
           <Section style={{ backgroundColor: '#e0f2f1', padding: '30px 35px', textAlign: 'center' }}>
             <Text style={{ ...footerHead, color: primaryColor }}>Get in Touch</Text>
             <Text style={footerInfo}>{footerText}</Text>
