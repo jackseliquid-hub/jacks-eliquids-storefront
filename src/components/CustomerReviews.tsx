@@ -12,6 +12,13 @@ interface Review {
   created_at: string;
 }
 
+/** Turn "Nick Porter" into "Nick P." for privacy */
+function displayName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0] || 'Customer';
+  return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+}
+
 export default function CustomerReviews() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -64,40 +71,68 @@ export default function CustomerReviews() {
       borderTop: '1px solid rgba(15,118,110,0.08)',
     }}>
       <div className="container" style={{ padding: '0 1rem' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-            marginBottom: '0.5rem',
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>⭐</span>
-            <span style={{
-              fontSize: 'clamp(1.25rem, 2.5vw, 1.6rem)',
-              fontWeight: 800,
-              color: '#111827',
-              letterSpacing: '-0.02em',
+        {/* Header row — title left-center, CTA button right-center */}
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem',
+        }}>
+          {/* Left side: title + rating */}
+          <div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
+              marginBottom: '0.35rem',
             }}>
-              What Our Customers Say
-            </span>
+              <span style={{ fontSize: '1.4rem' }}>⭐</span>
+              <span style={{
+                fontSize: 'clamp(1.25rem, 2.5vw, 1.6rem)',
+                fontWeight: 800,
+                color: '#111827',
+                letterSpacing: '-0.02em',
+              }}>
+                What Our Customers Say
+              </span>
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+            }}>
+              <span style={{ fontSize: '1.3rem', fontWeight: 800, color: '#111' }}>{avgRating}</span>
+              <div style={{ display: 'flex', gap: '2px' }}>
+                {[1,2,3,4,5].map(s => (
+                  <svg key={s} width="18" height="18" viewBox="0 0 24 24" fill={s <= Math.round(Number(avgRating)) ? '#FBBC04' : '#e5e7eb'}>
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                ))}
+              </div>
+              <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>
+                Based on {totalReviews} review{totalReviews !== 1 ? 's' : ''}
+              </span>
+            </div>
           </div>
 
-          {/* Star rating summary */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: '0.4rem', marginBottom: '0.25rem',
-          }}>
-            <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#111' }}>{avgRating}</span>
-            <div style={{ display: 'flex', gap: '2px' }}>
-              {[1,2,3,4,5].map(s => (
-                <svg key={s} width="20" height="20" viewBox="0 0 24 24" fill={s <= Math.round(Number(avgRating)) ? '#FBBC04' : '#e5e7eb'}>
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-              ))}
-            </div>
-            <span style={{ fontSize: '0.85rem', color: '#6b7280' }}>
-              Based on {totalReviews} review{totalReviews !== 1 ? 's' : ''}
-            </span>
-          </div>
+          {/* Right side: CTA button */}
+          <Link
+            href="/review"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.45rem',
+              background: 'linear-gradient(135deg, #0f766e, #0d9488)',
+              color: '#fff', padding: '0.6rem 1.3rem',
+              borderRadius: 10, fontWeight: 700, fontSize: '0.88rem',
+              textDecoration: 'none',
+              boxShadow: '0 4px 14px rgba(15,118,110,0.25)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(15,118,110,0.35)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 14px rgba(15,118,110,0.25)';
+            }}
+          >
+            ⭐ Share Your Experience
+          </Link>
         </div>
 
         {/* Reviews carousel */}
@@ -151,121 +186,80 @@ export default function CustomerReviews() {
               .customer-reviews-scroll::-webkit-scrollbar { display: none; }
             `}</style>
 
-            {reviews.map((review) => (
-              <div
-                key={review.id}
-                style={{
-                  flex: '0 0 300px',
-                  scrollSnapAlign: 'start',
-                  background: '#fff',
-                  borderRadius: 14,
-                  padding: '1.25rem',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.75rem',
-                  transition: 'box-shadow 0.2s',
-                }}
-              >
-                {/* Reviewer info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #0f766e, #0d9488)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 700, fontSize: '0.95rem',
-                    flexShrink: 0,
+            {reviews.map((review) => {
+              const name = displayName(review.customer_name);
+              return (
+                <div
+                  key={review.id}
+                  style={{
+                    flex: '0 0 300px',
+                    scrollSnapAlign: 'start',
+                    background: '#fff',
+                    borderRadius: 14,
+                    padding: '1.25rem',
+                    border: '1px solid #e5e7eb',
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem',
+                    transition: 'box-shadow 0.2s',
+                  }}
+                >
+                  {/* Reviewer info */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #0f766e, #0d9488)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontWeight: 700, fontSize: '0.95rem',
+                      flexShrink: 0,
+                    }}>
+                      {name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111' }}>
+                        {name}
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>
+                        {timeAgo(review.created_at)}
+                      </div>
+                    </div>
+                    {/* Verified badge */}
+                    <span style={{
+                      fontSize: '0.6rem', fontWeight: 700, color: '#0f766e',
+                      background: '#f0fdfa', border: '1px solid #ccfbf1',
+                      padding: '2px 6px', borderRadius: 4, flexShrink: 0,
+                    }}>✓ Verified</span>
+                  </div>
+
+                  {/* Stars */}
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    {[1,2,3,4,5].map(s => (
+                      <svg key={s} width="16" height="16" viewBox="0 0 24 24" fill={s <= review.rating ? '#FBBC04' : '#e5e7eb'}>
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    ))}
+                  </div>
+
+                  {/* Review text */}
+                  <p style={{
+                    fontSize: '0.85rem', color: '#374151',
+                    lineHeight: 1.55, margin: 0, flex: 1,
                   }}>
-                    {review.customer_name.charAt(0).toUpperCase()}
+                    &ldquo;{review.review_text}&rdquo;
+                  </p>
+
+                  {/* Badge */}
+                  <div style={{
+                    fontSize: '0.68rem', color: '#9ca3af',
+                    display: 'flex', alignItems: 'center', gap: '0.3rem',
+                  }}>
+                    <span>💚</span>
+                    Jack&apos;s E-Liquid Customer
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#111' }}>
-                      {review.customer_name}
-                    </div>
-                    <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>
-                      {timeAgo(review.created_at)}
-                    </div>
-                  </div>
-                  {/* Verified badge */}
-                  <span style={{
-                    fontSize: '0.6rem', fontWeight: 700, color: '#0f766e',
-                    background: '#f0fdfa', border: '1px solid #ccfbf1',
-                    padding: '2px 6px', borderRadius: 4, flexShrink: 0,
-                  }}>✓ Verified</span>
                 </div>
-
-                {/* Stars */}
-                <div style={{ display: 'flex', gap: '2px' }}>
-                  {[1,2,3,4,5].map(s => (
-                    <svg key={s} width="16" height="16" viewBox="0 0 24 24" fill={s <= review.rating ? '#FBBC04' : '#e5e7eb'}>
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                  ))}
-                </div>
-
-                {/* Review text */}
-                <p style={{
-                  fontSize: '0.85rem', color: '#374151',
-                  lineHeight: 1.55, margin: 0, flex: 1,
-                }}>
-                  &ldquo;{review.review_text}&rdquo;
-                </p>
-
-                {/* Badge */}
-                <div style={{
-                  fontSize: '0.68rem', color: '#9ca3af',
-                  display: 'flex', alignItems: 'center', gap: '0.3rem',
-                }}>
-                  <span>💚</span>
-                  Jack&apos;s E-Liquid Customer
-                </div>
-              </div>
-            ))}
-
-            {/* Leave a review card */}
-            <Link
-              href="/review"
-              style={{
-                flex: '0 0 260px',
-                scrollSnapAlign: 'start',
-                background: 'linear-gradient(135deg, #0f766e, #0d9488)',
-                borderRadius: 14,
-                padding: '1.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.75rem',
-                textDecoration: 'none',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                boxShadow: '0 4px 14px rgba(15,118,110,0.2)',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 8px 24px rgba(15,118,110,0.3)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 14px rgba(15,118,110,0.2)';
-              }}
-            >
-              <span style={{ fontSize: '2rem' }}>⭐</span>
-              <span style={{ color: '#fff', fontWeight: 700, fontSize: '1rem', textAlign: 'center' }}>
-                Share Your Experience
-              </span>
-              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.82rem', textAlign: 'center' }}>
-                We&apos;d love to hear from you!
-              </span>
-              <span style={{
-                background: 'rgba(255,255,255,0.2)', color: '#fff',
-                padding: '0.45rem 1.25rem', borderRadius: 8,
-                fontWeight: 600, fontSize: '0.85rem',
-                border: '1px solid rgba(255,255,255,0.3)',
-              }}>
-                Leave a Review →
-              </span>
-            </Link>
+              );
+            })}
           </div>
         </div>
       </div>

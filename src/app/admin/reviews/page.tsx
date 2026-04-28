@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/utils/supabase/client';
 import styles from '../admin.module.css';
 
 interface Review {
@@ -19,11 +18,7 @@ export default function AdminReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{text:string;type:'ok'|'err'}|null>(null);
 
-  // We need service-role access for admin operations
-  const supabase = createClient();
-
   async function load() {
-    // Use the API route for admin operations to bypass RLS
     const res = await fetch('/api/admin-reviews');
     if (res.ok) {
       const data = await res.json();
@@ -121,7 +116,6 @@ export default function AdminReviewsPage() {
         </div>
       ) : (
         <>
-          {/* Pending reviews first */}
           {pendingReviews.length > 0 && (
             <div style={{marginBottom:'2rem'}}>
               <h2 style={{
@@ -134,13 +128,12 @@ export default function AdminReviewsPage() {
               </h2>
               <div style={{display:'flex',flexDirection:'column',gap:'0.65rem'}}>
                 {pendingReviews.map(r => (
-                  <ReviewCard key={r.id} review={r} onPublish={() => updateStatus(r.id, 'published')} onDelete={() => deleteReview(r.id)} />
+                  <ReviewCard key={r.id} review={r} onPublish={() => updateStatus(r.id, 'published')} onDelete={() => deleteReview(r.id)} onNotify={notify} />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Published reviews */}
           {publishedReviews.length > 0 && (
             <div>
               <h2 style={{
@@ -153,7 +146,7 @@ export default function AdminReviewsPage() {
               </h2>
               <div style={{display:'flex',flexDirection:'column',gap:'0.65rem'}}>
                 {publishedReviews.map(r => (
-                  <ReviewCard key={r.id} review={r} onUnpublish={() => updateStatus(r.id, 'pending')} onDelete={() => deleteReview(r.id)} />
+                  <ReviewCard key={r.id} review={r} onUnpublish={() => updateStatus(r.id, 'pending')} onDelete={() => deleteReview(r.id)} onNotify={notify} />
                 ))}
               </div>
             </div>
@@ -164,20 +157,53 @@ export default function AdminReviewsPage() {
   );
 }
 
-// ── Review Card ──────────────────────────────────────────────────────────────
+// ── Review Card with Reply ───────────────────────────────────────────────────
 
 function ReviewCard({
   review,
   onPublish,
   onUnpublish,
   onDelete,
+  onNotify,
 }: {
   review: Review;
   onPublish?: () => void;
   onUnpublish?: () => void;
   onDelete: () => void;
+  onNotify: (text: string, type: 'ok' | 'err') => void;
 }) {
   const isPending = review.status === 'pending';
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  async function sendReply() {
+    if (!replyText.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch('/api/admin-reviews/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_email: review.customer_email,
+          customer_name: review.customer_name,
+          reply_text: replyText.trim(),
+          rating: review.rating,
+        }),
+      });
+      if (res.ok) {
+        onNotify(`Reply sent to ${review.customer_name} ✓`, 'ok');
+        setReplyOpen(false);
+        setReplyText('');
+      } else {
+        onNotify('Failed to send reply', 'err');
+      }
+    } catch {
+      onNotify('Failed to send reply', 'err');
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div style={{
@@ -221,7 +247,7 @@ function ReviewCard({
       </p>
 
       {/* Action buttons */}
-      <div style={{display:'flex',gap:'0.5rem',alignItems:'center'}}>
+      <div style={{display:'flex',gap:'0.5rem',alignItems:'center',flexWrap:'wrap'}}>
         {onPublish && (
           <button onClick={onPublish} style={{
             padding:'0.4rem 1rem',borderRadius:8,border:'none',cursor:'pointer',
@@ -241,6 +267,18 @@ function ReviewCard({
             Unpublish
           </button>
         )}
+        <button
+          onClick={() => setReplyOpen(!replyOpen)}
+          style={{
+            padding:'0.4rem 1rem',borderRadius:8,cursor:'pointer',
+            background: replyOpen ? '#eff6ff' : '#f0fdfa',
+            border: `1px solid ${replyOpen ? '#93c5fd' : '#ccfbf1'}`,
+            color: replyOpen ? '#1e40af' : '#0f766e',
+            fontWeight:700,fontSize:'0.82rem',
+          }}
+        >
+          💬 Reply
+        </button>
         <div style={{flex:1}} />
         <button onClick={onDelete} style={{
           padding:'0.4rem 0.85rem',borderRadius:8,border:'1px solid #fecaca',cursor:'pointer',
@@ -250,6 +288,53 @@ function ReviewCard({
           🗑 Delete
         </button>
       </div>
+
+      {/* Reply section */}
+      {replyOpen && (
+        <div style={{
+          marginTop:'0.75rem',padding:'0.85rem',
+          background:'#f0f9ff',borderRadius:10,border:'1px solid #bae6fd',
+        }}>
+          <label style={{display:'block',fontSize:'0.78rem',fontWeight:700,color:'#1e40af',marginBottom:'0.4rem'}}>
+            Send a personal reply to {review.customer_name.split(' ')[0]}:
+          </label>
+          <textarea
+            value={replyText}
+            onChange={e => setReplyText(e.target.value)}
+            placeholder={`Hi ${review.customer_name.split(' ')[0]}, thanks so much for taking the time to leave us a review...`}
+            rows={3}
+            style={{
+              width:'100%',padding:'0.55rem 0.7rem',
+              border:'1px solid #93c5fd',borderRadius:8,
+              fontSize:'0.85rem',color:'#111',resize:'vertical',
+              outline:'none',lineHeight:1.5,boxSizing:'border-box',
+            }}
+          />
+          <div style={{display:'flex',gap:'0.5rem',marginTop:'0.5rem'}}>
+            <button
+              onClick={sendReply}
+              disabled={sending || !replyText.trim()}
+              style={{
+                padding:'0.4rem 1.1rem',borderRadius:8,border:'none',cursor: sending ? 'not-allowed' : 'pointer',
+                background: sending ? '#9ca3af' : 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                color:'#fff',fontWeight:700,fontSize:'0.82rem',
+                boxShadow: sending ? 'none' : '0 2px 8px rgba(37,99,235,0.3)',
+              }}
+            >
+              {sending ? 'Sending…' : '📧 Send Reply'}
+            </button>
+            <button
+              onClick={() => { setReplyOpen(false); setReplyText(''); }}
+              style={{
+                padding:'0.4rem 0.85rem',borderRadius:8,border:'1px solid #d1d5db',cursor:'pointer',
+                background:'#fff',color:'#374151',fontWeight:600,fontSize:'0.82rem',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
