@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import MediaModal from '@/components/MediaModal';
+import LinkPicker from '@/components/LinkPicker';
 import styles from '../admin.module.css';
 
 /* ─── Types ─────────────────────────────── */
@@ -332,7 +333,7 @@ function BannerSection() {
             </div>
             <div>
               <label className={styles.label}>Button Link</label>
-              <input className={styles.input} value={form.cta_url} onChange={e=>setForm(f=>({...f,cta_url:e.target.value}))} placeholder="/?cat=E-liquids"/>
+              <LinkPicker value={form.cta_url} onChange={url=>setForm(f=>({...f,cta_url:url}))} />
             </div>
             <div style={{gridColumn:'1/-1'}}>
               <label className={styles.label}>Banner Image</label>
@@ -538,7 +539,7 @@ function PromoTilesSection() {
             <div><label className={styles.label}>Title *</label><input className={styles.input} value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="E-Liquids"/></div>
             <div><label className={styles.label}>Badge</label><input className={styles.input} value={form.badge_text} onChange={e=>setForm(f=>({...f,badge_text:e.target.value}))} placeholder="NEW, SALE…"/></div>
             <div><label className={styles.label}>Subtitle</label><input className={styles.input} value={form.subtitle} onChange={e=>setForm(f=>({...f,subtitle:e.target.value}))} placeholder="Hundreds of flavours"/></div>
-            <div><label className={styles.label}>Link URL</label><input className={styles.input} value={form.link_url} onChange={e=>setForm(f=>({...f,link_url:e.target.value}))} placeholder="/?cat=E-liquids"/></div>
+            <div><label className={styles.label}>Link URL</label><LinkPicker value={form.link_url} onChange={url=>setForm(f=>({...f,link_url:url}))} /></div>
             <div style={{gridColumn:'1/-1'}}>
               <label className={styles.label}>Tile Image</label>
               <ImagePicker value={form.image_url} onChange={url=>setForm(f=>({...f,image_url:url}))}/>

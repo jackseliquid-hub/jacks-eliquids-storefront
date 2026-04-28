@@ -11,6 +11,7 @@ interface Review {
   review_text: string;
   status: 'pending' | 'published';
   created_at: string;
+  replied_at: string | null;
 }
 
 export default function AdminReviewsPage() {
@@ -128,7 +129,7 @@ export default function AdminReviewsPage() {
               </h2>
               <div style={{display:'flex',flexDirection:'column',gap:'0.65rem'}}>
                 {pendingReviews.map(r => (
-                  <ReviewCard key={r.id} review={r} onPublish={() => updateStatus(r.id, 'published')} onDelete={() => deleteReview(r.id)} onNotify={notify} />
+                  <ReviewCard key={r.id} review={r} onPublish={() => updateStatus(r.id, 'published')} onDelete={() => deleteReview(r.id)} onNotify={notify} onReload={load} />
                 ))}
               </div>
             </div>
@@ -146,7 +147,7 @@ export default function AdminReviewsPage() {
               </h2>
               <div style={{display:'flex',flexDirection:'column',gap:'0.65rem'}}>
                 {publishedReviews.map(r => (
-                  <ReviewCard key={r.id} review={r} onUnpublish={() => updateStatus(r.id, 'pending')} onDelete={() => deleteReview(r.id)} onNotify={notify} />
+                  <ReviewCard key={r.id} review={r} onUnpublish={() => updateStatus(r.id, 'pending')} onDelete={() => deleteReview(r.id)} onNotify={notify} onReload={load} />
                 ))}
               </div>
             </div>
@@ -165,12 +166,14 @@ function ReviewCard({
   onUnpublish,
   onDelete,
   onNotify,
+  onReload,
 }: {
   review: Review;
   onPublish?: () => void;
   onUnpublish?: () => void;
   onDelete: () => void;
   onNotify: (text: string, type: 'ok' | 'err') => void;
+  onReload: () => void;
 }) {
   const isPending = review.status === 'pending';
   const [replyOpen, setReplyOpen] = useState(false);
@@ -185,16 +188,19 @@ function ReviewCard({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          review_id: review.id,
           customer_email: review.customer_email,
           customer_name: review.customer_name,
           reply_text: replyText.trim(),
           rating: review.rating,
+          review_text: review.review_text,
         }),
       });
       if (res.ok) {
         onNotify(`Reply sent to ${review.customer_name} ✓`, 'ok');
         setReplyOpen(false);
         setReplyText('');
+        onReload();
       } else {
         onNotify('Failed to send reply', 'err');
       }
@@ -232,8 +238,17 @@ function ReviewCard({
             </svg>
           ))}
         </div>
-        <div style={{fontSize:'0.72rem',color:'#9ca3af',flexShrink:0}}>
-          {new Date(review.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+        <div style={{display:'flex',alignItems:'center',gap:'0.4rem',flexShrink:0}}>
+          {review.replied_at && (
+            <span style={{
+              fontSize:'0.62rem',fontWeight:700,color:'#0f766e',
+              background:'#d1fae5',border:'1px solid #a7f3d0',
+              padding:'2px 6px',borderRadius:4,
+            }}>✓ Replied</span>
+          )}
+          <span style={{fontSize:'0.72rem',color:'#9ca3af'}}>
+            {new Date(review.created_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' })}
+          </span>
         </div>
       </div>
 

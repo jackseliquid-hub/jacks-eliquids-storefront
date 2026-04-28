@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import { createClient } from '@supabase/supabase-js';
 
 const resend = new Resend(process.env.RESEND_API_KEY || '');
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://jacks-eliquids-storefront.vercel.app';
 
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
+
 export async function POST(request: Request) {
   try {
-    const { customer_email, customer_name, reply_text, rating } = await request.json();
+    const { review_id, customer_email, customer_name, reply_text, rating, review_text } = await request.json();
 
     if (!customer_email || !reply_text?.trim()) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
@@ -34,8 +42,8 @@ export async function POST(request: Request) {
             </p>
 
             <div style="background: #f0fdfa; border: 1px solid #ccfbf1; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
-              <div style="font-size: 13px; color: #6b7280; margin-bottom: 4px;">Your review (${stars}):</div>
-              <div style="font-size: 14px; color: #374151; font-style: italic;">"${customer_name}'s review"</div>
+              <div style="font-size: 13px; color: #6b7280; margin-bottom: 6px;">Your review (${stars}):</div>
+              <div style="font-size: 14px; color: #374151; font-style: italic; line-height: 1.5;">"${review_text || ''}"</div>
             </div>
 
             <p style="font-size: 14px; color: #6b7280; line-height: 1.5; margin: 0 0 20px;">
@@ -56,6 +64,15 @@ export async function POST(request: Request) {
         </div>
       `,
     });
+
+    // Mark the review as replied
+    if (review_id) {
+      const supabase = getSupabase();
+      await supabase
+        .from('customer_reviews')
+        .update({ replied_at: new Date().toISOString() })
+        .eq('id', review_id);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
