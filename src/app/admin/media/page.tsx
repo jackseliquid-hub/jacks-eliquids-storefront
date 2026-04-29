@@ -22,11 +22,17 @@ function getCleanName(rawName: string) {
   return name.replace(/_/g, ' ');
 }
 
+function isVideoFile(filename: string) {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return ['mp4', 'webm', 'mov', 'ogg'].includes(ext);
+}
+
 function guessContentType(filename: string) {
   const ext = filename.split('.').pop()?.toLowerCase();
   const types: Record<string, string> = {
     webp: 'image/webp', jpg: 'image/jpeg', jpeg: 'image/jpeg',
     png: 'image/png', gif: 'image/gif', avif: 'image/avif',
+    mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', ogg: 'video/ogg',
   };
   return types[ext || ''] || 'application/octet-stream';
 }
@@ -136,6 +142,7 @@ export default function MediaLibraryPage() {
       let blob: Blob = rawFile;
       let ext = rawFile.name.split('.').pop()?.toLowerCase() || 'jpg';
 
+      // Only convert images (not videos) to WebP
       if (rawFile.type.startsWith('image/') && ext !== 'webp') {
         try { blob = await convertToWebP(rawFile); ext = 'webp'; }
         catch { /* fall back to original */ }
@@ -157,7 +164,8 @@ export default function MediaLibraryPage() {
       if (error) throw error;
 
       setUploadProgress(100);
-      showToast('Image uploaded successfully!');
+      const isVideo = rawFile.type.startsWith('video/');
+      showToast(isVideo ? 'Video uploaded successfully!' : 'Image uploaded successfully!');
       if (fileInputRef.current) fileInputRef.current.value = '';
       await loadImages();
     } catch (err) {
@@ -219,7 +227,7 @@ export default function MediaLibraryPage() {
           onDrop={e => { e.preventDefault(); if (e.dataTransfer.files[0]) processUpload(e.dataTransfer.files[0]); }}
           onClick={() => fileInputRef.current?.click()}
         >
-          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" style={{ display: 'none' }} />
+          <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*,video/mp4,video/webm,video/quicktime" style={{ display: 'none' }} />
           {uploading ? (
             <div className={mediaStyles.uploadingState}>
               <div className={mediaStyles.progressTrack}>
@@ -230,8 +238,8 @@ export default function MediaLibraryPage() {
           ) : (
             <div className={mediaStyles.idleState}>
               <div className={mediaStyles.uploadIcon}>⬆️</div>
-              <p><strong>Click to browse</strong> or drag &amp; drop an image here</p>
-              <span className={mediaStyles.subText}>Images auto-converted to optimised WebP · max 800px</span>
+              <p><strong>Click to browse</strong> or drag &amp; drop an image or video here</p>
+              <span className={mediaStyles.subText}>Images auto-converted to WebP · Videos accepted: MP4, WebM, MOV</span>
             </div>
           )}
         </div>
@@ -243,27 +251,42 @@ export default function MediaLibraryPage() {
           ) : displayed.length === 0 ? (
             <div className={mediaStyles.emptyState}>No images uploaded yet.</div>
           ) : (
-            displayed.map(file => (
-              <div key={file.name} className={mediaStyles.imageCard}>
-                <div className={mediaStyles.imageThumbnailWrapper}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={file.url} alt={file.name} className={mediaStyles.imageThumbnail} loading="lazy" />
-                  <div className={mediaStyles.imageOverlay}>
-                    <button
-                      className={`${styles.btn} ${styles.btnPrimary} ${mediaStyles.overlayBtn}`}
-                      onClick={e => { e.stopPropagation(); copyUrl(file.url); }}
-                    >🔗 Copy URL</button>
-                    <button
-                      className={`${styles.btn} ${styles.btnDanger} ${mediaStyles.overlayBtn}`}
-                      onClick={e => { e.stopPropagation(); deleteImage(file.name); }}
-                    >🗑️ Delete</button>
+            displayed.map(file => {
+              const video = isVideoFile(file.name);
+              return (
+                <div key={file.name} className={mediaStyles.imageCard}>
+                  <div className={mediaStyles.imageThumbnailWrapper}>
+                    {video ? (
+                      <video src={file.url} className={mediaStyles.imageThumbnail} muted preload="metadata" style={{ objectFit: 'cover' }} />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={file.url} alt={file.name} className={mediaStyles.imageThumbnail} loading="lazy" />
+                    )}
+                    {video && (
+                      <div style={{
+                        position:'absolute',top:8,left:8,
+                        background:'rgba(0,0,0,0.7)',color:'#fff',
+                        padding:'2px 6px',borderRadius:4,
+                        fontSize:'0.65rem',fontWeight:700,
+                      }}>▶ VIDEO</div>
+                    )}
+                    <div className={mediaStyles.imageOverlay}>
+                      <button
+                        className={`${styles.btn} ${styles.btnPrimary} ${mediaStyles.overlayBtn}`}
+                        onClick={e => { e.stopPropagation(); copyUrl(file.url); }}
+                      >🔗 Copy URL</button>
+                      <button
+                        className={`${styles.btn} ${styles.btnDanger} ${mediaStyles.overlayBtn}`}
+                        onClick={e => { e.stopPropagation(); deleteImage(file.name); }}
+                      >🗑️ Delete</button>
+                    </div>
+                  </div>
+                  <div className={mediaStyles.imageInfo}>
+                    <p className={mediaStyles.imageName} title={getCleanName(file.name)}>{getCleanName(file.name)}</p>
                   </div>
                 </div>
-                <div className={mediaStyles.imageInfo}>
-                  <p className={mediaStyles.imageName} title={getCleanName(file.name)}>{getCleanName(file.name)}</p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

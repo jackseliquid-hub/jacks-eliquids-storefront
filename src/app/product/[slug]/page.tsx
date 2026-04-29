@@ -8,6 +8,10 @@ import styles from './product.module.css';
 import { getProductBySlug, getCompatibilityLinksForProduct, Product } from '@/lib/data';
 import { DiscountRule, getDiscountRules, calculateBestPrice } from '@/lib/discounts';
 import { createClient } from '@/utils/supabase/client';
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|webm|mov|ogg)$/i.test(url);
+}
 import RelatedProducts from '@/components/RelatedProducts';
 
 // Decode common HTML entities for safe attribute matching
@@ -341,8 +345,21 @@ export default function ProductPage({
         <div className={styles.imagePanel}>
           <div className={styles.mainImageWrapper} style={{ position: 'relative' }}>
             {mainImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={mainImage} alt={product.name} className={styles.productImage} style={allVariationsOOS ? { filter: 'grayscale(60%) opacity(0.75)' } : undefined} />
+              isVideoUrl(mainImage) ? (
+                <video
+                  src={mainImage}
+                  className={styles.productImage}
+                  controls
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  style={allVariationsOOS ? { filter: 'grayscale(60%) opacity(0.75)' } : undefined}
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={mainImage} alt={product.name} className={styles.productImage} style={allVariationsOOS ? { filter: 'grayscale(60%) opacity(0.75)' } : undefined} />
+              )
             ) : (
               <div className={styles.imagePlaceholder}>📦</div>
             )}
@@ -366,7 +383,11 @@ export default function ProductPage({
                   className={`${styles.galleryThumb} ${mainImage === product.image ? styles.thumbActive : ''}`} 
                   onClick={() => setMainImage(product.image)}
                 >
-                  <img src={product.image} alt={product.name} />
+                  {isVideoUrl(product.image) ? (
+                    <video src={product.image} muted preload="metadata" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                  ) : (
+                    <img src={product.image} alt={product.name} />
+                  )}
                 </div>
               )}
               {product.gallery?.map((img, i) => (
@@ -375,7 +396,11 @@ export default function ProductPage({
                   className={`${styles.galleryThumb} ${mainImage === img ? styles.thumbActive : ''}`} 
                   onClick={() => setMainImage(img)}
                 >
-                  <img src={img} alt={`${product.name} - image ${i + 1}`} />
+                  {isVideoUrl(img) ? (
+                    <video src={img} muted preload="metadata" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                  ) : (
+                    <img src={img} alt={`${product.name} - image ${i + 1}`} />
+                  )}
                 </div>
               ))}
             </div>

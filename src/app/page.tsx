@@ -536,14 +536,23 @@ function HomeInner() {
                     <div className={styles.card}>
                       <div className={styles.cardImageWrapper} style={{ position: 'relative' }}>
                         {product.image && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className={styles.productImage}
-                            loading="lazy"
-                            style={allOOS ? { filter: 'grayscale(55%) opacity(0.7)' } : undefined}
-                          />
+                          /\.(mp4|webm|mov|ogg)$/i.test(product.image) ? (
+                            <video
+                              src={product.image}
+                              className={styles.productImage}
+                              autoPlay muted loop playsInline
+                              style={allOOS ? { filter: 'grayscale(55%) opacity(0.7)' } : undefined}
+                            />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className={styles.productImage}
+                              loading="lazy"
+                              style={allOOS ? { filter: 'grayscale(55%) opacity(0.7)' } : undefined}
+                            />
+                          )
                         )}
                         {allOOS && (
                           <div style={{
