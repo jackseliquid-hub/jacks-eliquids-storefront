@@ -569,9 +569,13 @@ function HomeInner() {
                                 <span className={styles.productPriceSlashed}>
                                   {product.price !== 'N/A' ? `From ${product.price}` : ''}
                                 </span>
-                                <span className={styles.productPriceSale}>{product.salePrice}</span>
+                                <span className={styles.productPriceSale}>{product.priceFrom || product.salePrice}</span>
                                 <span className={styles.saleTag}>Sale</span>
                               </>
+                            ) : product.priceFrom ? (
+                              <span className={styles.productPrice}>
+                                From {product.priceFrom}
+                              </span>
                             ) : (
                               <span className={styles.productPrice}>
                                 {product.price && product.price !== 'N/A' ? `From ${product.price}` : 'See Options'}

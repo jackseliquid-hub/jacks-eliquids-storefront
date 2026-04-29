@@ -35,6 +35,7 @@ export interface Product {
   name: string;
   sku: string;
   price: string;
+  priceFrom?: string;
   salePrice?: string;
   costPrice?: string;
   weight: number;
@@ -119,6 +120,7 @@ function mapProduct(row: Record<string, unknown>, variations: Variation[] = []):
     name:          row.name as string,
     sku:           (row.sku as string) || '',
     price:         (row.price as string) || '0.00',
+    priceFrom:     (row.price_from as string) || undefined,
     salePrice:     (row.sale_price as string) || undefined,
     costPrice:     (row.cost_price as string) || undefined,
     weight:        (row.weight as number) || 0,
@@ -294,6 +296,7 @@ export async function updateProduct(id: string, data: Partial<Product>): Promise
   if (data.name           !== undefined) dbData.name            = data.name;
   if (data.sku            !== undefined) dbData.sku             = data.sku;
   if (data.price          !== undefined) dbData.price           = data.price;
+  if (data.priceFrom      !== undefined) dbData.price_from      = data.priceFrom;
   if (data.salePrice      !== undefined) dbData.sale_price      = data.salePrice;
   if (data.costPrice      !== undefined) dbData.cost_price      = data.costPrice;
   if (data.weight         !== undefined) dbData.weight          = data.weight;

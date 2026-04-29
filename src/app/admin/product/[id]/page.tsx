@@ -626,6 +626,21 @@ export default function ProductEditorPage({
               </div>
 
               <div className={styles.formGroup}>
+                <label className={styles.label}>
+                  Deal Price From (£)
+                  <span style={{fontSize:'0.72rem', color:'#86868b', fontWeight:400, display:'block', marginTop:2}}>
+                    Cheapest bulk price — shown as &quot;From £X.XX&quot; on product cards
+                  </span>
+                </label>
+                <input
+                  className={styles.input}
+                  value={(product.priceFrom || '').replace('£', '')}
+                  placeholder="e.g. 1.80 (5 for £9 = £1.80 each)"
+                  onChange={e => setField('priceFrom', e.target.value ? `£${e.target.value}` : '')}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
                 <label className={styles.label}>Cost of Goods (£) <span style={{fontSize:'0.75rem', color:'#86868b'}}>(Ex VAT)</span></label>
                 <input
                   className={styles.input}

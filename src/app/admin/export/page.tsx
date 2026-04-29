@@ -14,6 +14,7 @@ const ALL_COLUMNS = [
   { key: 'category',    label: 'Category' },
   { key: 'tags',        label: 'Tags' },
   { key: 'price',       label: 'Price' },
+  { key: 'price_from',  label: 'Price From' },
   { key: 'sale_price',  label: 'Sale Price' },
   { key: 'cost_price',  label: 'Cost Price' },
   { key: 'stock_qty',   label: 'Stock Qty' },
@@ -25,7 +26,7 @@ const ALL_COLUMNS = [
   { key: 'weight',      label: 'Weight' },
 ];
 
-const DEFAULT_COLS = ['id','name','sku','brand','category','price','sale_price','cost_price','stock_qty','status'];
+const DEFAULT_COLS = ['id','name','sku','brand','category','price','price_from','sale_price','cost_price','stock_qty','status'];
 
 function escapeCSV(val: unknown): string {
   if (val === null || val === undefined) return '';
@@ -189,6 +190,7 @@ export default function ExportPage() {
     'Category':    'category',
     'Tags':        'tags',
     'Price':       'price',
+    'Price From':  'priceFrom',
     'Sale Price':  'salePrice',
     'Cost Price':  'costPrice',
     'Stock Qty':   'stockQty',

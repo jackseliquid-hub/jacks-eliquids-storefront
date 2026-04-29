@@ -28,7 +28,7 @@ export default function BlogIndexPage() {
     <>
       <main className={styles.main}>
         <section className={styles.hero} style={{
-          background: 'linear-gradient(to right, rgba(0,30,40,0.82), rgba(0,75,80,0.75)), url(/vape-base-hero.png) center/cover no-repeat',
+          background: 'linear-gradient(to right, rgba(0,30,40,0.82), rgba(0,75,80,0.75)), url(https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/vape_base_blog_273e332c.webp) center/cover no-repeat',
           minHeight: '32vh',
           display: 'flex',
           flexDirection: 'column',
