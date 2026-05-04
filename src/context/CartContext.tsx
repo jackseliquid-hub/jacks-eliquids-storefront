@@ -16,7 +16,8 @@ export interface CartItem {
   slug: string;
   name: string;
   image: string;
-  price: string; // original un-discounted formatted string e.g. "£3.50"
+  price: string; // original un-discounted formatted string e.g. "£3.50" (regular price)
+  salePrice?: string; // native sale price if on sale, e.g. "£2.99"
   category?: string;
   tags?: string[];
   quantity: number;
@@ -116,7 +117,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       item.price,
       totalQty,
       { id: parentId, category: item.category, tags: item.tags },
-      discountRules
+      discountRules,
+      item.salePrice || item.price  // activePrice: sale price if on sale, else regular
     );
     
     return sum + (price * item.quantity);
@@ -131,7 +133,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       item.price,
       totalQty,
       { id: parentId, category: item.category, tags: item.tags },
-      discountRules
+      discountRules,
+      item.salePrice || item.price  // activePrice: sale price if on sale, else regular
     );
   };
 

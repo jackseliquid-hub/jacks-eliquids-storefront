@@ -82,7 +82,11 @@ export async function deleteDiscountRule(id: string): Promise<void> {
 }
 
 // ─── PRICING LOGIC ─────────────────────────────────────────────────────────────
-// (Pure calculation — no DB calls, works identically to the old version)
+// v2.5 — "Best Deal Guarantee"
+// The function now accepts an optional `activePrice` (the product's current
+// native selling price, i.e. sale price if on sale, otherwise regular price).
+// The engine will NEVER return a price higher than activePrice, preventing the
+// old tug-of-war where bulk rules accidentally overrode a better native sale.
 
 interface DiscountProduct {
   id: string;
@@ -95,12 +99,20 @@ export function calculateBestPrice(
   basePriceStr: string,
   quantity: number,
   product: DiscountProduct,
-  rules: DiscountRule[]
+  rules: DiscountRule[],
+  activePriceStr?: string  // The product's current native selling price (sale price if on sale)
 ): { price: number; formattedPrice: string; appliedRule: DiscountRule | null; appliedRange: DiscountRange | null } {
   const basePrice = parseFloat(basePriceStr.replace(/[^0-9.]/g, ''));
   if (isNaN(basePrice)) return { price: 0, formattedPrice: basePriceStr, appliedRule: null, appliedRange: null };
 
-  let bestPrice = basePrice;
+  // Establish the "ceiling" — the best native price the customer can already get
+  let activePrice = basePrice;
+  if (activePriceStr) {
+    const parsed = parseFloat(activePriceStr.replace(/[^0-9.]/g, ''));
+    if (!isNaN(parsed) && parsed > 0) activePrice = parsed;
+  }
+
+  let bestPrice = activePrice; // Start from the active native price, not basePrice
   let appliedRule: DiscountRule | null = null;
   let appliedRange: DiscountRange | null = null;
 
@@ -119,14 +131,18 @@ export function calculateBestPrice(
       for (const range of rule.ranges) {
         const max = range.max === null ? Infinity : range.max;
         if (quantity >= range.min && quantity <= max) {
-          let calculatedPrice = basePrice;
+          let calculatedPrice: number;
 
           if (range.type === 'percent') {
+            // Calculate percentage off from the BASE price (respects "calc from" setting)
             calculatedPrice = basePrice * (1 - range.value / 100);
           } else if (range.type === 'fixed') {
             calculatedPrice = range.value;
+          } else {
+            calculatedPrice = basePrice;
           }
 
+          // BEST DEAL GUARANTEE: Only apply if genuinely cheaper than the native active price
           if (calculatedPrice < bestPrice - 0.001) {
             bestPrice    = calculatedPrice;
             appliedRule  = rule;

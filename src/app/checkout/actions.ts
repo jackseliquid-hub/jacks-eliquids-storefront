@@ -44,7 +44,8 @@ export async function processOrder(payload: CheckoutPayload) {
       item.price,
       totalQty,
       { id: parentId, category: item.category, tags: item.tags },
-      rules
+      rules,
+      item.salePrice || item.price  // activePrice: sale price if on sale, else regular
     );
 
     const lineTotal = bestPrice * item.quantity;

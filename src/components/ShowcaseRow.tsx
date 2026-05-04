@@ -26,7 +26,10 @@ export default function ShowcaseRow({ title, products, onNotify, linkText, linkC
       slug: product.slug,
       name: product.name,
       image: product.image,
-      price: product.salePrice || (product.price && product.price !== 'N/A' ? product.price : 'See Options'),
+      price: product.price && product.price !== 'N/A' ? product.price : 'See Options',
+      salePrice: product.salePrice || undefined,
+      category: product.category,
+      tags: product.tags,
     });
   }
 

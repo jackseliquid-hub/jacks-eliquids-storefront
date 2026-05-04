@@ -286,6 +286,7 @@ export default function ProductPage({
       name: product.name,
       image: product.image,
       price: displayPrice,
+      salePrice: displaySalePrice || undefined,
       category: product.category,
       tags: product.tags,
       variantName: matchingVariation ? Object.values(matchingVariation.attributes).join(' / ') : undefined,
@@ -318,7 +319,9 @@ export default function ProductPage({
   });
   
   // Now evaluate the real-time dynamic best price based ONLY on projected qty
-  const { price: currentTierPrice, formattedPrice: currentTierFormatted } = calculateBestPrice(displayPrice, projectedTotalQty, product, globalRules);
+  // Pass the active selling price (sale or regular) as the ceiling
+  const activeSellingPrice = displaySalePrice || displayPrice;
+  const { price: currentTierPrice, formattedPrice: currentTierFormatted } = calculateBestPrice(displayPrice, projectedTotalQty, product, globalRules, activeSellingPrice);
   const originalBasePriceNum = parseFloat(displayPrice.replace(/[^0-9.]/g, ''));
   const isDiscountActive = currentTierPrice < (originalBasePriceNum - 0.01);
 

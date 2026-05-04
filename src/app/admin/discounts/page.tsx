@@ -168,9 +168,21 @@ export default function DiscountsAdminPage() {
           <h1 className={styles.title}>Bulk Discount Management</h1>
           <p className={styles.subTitle}>Create dynamic tier pricing for your products across the storefront.</p>
         </div>
-        <button className={styles.addButton} onClick={handleAddRule}>
-          + Add New Discount Rule
-        </button>
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+          {rules.length > 0 && (
+            <button
+              className={styles.saveButton}
+              onClick={handleSaveAll}
+              disabled={saving}
+              style={{ margin: 0 }}
+            >
+              {saving ? 'Saving All...' : 'Save All Rules & Changes'}
+            </button>
+          )}
+          <button className={styles.addButton} onClick={handleAddRule}>
+            + Add New Discount Rule
+          </button>
+        </div>
       </div>
 
       {rules.length === 0 ? (
