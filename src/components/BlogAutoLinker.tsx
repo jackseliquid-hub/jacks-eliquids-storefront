@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 
 export interface LinkableEntity {
   name: string;
@@ -10,9 +10,10 @@ export interface LinkableEntity {
 
 interface Match {
   entity: LinkableEntity;
-  count: number;
-  linked: boolean;  // true = user chose to link this
-  dismissed: boolean; // true = user chose to ignore
+  count: number;       // total mentions found
+  linkQty: number;     // how many to link (user-adjustable)
+  linked: boolean;     // true = user chose to link this
+  dismissed: boolean;  // true = user chose to ignore
 }
 
 interface BlogAutoLinkerProps {
@@ -21,42 +22,96 @@ interface BlogAutoLinkerProps {
   onApply: (newContent: string) => void;
 }
 
+/** Calculate a sensible default link count: ~1 per 500 words, min 1, max count */
+function suggestQty(count: number, contentLength: number): number {
+  const wordEstimate = contentLength / 5; // rough word count
+  const ideal = Math.max(1, Math.round(wordEstimate / 500)); // ~1 link per 500 words
+  return Math.min(ideal, count);
+}
+
+/**
+ * Apply N evenly-distributed links for a given entity across the content.
+ * Finds all match positions, picks evenly-spaced ones, and replaces them.
+ */
+function applyEvenLinks(text: string, entityName: string, url: string, qty: number): string {
+  const escaped = entityName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Match whole word, not already inside a markdown link
+  const regex = new RegExp(`(?<!\\[)\\b(${escaped})\\b(?![\\]\\(])`, 'gi');
+
+  // Collect all match positions
+  const allMatches: { index: number; length: number; original: string }[] = [];
+  let m;
+  while ((m = regex.exec(text)) !== null) {
+    allMatches.push({ index: m.index, length: m[0].length, original: m[0] });
+  }
+
+  if (allMatches.length === 0 || qty <= 0) return text;
+
+  // Pick evenly-spaced indices
+  const toLink = qty >= allMatches.length
+    ? allMatches.map((_, i) => i)
+    : selectEvenlySpaced(allMatches.length, qty);
+
+  // Apply replacements in reverse order (so indices don't shift)
+  let result = text;
+  for (let i = toLink.length - 1; i >= 0; i--) {
+    const match = allMatches[toLink[i]];
+    const replacement = `[${match.original}](${url})`;
+    result = result.slice(0, match.index) + replacement + result.slice(match.index + match.length);
+  }
+
+  return result;
+}
+
+/** Pick N evenly-spaced indices from 0..total-1 */
+function selectEvenlySpaced(total: number, pick: number): number[] {
+  if (pick >= total) return Array.from({ length: total }, (_, i) => i);
+  if (pick === 1) return [Math.floor(total / 2)]; // middle one
+  const indices: number[] = [];
+  const step = (total - 1) / (pick - 1);
+  for (let i = 0; i < pick; i++) {
+    indices.push(Math.round(i * step));
+  }
+  return indices;
+}
+
 /**
  * BlogAutoLinker — scans markdown for brand/category/tag names,
- * lets the user decide which to autolink, then applies all at once.
+ * lets the user choose how many to link (evenly distributed), then applies.
  */
 export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoLinkerProps) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [applied, setApplied] = useState(false);
 
-  // Scan content for entity name matches (case-insensitive, whole word)
+  // Scan content for entity name matches
   useEffect(() => {
     if (!content || entities.length === 0) { setMatches([]); return; }
     setApplied(false);
 
     const found: Match[] = [];
     for (const entity of entities) {
-      // Skip very short names (< 3 chars) to avoid false positives
       if (entity.name.length < 3) continue;
-      // Escape regex special chars in entity name
       const escaped = entity.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Match whole word, case-insensitive — but NOT inside markdown links [text](url) or URLs
       const regex = new RegExp(`(?<!\\[)\\b${escaped}\\b(?![\\]\\(])`, 'gi');
       const occurrences = (content.match(regex) || []).length;
       if (occurrences > 0) {
-        found.push({ entity, count: occurrences, linked: false, dismissed: false });
+        found.push({
+          entity,
+          count: occurrences,
+          linkQty: suggestQty(occurrences, content.length),
+          linked: false,
+          dismissed: false,
+        });
       }
     }
 
-    // Sort: brands first, then categories, then tags. Within each group, most occurrences first.
     const typeOrder = { brand: 0, category: 1, tag: 2 };
     found.sort((a, b) => typeOrder[a.entity.type] - typeOrder[b.entity.type] || b.count - a.count);
-
     setMatches(found);
   }, [content, entities]);
 
-  const pendingCount = matches.filter(m => !m.linked && !m.dismissed).length;
   const linkedCount = matches.filter(m => m.linked).length;
+  const totalLinksToApply = matches.filter(m => m.linked).reduce((sum, m) => sum + m.linkQty, 0);
 
   const toggleLink = (idx: number) => {
     setMatches(prev => prev.map((m, i) => i === idx ? { ...m, linked: !m.linked, dismissed: false } : m));
@@ -64,6 +119,10 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
 
   const dismiss = (idx: number) => {
     setMatches(prev => prev.map((m, i) => i === idx ? { ...m, dismissed: true, linked: false } : m));
+  };
+
+  const setQty = (idx: number, qty: number) => {
+    setMatches(prev => prev.map((m, i) => i === idx ? { ...m, linkQty: Math.max(1, Math.min(qty, m.count)) } : m));
   };
 
   const linkAll = () => {
@@ -78,11 +137,10 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
     let result = content;
     const toLink = matches.filter(m => m.linked);
 
-    for (const match of toLink) {
-      const escaped = match.entity.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // Only link the FIRST occurrence that isn't already inside a markdown link
-      const regex = new RegExp(`(?<!\\[)\\b(${escaped})\\b(?![\\]\\(])`, 'i');
-      result = result.replace(regex, `[$1](${match.entity.url})`);
+    // Apply each entity's links (process longer names first to avoid partial replacements)
+    const sorted = [...toLink].sort((a, b) => b.entity.name.length - a.entity.name.length);
+    for (const match of sorted) {
+      result = applyEvenLinks(result, match.entity.name, match.entity.url, match.linkQty);
     }
 
     onApply(result);
@@ -130,7 +188,7 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
       </div>
 
       {/* Matches list */}
-      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+      <div style={{ maxHeight: 320, overflowY: 'auto' }}>
         {matches.map((m, idx) => {
           if (m.dismissed) return (
             <div key={m.entity.name + m.entity.type} style={{
@@ -160,21 +218,50 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
               <span style={{
                 fontSize: '0.68rem', fontWeight: 700, padding: '0.15rem 0.5rem',
                 borderRadius: 9999, background: t.bg, color: t.color,
-                textTransform: 'uppercase', letterSpacing: '0.04em',
+                textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0,
               }}>
                 {t.icon} {m.entity.type}
               </span>
 
               {/* Name + count */}
-              <span style={{ flex: 1, fontWeight: 600, fontSize: '0.88rem', color: '#111' }}>
+              <span style={{ flex: 1, fontWeight: 600, fontSize: '0.88rem', color: '#111', minWidth: 0 }}>
                 {m.entity.name}
                 <span style={{ fontWeight: 400, fontSize: '0.75rem', color: '#9ca3af', marginLeft: 6 }}>
                   ({m.count} {m.count === 1 ? 'mention' : 'mentions'})
                 </span>
               </span>
 
+              {/* Qty selector — how many to link */}
+              {m.linked && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                  <button type="button" onClick={() => setQty(idx, m.linkQty - 1)}
+                    disabled={m.linkQty <= 1}
+                    style={{
+                      width: 22, height: 22, borderRadius: 4, border: '1px solid #d1d5db',
+                      background: '#fff', color: '#374151', fontWeight: 700, fontSize: '0.82rem',
+                      cursor: m.linkQty <= 1 ? 'not-allowed' : 'pointer', opacity: m.linkQty <= 1 ? 0.3 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                    }}>−</button>
+                  <span style={{
+                    minWidth: 36, textAlign: 'center', fontSize: '0.78rem', fontWeight: 700,
+                    color: '#0f766e', background: '#f0fdfa', border: '1px solid #99f6e4',
+                    borderRadius: 4, padding: '2px 6px',
+                  }}>
+                    {m.linkQty}/{m.count}
+                  </span>
+                  <button type="button" onClick={() => setQty(idx, m.linkQty + 1)}
+                    disabled={m.linkQty >= m.count}
+                    style={{
+                      width: 22, height: 22, borderRadius: 4, border: '1px solid #d1d5db',
+                      background: '#fff', color: '#374151', fontWeight: 700, fontSize: '0.82rem',
+                      cursor: m.linkQty >= m.count ? 'not-allowed' : 'pointer', opacity: m.linkQty >= m.count ? 0.3 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+                    }}>+</button>
+                </div>
+              )}
+
               {/* URL preview */}
-              <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontFamily: 'monospace', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '0.72rem', color: '#9ca3af', fontFamily: 'monospace', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {m.entity.url}
               </span>
 
@@ -185,7 +272,7 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
                   border: m.linked ? '1px solid #86efac' : '1px solid #99f6e4',
                   background: m.linked ? '#dcfce7' : '#f0fdfa',
                   color: m.linked ? '#166534' : '#0f766e',
-                  cursor: 'pointer', transition: 'all 0.15s',
+                  cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0,
                 }}>
                 {m.linked ? '✓ Linked' : '🔗 Link'}
               </button>
@@ -193,7 +280,7 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
                 style={{
                   padding: '0.3rem 0.5rem', fontSize: '0.75rem', fontWeight: 600, borderRadius: 6,
                   border: '1px solid #e5e7eb', background: '#fff', color: '#9ca3af',
-                  cursor: 'pointer',
+                  cursor: 'pointer', flexShrink: 0,
                 }}>
                 ✕
               </button>
@@ -209,7 +296,9 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <span style={{ fontSize: '0.82rem', color: '#166534', fontWeight: 600 }}>
-            {applied ? '✓ Links applied!' : `${linkedCount} link${linkedCount > 1 ? 's' : ''} ready to apply`}
+            {applied
+              ? '✓ Links applied!'
+              : `${totalLinksToApply} link${totalLinksToApply > 1 ? 's' : ''} across ${linkedCount} entit${linkedCount > 1 ? 'ies' : 'y'} — evenly distributed`}
           </span>
           {!applied && (
             <button type="button" onClick={applyLinks}
@@ -223,6 +312,14 @@ export default function BlogAutoLinker({ content, entities, onApply }: BlogAutoL
           )}
         </div>
       )}
+
+      {/* Help text */}
+      <div style={{
+        padding: '0.5rem 1rem', background: '#fafafa', borderTop: '1px solid #f3f4f6',
+        fontSize: '0.72rem', color: '#9ca3af', lineHeight: 1.5,
+      }}>
+        💡 Click <strong>🔗 Link</strong> to enable linking, then use <strong>−/+</strong> to choose how many mentions to link. Links are spread evenly across the blog for natural SEO distribution.
+      </div>
     </div>
   );
 }
