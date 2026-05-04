@@ -242,6 +242,7 @@ interface BumpConfig {
   default_variation: string; discount_value: number; discount_type: string;
   allow_multiple: boolean; max_qty: number; checkbox_text: string;
   description: string; sort_order: number;
+  _inStock?: boolean; // injected at fetch time
 }
 
 // ─── Order Bump Component ──────────────────────────────────────────────────
@@ -250,14 +251,19 @@ function OrderBumpSection({ bumps, cartItems, addToCart, removeFromCart }: {
 }) {
   const [selectedVar, setSelectedVar] = useState<Record<string, string>>({});
 
-  // Filter: only show bumps whose offer product isn't already in the cart organically
+  // Filter bumps by targeting, stock, and already-in-cart rules
+  const organicCartProductIds = cartItems.filter((c: any) => !c.orderBump).map((c: any) => c.productId || c.id);
+
   const visibleBumps = bumps.filter(b => {
     if (!b.offer_product) return false;
+    // Rule: hide if offer product is out of stock
+    if (b._inStock === false) return false;
+    // Rule: hide if customer already has this product in cart organically
+    if (organicCartProductIds.includes(b.offer_product.id)) return false;
     // Check targeting: 'all' shows always, 'specific' only if a trigger product is in cart
     if (b.display_mode === 'specific') {
       const triggerIds = b.trigger_products.map(t => t.id);
-      const cartProductIds = cartItems.filter((c: any) => !c.orderBump).map((c: any) => c.productId || c.id);
-      if (!triggerIds.some(tid => cartProductIds.includes(tid))) return false;
+      if (!triggerIds.some(tid => organicCartProductIds.includes(tid))) return false;
     }
     return true;
   });
@@ -468,9 +474,32 @@ export default function CheckoutPage() {
 
       await loadShippingForCountry('United Kingdom (UK)');
 
-      // Fetch active order bumps
+      // Fetch active order bumps + check stock status for each offer product
       const { data: bumpRows } = await supabase.from('order_bumps').select('*').eq('status', 'active').order('sort_order', { ascending: true });
-      if (bumpRows) setActiveBumps(bumpRows as BumpConfig[]);
+      if (bumpRows && bumpRows.length > 0) {
+        const offerProductIds = bumpRows.map((b: any) => b.offer_product?.id).filter(Boolean);
+        // Check which products are in stock
+        const { data: stockRows } = await supabase.from('products').select('id, track_stock, stock_qty, status').in('id', offerProductIds);
+        const { data: varRows } = await supabase.from('product_variations').select('product_id, in_stock').in('product_id', offerProductIds);
+        const stockMap: Record<string, boolean> = {};
+        (stockRows || []).forEach((p: any) => {
+          if (p.status !== 'published') { stockMap[p.id] = false; return; }
+          // If product has variations, it's in stock if ANY variation is in stock
+          const prodVars = (varRows || []).filter((v: any) => v.product_id === p.id);
+          if (prodVars.length > 0) {
+            stockMap[p.id] = prodVars.some((v: any) => v.in_stock !== false);
+          } else {
+            // Simple product — check track_stock + stock_qty
+            if (p.track_stock && (p.stock_qty === null || p.stock_qty <= 0)) stockMap[p.id] = false;
+            else stockMap[p.id] = true;
+          }
+        });
+        const enrichedBumps = (bumpRows as BumpConfig[]).map(b => ({
+          ...b,
+          _inStock: b.offer_product ? (stockMap[b.offer_product.id] ?? true) : false,
+        }));
+        setActiveBumps(enrichedBumps);
+      }
 
       setLoading(false);
     }

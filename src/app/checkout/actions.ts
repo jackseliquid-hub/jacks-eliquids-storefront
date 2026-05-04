@@ -40,13 +40,26 @@ export async function processOrder(payload: CheckoutPayload) {
     
     const originalPriceNum = parseFloat(item.price.replace(/[^0-9.]/g, ''));
     
-    const { price: bestPrice } = calculateBestPrice(
+    let bestPrice: number;
+    const { price: bulkPrice } = calculateBestPrice(
       item.price,
       totalQty,
       { id: parentId, category: item.category, tags: item.tags },
       rules,
-      item.salePrice || item.price  // activePrice: sale price if on sale, else regular
+      item.salePrice || item.price
     );
+    bestPrice = bulkPrice;
+
+    // Apply bump discount if this is an order bump item
+    if (item.orderBump && item.bumpDiscount) {
+      let bumpPrice: number;
+      if (item.bumpDiscount.type === '£') {
+        bumpPrice = Math.max(0, originalPriceNum - item.bumpDiscount.value);
+      } else {
+        bumpPrice = originalPriceNum * (1 - item.bumpDiscount.value / 100);
+      }
+      if (bumpPrice < bestPrice) bestPrice = bumpPrice;
+    }
 
     const lineTotal = bestPrice * item.quantity;
     const originalLineTotal = originalPriceNum * item.quantity;
@@ -54,9 +67,13 @@ export async function processOrder(payload: CheckoutPayload) {
     subtotal += lineTotal;
     discountTotal += (originalLineTotal - lineTotal);
 
+    // Bump items have synthetic IDs (e.g. "prod_xxx_bump_Strawberry") — don't use as variation_id
+    const isBump = !!item.orderBump;
+    const variationId = (!isBump && item.variantName) ? item.id : null;
+
     return {
       product_id: parentId,
-      variation_id: item.variantName ? item.id : null,
+      variation_id: variationId,
       product_name: item.name,
       variant_name: item.variantName || null,
       quantity: item.quantity,

@@ -111,23 +111,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     productQuantities[parentId] = (productQuantities[parentId] || 0) + i.quantity;
   });
 
-  // Calculate subtotal from formatted price strings dynamically applying discounts
-  const subtotalNum = cartItems.reduce((sum, item) => {
-    const parentId = item.productId || item.id;
-    const totalQty = productQuantities[parentId] || item.quantity;
-    
-    const { price } = calculateBestPrice(
-      item.price,
-      totalQty,
-      { id: parentId, category: item.category, tags: item.tags },
-      discountRules,
-      item.salePrice || item.price  // activePrice: sale price if on sale, else regular
-    );
-    
-    return sum + (price * item.quantity);
-  }, 0);
-  const cartSubtotal = `£${subtotalNum.toFixed(2)}`;
-
   // Provide a helper to let CartDrawer know the current individual price of an item
   const getCalculatedItemPrice = (item: CartItem) => {
     const parentId = item.productId || item.id;
@@ -154,6 +137,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
     return best;
   };
+
+  // Calculate subtotal using the unified price helper (handles bulk, sale, AND bump discounts)
+  const subtotalNum = cartItems.reduce((sum, item) => {
+    const { price } = getCalculatedItemPrice(item);
+    return sum + (price * item.quantity);
+  }, 0);
+  const cartSubtotal = `£${subtotalNum.toFixed(2)}`;
 
   return (
     <CartContext.Provider
