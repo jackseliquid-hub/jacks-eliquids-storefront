@@ -9,6 +9,8 @@ import styles from '../../admin.module.css';
 import MediaModal from '@/components/MediaModal';
 import SeoEditorCard from '@/components/SeoEditorCard';
 import AiGenerateButton from '@/components/AiGenerateButton';
+import BlogAutoLinker, { LinkableEntity } from '@/components/BlogAutoLinker';
+import { createClient } from '@/utils/supabase/client';
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
@@ -30,6 +32,7 @@ export default function EditBlogPage({
   const [slugEdited, setSlugEdited] = useState(false);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
+  const [linkEntities, setLinkEntities] = useState<LinkableEntity[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -42,6 +45,21 @@ export default function EditBlogPage({
       setLoading(false);
     }
     load();
+
+    // Fetch linkable entities (brands, categories, tags)
+    (async () => {
+      const supabase = createClient();
+      const [{ data: brands }, { data: cats }, { data: tags }] = await Promise.all([
+        supabase.from('brands').select('name').order('name'),
+        supabase.from('categories').select('name').order('name'),
+        supabase.from('tags').select('name').order('name'),
+      ]);
+      const ents: LinkableEntity[] = [];
+      (brands || []).forEach(b => ents.push({ name: b.name, url: `/?brand=${encodeURIComponent(b.name)}`, type: 'brand' }));
+      (cats || []).forEach(c => ents.push({ name: c.name, url: `/?cat=${encodeURIComponent(c.name)}`, type: 'category' }));
+      (tags || []).forEach(t => ents.push({ name: t.name, url: `/?tag=${encodeURIComponent(t.name)}`, type: 'tag' }));
+      setLinkEntities(ents);
+    })();
   }, [id]);
 
   const showToast = useCallback((msg: string, err = false) => {
@@ -208,7 +226,14 @@ export default function EditBlogPage({
                   <label className={styles.label} style={{ marginBottom: 0 }}>Blog Content</label>
                   <AiGenerateButton
                     type="blog"
-                    context={{ title: blog.title || '', category: blog.category || '', existingContent: blog.content || '' }}
+                    context={{
+                      title: blog.title || '',
+                      category: blog.category || '',
+                      existingContent: blog.content || '',
+                      brands: linkEntities.filter(e => e.type === 'brand').map(e => e.name).join(', '),
+                      categories: linkEntities.filter(e => e.type === 'category').map(e => e.name).join(', '),
+                      tags: linkEntities.filter(e => e.type === 'tag').map(e => e.name).join(', '),
+                    }}
                     onGenerated={(content) => setField('content', content)}
                     hasContent={!!blog.content}
                   />
@@ -221,6 +246,15 @@ export default function EditBlogPage({
                     preview="edit"
                   />
                 </div>
+
+                {/* Auto-Link Scanner */}
+                {blog.content && linkEntities.length > 0 && (
+                  <BlogAutoLinker
+                    content={blog.content}
+                    entities={linkEntities}
+                    onApply={(newContent) => setField('content', newContent)}
+                  />
+                )}
               </div>
             </div>
           </div>

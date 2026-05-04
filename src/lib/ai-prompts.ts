@@ -112,7 +112,13 @@ SEO (provide at end of blog, after a horizontal rule ---):
 Category: ${ctx.category || 'General'}
 ${ctx.existingContent ? `Current content (rewrite and improve in Nick Porter's voice): ${ctx.existingContent.slice(0, 500)}...` : ''}
 
-Write in Nick Porter's conversational, analogy-driven British style. Start with a warm hook. Include a Table of Contents, Pro Tips, a conclusion with CTA, and an FAQ section. Minimum 1500 words. At the end, provide SEO metadata (focus keyword, meta description, alt text).`,
+${ctx.brands ? `Our store carries these BRANDS (mention any that are genuinely relevant to the topic — do NOT force them in): ${ctx.brands}` : ''}
+${ctx.categories ? `Our product CATEGORIES (reference naturally if they fit the discussion — do NOT force them in): ${ctx.categories}` : ''}
+${ctx.tags ? `Popular product TAGS (mention only if they add value to the reader): ${ctx.tags}` : ''}
+
+Write in Nick Porter's conversational, analogy-driven British style. Start with a warm hook. Include a Table of Contents, Pro Tips, a conclusion with CTA, and an FAQ section. Minimum 1500 words. At the end, provide SEO metadata (focus keyword, meta description, alt text).
+
+IMPORTANT: When mentioning brands, categories, or tags from the lists above, use their EXACT name as written (case-sensitive). Only mention them where they genuinely add value to the article — quality over quantity. The reader should never feel like names were shoehorned in.`,
   },
 
   page: {
