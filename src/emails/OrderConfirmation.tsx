@@ -94,16 +94,42 @@ export const OrderConfirmationEmail = ({
             <Text style={introText}>Hi {firstName}, Thank you for your purchase.</Text>
             
             {isBacs ? (
-              <div style={bacsDetailsBox}>
-                <Text style={bacsAlert}>We have received your order. It is currently <strong>on hold</strong> until we confirm your bank transfer payment.</Text>
-                <Text style={bacsInstruct}>Please transfer £{total.toFixed(2)} to:</Text>
-                <Text style={bacsInstruct}>
-                  <strong>Bank:</strong> Barclays<br/>
-                  <strong>Sort Code:</strong> 20-00-00<br/>
-                  <strong>Account:</strong> 12345678<br/>
-                  <strong>Reference:</strong> #{orderNumber}
-                </Text>
-              </div>
+              <>
+                <div style={bacsDetailsBox}>
+                  <Text style={bacsHeadingText}><strong>At the checkout you selected to pay by BACS (Bank Transfer).</strong></Text>
+                  <Text style={bacsBodyText}>
+                    If you have access to online banking an even easier way is to add us as a Payee / Recipient to your account just use your name as the reference and our bank details found below (you will only need do this once) then you can simply transfer your payment to our account each time you place an order. All the bank details you need are listed below.
+                  </Text>
+                  <Text style={bacsBodyText}>
+                    You will also need your order number <strong>#{orderNumber}</strong> and the Total amount <strong>£{total.toFixed(2)}</strong>
+                  </Text>
+
+                  <div style={bankDetailsCard}>
+                    <Text style={bankHeading}>Our Bank Details</Text>
+                    <Text style={bankLine}><strong>Account Name:</strong> N Porter</Text>
+                    <Text style={bankLine}><strong>Account Number:</strong> 22811478</Text>
+                    <Text style={bankLine}><strong>Bank Name:</strong> Starling</Text>
+                    <Text style={bankLine}><strong>Sort Code:</strong> 60-83-71</Text>
+                  </div>
+
+                  <div style={intlDetailsCard}>
+                    <Text style={intlHeading}><strong>Paying from outside the UK you may need.</strong></Text>
+                    <Text style={bankLine}><strong>IBAN Number:</strong> GB34SRLG60837122811478</Text>
+                    <Text style={bankLine}><strong>BIC / Swift Number:</strong> SRLGGB2L</Text>
+                  </div>
+                </div>
+
+                <div style={payByCardBox}>
+                  <Text style={bacsBodyText}>
+                    If you changed your mind and would like to pay by card you can still do so by clicking the button below. You will also need your order number <strong>#{orderNumber}</strong> and the Total amount <strong>£{total.toFixed(2)}</strong>
+                  </Text>
+                  <div style={{ textAlign: 'center' as const, marginTop: '16px' }}>
+                    <Button style={payByCardBtn} href="https://www.vivapayments.com/web2?ref=1043992034126654">
+                      I would like to pay by card
+                    </Button>
+                  </div>
+                </div>
+              </>
             ) : (
               <Text style={introSubText}>We are now processing your order.</Text>
             )}
@@ -293,25 +319,84 @@ const introSubText = {
 };
 
 const bacsDetailsBox = {
+  backgroundColor: '#f9fafb',
+  borderTop: '4px solid #99f6e4',
+  borderRadius: '0 0 8px 8px',
+  padding: '24px 28px',
+  textAlign: 'left' as const,
+  marginBottom: '0px',
+  marginTop: '25px',
+};
+
+const bacsHeadingText = {
+  color: '#1f2937',
+  fontSize: '16px',
+  lineHeight: '24px',
+  margin: '0 0 16px',
+};
+
+const bacsBodyText = {
+  color: '#374151',
+  fontSize: '15px',
+  lineHeight: '24px',
+  margin: '0 0 14px',
+};
+
+const bankDetailsCard = {
   backgroundColor: '#ffffff',
-  border: '1px solid #d1d5db',
+  border: '1px solid #e5e7eb',
   borderRadius: '8px',
-  padding: '20px',
+  padding: '16px 20px',
+  marginTop: '16px',
+  marginBottom: '20px',
+};
+
+const bankHeading = {
+  fontSize: '16px',
+  fontWeight: 'bold' as const,
+  color: '#111827',
+  margin: '0 0 10px',
+};
+
+const bankLine = {
+  fontSize: '15px',
+  color: '#374151',
+  lineHeight: '26px',
+  margin: '0',
+};
+
+const intlDetailsCard = {
+  backgroundColor: '#ffffff',
+  border: '1px solid #e5e7eb',
+  borderRadius: '8px',
+  padding: '16px 20px',
+  marginTop: '0',
+};
+
+const intlHeading = {
+  fontSize: '15px',
+  color: '#1f2937',
+  margin: '0 0 8px',
+};
+
+const payByCardBox = {
+  backgroundColor: '#f9fafb',
+  padding: '20px 28px 24px',
   textAlign: 'left' as const,
   marginBottom: '35px',
-  marginTop: '25px'
+  borderRadius: '0 0 8px 8px',
 };
 
-const bacsAlert = {
-  color: '#b45309',
+const payByCardBtn = {
+  backgroundColor: '#0d9488',
+  borderRadius: '24px',
+  color: '#ffffff',
   fontSize: '16px',
-  marginBottom: '15px'
-};
-
-const bacsInstruct = {
-  color: '#374151',
-  fontSize: '16px',
-  lineHeight: '24px'
+  fontWeight: 'bold',
+  textDecoration: 'none',
+  textAlign: 'center' as const,
+  display: 'inline-block',
+  padding: '14px 36px',
 };
 
 const btn = {
