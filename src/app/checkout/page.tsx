@@ -351,7 +351,7 @@ function OrderBumpSection({ bumps, cartItems, addToCart, removeFromCart }: {
 
               {bump.allow_multiple ? (
                 <>
-                  <button className={styles.bumpAddBtn}
+                  <button type="button" className={styles.bumpAddBtn}
                     disabled={hasVariations && !currentVar}
                     onClick={() => {
                       if (bumpItemsInCart.length >= bump.max_qty) return;
@@ -365,7 +365,7 @@ function OrderBumpSection({ bumps, cartItems, addToCart, removeFromCart }: {
                       {bumpItemsInCart.map((c: any) => (
                         <div key={c.id} className={styles.bumpAddedItem}>
                           <span>{c.variantName || bump.offer_product!.name}</span>
-                          <button className={styles.bumpRemoveBtn} onClick={() => removeBumpItem(c.id)}>×</button>
+                          <button type="button" className={styles.bumpRemoveBtn} onClick={() => removeBumpItem(c.id)}>×</button>
                         </div>
                       ))}
                     </div>
