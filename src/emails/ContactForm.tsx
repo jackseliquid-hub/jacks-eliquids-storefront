@@ -21,18 +21,17 @@ export function ContactFormEmail({ name, email, phone, subject, message, submitt
         <Container style={{ maxWidth: '600px', margin: '0 auto', padding: '32px 16px' }}>
 
           {/* Header */}
-          <Section style={{ background: 'linear-gradient(135deg, #0f766e 0%, #134e4a 100%)', borderRadius: '12px 12px 0 0', padding: '32px', textAlign: 'center' }}>
+          <Section style={{ background: '#e0f2f1', borderRadius: '12px 12px 0 0', padding: '32px', textAlign: 'center' }}>
             <Img
-              src="https://jackseliquid.co.uk/logo.png"
+              src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png"
               alt="Jack's E-Liquid"
-              width="140"
-              height="52"
+              width="220"
               style={{ objectFit: 'contain', margin: '0 auto 16px' }}
             />
-            <Heading style={{ color: '#ffffff', fontSize: '22px', margin: '0', fontWeight: 700 }}>
+            <Heading style={{ color: '#374151', fontSize: '22px', margin: '0', fontWeight: 700 }}>
               📬 New Contact Form Submission
             </Heading>
-            <Text style={{ color: 'rgba(255,255,255,0.8)', margin: '8px 0 0', fontSize: '14px' }}>
+            <Text style={{ color: '#6b7280', margin: '8px 0 0', fontSize: '14px' }}>
               {submittedAt}
             </Text>
           </Section>

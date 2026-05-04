@@ -38,8 +38,8 @@ export const AccountWelcomeEmail = ({
       <Body style={{ backgroundColor: bgColor, fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif' }}>
         <Container style={container}>
           
-          <Section style={{ backgroundColor: primaryColor, padding: '40px 35px', textAlign: 'center' }}>
-            <Img src={`${siteUrl}/logo.png`} width="180" alt="Jacks eLiquid" style={logo} />
+          <Section style={{ backgroundColor: '#e0f2f1', padding: '40px 35px', textAlign: 'center' }}>
+            <Img src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png" width="220" alt="Jacks eLiquid" style={logo} />
           </Section>
 
           <Section style={greetingBlock}>

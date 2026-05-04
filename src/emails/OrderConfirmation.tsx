@@ -82,7 +82,7 @@ export const OrderConfirmationEmail = ({
           <Section style={headerBlock}>
             <Img
               src="https://jlauicuvxldslzciebyu.supabase.co/storage/v1/object/public/media/brand/logo.png"
-              width="180"
+              width="220"
               alt="Jacks eLiquid"
               style={logo}
             />
@@ -285,7 +285,7 @@ const container = {
 };
 
 const headerBlock = {
-  backgroundColor: '#0f766e',
+  backgroundColor: '#e0f2f1',
   padding: '40px 35px',
   textAlign: 'center' as const,
 };
