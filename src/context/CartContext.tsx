@@ -24,6 +24,9 @@ export interface CartItem {
   variantName?: string;
   weight?: number;
   shippingClass?: string;
+  // Order bump fields
+  orderBump?: boolean;
+  bumpDiscount?: { value: number; type: '£' | '%' };
 }
 
 interface CartContextValue {
@@ -129,13 +132,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const getCalculatedItemPrice = (item: CartItem) => {
     const parentId = item.productId || item.id;
     const totalQty = productQuantities[parentId] || item.quantity;
-    return calculateBestPrice(
+    const best = calculateBestPrice(
       item.price,
       totalQty,
       { id: parentId, category: item.category, tags: item.tags },
       discountRules,
       item.salePrice || item.price  // activePrice: sale price if on sale, else regular
     );
+    // If this is an order bump item with a bump discount, apply it and take the lower price
+    if (item.orderBump && item.bumpDiscount) {
+      const basePrice = parseFloat(item.price.replace(/[^0-9.]/g, ''));
+      let bumpPrice: number;
+      if (item.bumpDiscount.type === '£') {
+        bumpPrice = Math.max(0, basePrice - item.bumpDiscount.value);
+      } else {
+        bumpPrice = basePrice * (1 - item.bumpDiscount.value / 100);
+      }
+      if (bumpPrice < best.price) {
+        return { ...best, price: bumpPrice, formattedPrice: `£${bumpPrice.toFixed(2)}` };
+      }
+    }
+    return best;
   };
 
   return (

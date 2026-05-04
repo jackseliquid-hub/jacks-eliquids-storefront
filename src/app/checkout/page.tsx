@@ -234,9 +234,155 @@ function CheckoutAuthGate({ onGuest, cartItems, shippingQuote, cartSubtotal, get
 }
 
 // ─── Main Checkout Page ───────────────────────────────────────────────────────
+// ─── Order Bump Types ──────────────────────────────────────────────────────
+interface BumpConfig {
+  id: string; title: string; status: string; display_mode: string;
+  trigger_products: { id: string; name: string }[];
+  offer_product: { id: string; name: string; slug: string; image: string; price: string; variations: string[] } | null;
+  default_variation: string; discount_value: number; discount_type: string;
+  allow_multiple: boolean; max_qty: number; checkbox_text: string;
+  description: string; sort_order: number;
+}
+
+// ─── Order Bump Component ──────────────────────────────────────────────────
+function OrderBumpSection({ bumps, cartItems, addToCart, removeFromCart }: {
+  bumps: BumpConfig[]; cartItems: any[]; addToCart: any; removeFromCart: any;
+}) {
+  const [selectedVar, setSelectedVar] = useState<Record<string, string>>({});
+
+  // Filter: only show bumps whose offer product isn't already in the cart organically
+  const visibleBumps = bumps.filter(b => {
+    if (!b.offer_product) return false;
+    // Check targeting: 'all' shows always, 'specific' only if a trigger product is in cart
+    if (b.display_mode === 'specific') {
+      const triggerIds = b.trigger_products.map(t => t.id);
+      const cartProductIds = cartItems.filter((c: any) => !c.orderBump).map((c: any) => c.productId || c.id);
+      if (!triggerIds.some(tid => cartProductIds.includes(tid))) return false;
+    }
+    return true;
+  });
+
+  if (visibleBumps.length === 0) return null;
+
+  const calcBumpPrice = (b: BumpConfig) => {
+    const base = parseFloat((b.offer_product?.price || '0').replace(/[^0-9.]/g, ''));
+    return b.discount_type === '£' ? Math.max(0, base - b.discount_value) : base * (1 - b.discount_value / 100);
+  };
+
+  return (
+    <div>
+      <h2 className={styles.sectionTitle}>🎯 Special Offers</h2>
+      {visibleBumps.map(bump => {
+        if (!bump.offer_product) return null;
+        const bumpPrice = calcBumpPrice(bump);
+        const origPrice = parseFloat((bump.offer_product.price || '0').replace(/[^0-9.]/g, ''));
+        const hasVariations = bump.offer_product.variations.length > 0;
+        const currentVar = selectedVar[bump.id] || bump.default_variation || (hasVariations ? '' : '__none__');
+
+        // Find bump items already in cart for THIS bump
+        const bumpItemsInCart = cartItems.filter((c: any) =>
+          c.orderBump && (c.productId || c.id) === bump.offer_product!.id
+        );
+        const isSingleChecked = bumpItemsInCart.length > 0;
+
+        const addBumpItem = (variation?: string) => {
+          const itemId = variation
+            ? `${bump.offer_product!.id}_bump_${variation.replace(/\s+/g, '_')}`
+            : `${bump.offer_product!.id}_bump`;
+          // Check if already added
+          if (cartItems.find((c: any) => c.id === itemId)) return;
+          addToCart({
+            id: itemId,
+            productId: bump.offer_product!.id,
+            slug: bump.offer_product!.slug,
+            name: bump.offer_product!.name,
+            image: bump.offer_product!.image,
+            price: bump.offer_product!.price,
+            variantName: variation || undefined,
+            weight: 0,
+            orderBump: true,
+            bumpDiscount: { value: bump.discount_value, type: bump.discount_type as '£' | '%' },
+          }, 1);
+        };
+
+        const removeBumpItem = (itemId: string) => removeFromCart(itemId);
+
+        const handleSingleToggle = () => {
+          if (isSingleChecked) {
+            bumpItemsInCart.forEach((c: any) => removeFromCart(c.id));
+          } else {
+            addBumpItem(currentVar === '__none__' ? undefined : currentVar);
+          }
+        };
+
+        return (
+          <div key={bump.id} className={styles.bumpCard}>
+            <div className={styles.bumpHeader} onClick={!bump.allow_multiple ? handleSingleToggle : undefined}>
+              {!bump.allow_multiple && (
+                <input type="checkbox" className={styles.bumpCheckbox}
+                  checked={isSingleChecked} onChange={handleSingleToggle} />
+              )}
+              <label>{bump.checkbox_text}</label>
+            </div>
+            <div className={styles.bumpBody}>
+              <div className={styles.bumpTop}>
+                <div className={styles.bumpImage}>
+                  {bump.offer_product.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={bump.offer_product.image} alt={bump.offer_product.name} />
+                  )}
+                </div>
+                <p className={styles.bumpDesc}>{bump.description}</p>
+              </div>
+
+              {hasVariations && (
+                <select className={styles.bumpVariation} value={currentVar}
+                  onChange={e => setSelectedVar(prev => ({ ...prev, [bump.id]: e.target.value }))}>
+                  <option value="">-- Choose Option --</option>
+                  {bump.offer_product.variations.map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              )}
+
+              {bump.allow_multiple ? (
+                <>
+                  <button className={styles.bumpAddBtn}
+                    disabled={hasVariations && !currentVar}
+                    onClick={() => {
+                      if (bumpItemsInCart.length >= bump.max_qty) return;
+                      addBumpItem(currentVar === '__none__' ? undefined : currentVar);
+                    }}>
+                    Add to Order (£{bumpPrice.toFixed(2)})
+                  </button>
+                  {bumpItemsInCart.length > 0 && (
+                    <div className={styles.bumpAddedList}>
+                      <p className={styles.bumpAddedTitle}>Added ({bumpItemsInCart.length}/{bump.max_qty}):</p>
+                      {bumpItemsInCart.map((c: any) => (
+                        <div key={c.id} className={styles.bumpAddedItem}>
+                          <span>{c.variantName || bump.offer_product!.name}</span>
+                          <button className={styles.bumpRemoveBtn} onClick={() => removeBumpItem(c.id)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className={styles.bumpPrice}>
+                  £{bumpPrice.toFixed(2)}
+                  {origPrice > bumpPrice && <span className={styles.bumpPriceOld}>£{origPrice.toFixed(2)}</span>}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Main Checkout Page ───────────────────────────────────────────────────────
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cartItems, cartSubtotal, getCalculatedItemPrice, isMounted } = useCart();
+  const { cartItems, cartSubtotal, getCalculatedItemPrice, addToCart, removeFromCart, isMounted } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -270,6 +416,9 @@ export default function CheckoutPage() {
 
   // Customer notes
   const [customerNotes, setCustomerNotes] = useState('');
+
+  // Order bumps
+  const [activeBumps, setActiveBumps] = useState<BumpConfig[]>([]);
 
   // Load shipping methods for a country
   const loadShippingForCountry = useCallback(async (country: string) => {
@@ -318,6 +467,11 @@ export default function CheckoutPage() {
       }
 
       await loadShippingForCountry('United Kingdom (UK)');
+
+      // Fetch active order bumps
+      const { data: bumpRows } = await supabase.from('order_bumps').select('*').eq('status', 'active').order('sort_order', { ascending: true });
+      if (bumpRows) setActiveBumps(bumpRows as BumpConfig[]);
+
       setLoading(false);
     }
     loadData();
@@ -582,6 +736,16 @@ export default function CheckoutPage() {
             <p style={{ fontSize: '0.78rem', color: '#9ca3af', margin: '0.25rem 0 0' }}>
               Cart weight: {selectedShipping?.totalWeight ?? 0}g
             </p>
+
+            {/* ── Order Bumps ──────────────────────────────────────── */}
+            {activeBumps.length > 0 && (
+              <OrderBumpSection
+                bumps={activeBumps}
+                cartItems={cartItems}
+                addToCart={addToCart}
+                removeFromCart={removeFromCart}
+              />
+            )}
 
             <h2 className={styles.sectionTitle}>Payment Method</h2>
             <div className={styles.paymentMethodsGrid}>
