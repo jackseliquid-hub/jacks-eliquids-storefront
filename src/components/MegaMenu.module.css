@@ -36,10 +36,10 @@
   padding: 1.25rem;
 }
 
-/* ── Grid: 3 columns max, stacks at 4+ items ─────────────── */
+/* ── Grid: auto-fit columns based on content ──────────────── */
 .columns {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 0.35rem;
 }
 

@@ -430,20 +430,28 @@ export default function MenuBuilderPage({ params }: { params: Promise<{ id: stri
                     {childCount(idx)} items
                   </span>
                 )}
-                <div style={{ display: 'flex', gap: '0.15rem' }}>
+                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                   {[
                     { fn: () => moveUp(idx), icon: '▲', tip: 'Move up (with children)' },
                     { fn: () => moveDown(idx), icon: '▼', tip: 'Move down (with children)' },
                     { fn: () => indent(idx), icon: '→', tip: 'Nest' },
                     { fn: () => outdent(idx), icon: '←', tip: 'Unnest' },
-                    { fn: () => startEdit(item), icon: '✏️', tip: 'Edit', color: '#0d9488' },
-                    { fn: () => removeItem(idx), icon: '🗑️', tip: 'Delete', color: '#ef4444' },
                   ].map((btn, i) => (
                     <button key={i} onClick={btn.fn} title={btn.tip} style={{
                       background: 'none', border: 'none', cursor: 'pointer', padding: '0.2rem',
-                      fontSize: '0.72rem', color: btn.color || '#6b7280', lineHeight: 1,
+                      fontSize: '0.72rem', color: '#6b7280', lineHeight: 1,
                     }}>{btn.icon}</button>
                   ))}
+                  <button onClick={() => startEdit(item)} title="Edit" style={{
+                    background: '#f0fdfa', border: '1px solid #99f6e4', cursor: 'pointer',
+                    padding: '0.35rem 0.7rem', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700,
+                    color: '#0f766e', lineHeight: 1, marginLeft: '0.25rem',
+                  }}>✏️ Edit</button>
+                  <button onClick={() => removeItem(idx)} title="Delete" style={{
+                    background: '#fef2f2', border: '1px solid #fecaca', cursor: 'pointer',
+                    padding: '0.35rem 0.7rem', borderRadius: 6, fontSize: '0.78rem', fontWeight: 700,
+                    color: '#dc2626', lineHeight: 1,
+                  }}>🗑️ Delete</button>
                 </div>
               </>
             )}

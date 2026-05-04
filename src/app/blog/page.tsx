@@ -35,8 +35,8 @@ export default function BlogIndexPage() {
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <h1 className={styles.heroTitle}>Vape Base</h1>
-          <p className={styles.heroSubtitle}>
+          <h1 className={styles.heroTitle} style={{ color: '#fff', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>Vape Base</h1>
+          <p className={styles.heroSubtitle} style={{ color: 'rgba(255,255,255,0.9)', textShadow: '0 1px 8px rgba(0,0,0,0.4)' }}>
             Vaping guides, news, and our latest updates — straight from The Kitchen.
           </p>
         </section>
