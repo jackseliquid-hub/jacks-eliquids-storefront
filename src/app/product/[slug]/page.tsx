@@ -224,9 +224,9 @@ export default function ProductPage({
   }
 
   async function handleNotifyMe() {
-    if (!matchingVariation || !product) return;
+    if (!product) return;
 
-    // If logged in, submit directly
+    // If logged in, submit directly (works with or without a specific variation)
     if (userEmail) {
       setNotifyLoading(true);
       try {
@@ -234,7 +234,7 @@ export default function ProductPage({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            variationId: matchingVariation.id,
+            variationId: matchingVariation?.id || null,
             productId: product.id,
             email: userEmail,
             name: userName,
@@ -255,14 +255,14 @@ export default function ProductPage({
 
   async function handleNotifySubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!matchingVariation || !product || !notifyEmail) return;
+    if (!product || !notifyEmail) return;
     setNotifyLoading(true);
     try {
       const res = await fetch('/api/notify-stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          variationId: matchingVariation.id,
+          variationId: matchingVariation?.id || null,
           productId: product.id,
           email: notifyEmail,
           name: notifyName || null,
@@ -471,7 +471,7 @@ export default function ProductPage({
               <div className={styles.oosBadge}>Out of Stock</div>
               {notifyResult === 'success' ? (
                 <div className={styles.notifySuccess}>
-                  ✅ We&apos;ll email you when this is back in stock!
+                  ✅ {userName ? `Got it thanks ${userName.split(' ')[0]}!` : 'Got it!'} We&apos;ll notify you when it&apos;s back in stock.
                 </div>
               ) : showNotifyForm && !userEmail ? (
                 <form onSubmit={handleNotifySubmit} className={styles.notifyForm}>
@@ -601,7 +601,7 @@ export default function ProductPage({
                   </p>
                   {notifyResult === 'success' ? (
                     <div className={styles.notifySuccess}>
-                      ✅ You&apos;re on the list! We&apos;ll email you when this is back in stock.
+                      ✅ {userName ? `Got it thanks ${userName.split(' ')[0]}!` : 'Got it!'} We&apos;ll notify you when it&apos;s back in stock.
                     </div>
                   ) : showNotifyForm && !userEmail ? (
                     <form onSubmit={handleNotifySubmit} className={styles.notifyForm}>
@@ -615,19 +615,7 @@ export default function ProductPage({
                   ) : (
                     <button
                       className={styles.notifyBtn}
-                      onClick={() => {
-                        if (userEmail) {
-                          // Submit directly — but need a productId not variationId for whole-product OOS
-                          setNotifyLoading(true);
-                          fetch('/api/notify-stock', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ productId: product.id, email: userEmail, name: userName }),
-                          }).then(r => r.json()).then(j => setNotifyResult(j.success ? 'success' : 'error')).catch(() => setNotifyResult('error')).finally(() => setNotifyLoading(false));
-                        } else {
-                          setShowNotifyForm(true);
-                        }
-                      }}
+                      onClick={handleNotifyMe}
                       disabled={notifyLoading}
                     >
                       {notifyLoading ? '⏳ Saving...' : '🔔 Notify Me When Available'}

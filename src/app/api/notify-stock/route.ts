@@ -6,9 +6,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { variationId, productId, email, name } = body;
 
-    if (!variationId || !productId || !email) {
+    if ((!variationId && !productId) || !email) {
       return NextResponse.json(
-        { error: 'Missing required fields (variationId, productId, email)' },
+        { error: 'Missing required fields (variationId or productId, and email)' },
         { status: 400 }
       );
     }
@@ -27,13 +27,13 @@ export async function POST(req: NextRequest) {
 
     const supabase = createClient(url, serviceKey);
 
-    // Upsert to prevent duplicates (same email + same variation)
+    // Upsert to prevent duplicates (same email + same variation, or email + product for whole-product OOS)
     const { error } = await supabase
       .from('stock_notifications')
       .upsert(
         {
-          variation_id: variationId,
-          product_id: productId,
+          variation_id: variationId || `__product_${productId}__`,
+          product_id: productId || null,
           email: email.toLowerCase().trim(),
           name: name?.trim() || null,
           notified: false,
